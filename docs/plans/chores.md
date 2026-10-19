@@ -515,13 +515,15 @@ check it still reproduces before acting on it.
       `rows.py::_render_sub_row_notes` no longer uses them). Drop them from both
       locales. Spotted by i18n-verifier during `subscriptions-categories` Part B.
       Dropped in `i18n-hygiene-orphans-and-gender` (both locales).
-- [ ] **Security assessment findings F-1..F-4 await fixes.** The 2026-10-12
+- [ ] **Security assessment findings F-2..F-4 await fixes.** The 2026-10-12
       assessment (`docs/security/assessment-2026-10-12.md`) recorded four
-      Low/Info items — `/health` info disclosure, always-on OpenAPI docs,
-      cookie not `Secure`-by-default with no prod warning, and no server-side
-      upload byte cap. Slice 2 of `security-assessment` plans their fixes
-      (each with a `KAL-SEC-*` regression test); logged here so none is lost
-      if Slice 2 slips.
+      Low/Info items. **F-1** (`/health` info disclosure) is fixed by
+      `health-tiered-disclosure` (KAL-SEC-001): the probe discloses by tier, so
+      a family credential never sees another family's state. Remaining:
+      F-2 always-on OpenAPI docs, F-3 cookie not `Secure`-by-default with no
+      prod warning, F-4 no server-side upload byte cap. Slice 2 of
+      `security-assessment` plans their fixes (each with a `KAL-SEC-*`
+      regression test); logged here so none is lost if Slice 2 slips.
 - [x] **`api/v1` `update_*` endpoints return an ORM model as a Response.** The
       `update_*` handlers in `transactions/payees/institutions/categories/budgets`
       return `Service.update(...)` which is typed `Model | None`, while the

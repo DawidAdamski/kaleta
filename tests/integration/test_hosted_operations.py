@@ -74,7 +74,7 @@ async def test_a_tenant_that_fails_to_migrate_is_suspended_and_the_rest_start(
     assert await _status(broken.id) is TenantStatus.SUSPENDED
     assert await _status(healthy.id) is TenantStatus.ACTIVE
     async with AsyncSessionFactory.public() as public:
-        snapshot = await HealthService(public).check()
+        snapshot = await HealthService(public).check(include_family=True, include_admin=True)
         assert snapshot.suspended_tenants == [broken.id]
         tenants = TenantService(public, provisioner=MetadataProvisioner(hosted))
         with pytest.raises(UnauthorizedError):

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,18 +25,26 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class HealthSnapshot:
-    """Result of a single health probe."""
+    """Result of a single health probe.
+
+    Only ``status`` and ``database_ok`` are always filled; the rest are tier-gated
+    (see :meth:`HealthService.check`) and left ``None`` when the caller is not
+    entitled to them, so the HTTP layer can omit them.
+    """
 
     status: str
-    version: str
     database_ok: bool
-    migrations_pending: bool
-    #: ``None`` when the revisions could not be read.
+    #: Family tier and up.
+    version: str | None = None
+    #: Family tier and up; ``None`` when the revisions could not be read.
+    migrations_pending: bool | None = None
+    #: Admin tier only; ``None`` when the revisions could not be read.
     tenants_pending_migration: int | None = None
-    auth_backend: AuthBackendName = "local"
-    #: Unlocked sessions in this process's key ring — a count, never a key.
-    keyring_sessions: int = 0
-    #: ``None`` when the registry could not be read.
+    #: Family tier and up.
+    auth_backend: AuthBackendName | None = None
+    #: Admin tier only — unlocked sessions in this process's key ring, a count, never a key.
+    keyring_sessions: int | None = None
+    #: Admin tier only; ``None`` when the registry could not be read.
     suspended_tenants: list[int] | None = field(default=None)
 
 
@@ -46,22 +54,40 @@ class HealthService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def check(self) -> HealthSnapshot:
+    async def check(self, *, include_family: bool, include_admin: bool) -> HealthSnapshot:
+        """A health snapshot, filled to the caller's disclosure tier (KAL-SEC-001).
+
+        Both flags are required (no fail-open default): every caller states the
+        tier it is entitled to. The public tier (both flags ``False``) does no
+        registry reads at all —
+        only the liveness ``SELECT 1``. ``include_family`` adds the version, the
+        sign-in backend and the ``migrations_pending`` boolean. ``include_admin``
+        adds the cross-family operational state: the pending-migration count, the
+        keyring-session count and the suspended-family ids.
+        """
         database_ok = await self._database_reachable()
-        migrations_pending = False
+        status = "ok" if database_ok else "error"
+        snapshot = HealthSnapshot(status=status, database_ok=database_ok)
+        if not include_family and not include_admin:
+            return snapshot
+
+        migrations_pending: bool | None = None
         tenants_pending: int | None = None
-        suspended: list[int] | None = None
         if database_ok:
             migrations_pending, tenants_pending = self._pending()
-            suspended = await self._suspended_tenants()
-        status = "ok" if database_ok else "error"
-        return HealthSnapshot(
-            status=status,
+        snapshot = replace(
+            snapshot,
             version=__version__,
-            database_ok=database_ok,
-            migrations_pending=migrations_pending,
-            tenants_pending_migration=tenants_pending,
             auth_backend=settings.auth_backend,
+            migrations_pending=migrations_pending,
+        )
+        if not include_admin:
+            return snapshot
+
+        suspended = await self._suspended_tenants() if database_ok else None
+        return replace(
+            snapshot,
+            tenants_pending_migration=tenants_pending,
             keyring_sessions=key_ring.count(),
             suspended_tenants=suspended,
         )

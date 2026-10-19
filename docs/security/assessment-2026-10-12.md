@@ -21,7 +21,7 @@ items are information-disclosure and hardening defaults, all Low/Info.
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
-| F-1 | Low | `/health` (unauthenticated) discloses version, migration state, suspended family ids, unlocked-keyring count | Tracked |
+| F-1 | Low | `/health` (unauthenticated) discloses version, migration state, suspended family ids, unlocked-keyring count | **Fixed** (`health-tiered-disclosure`, KAL-SEC-001) |
 | F-2 | Low | `/api-docs` + OpenAPI JSON served unconditionally (not debug-gated) | Tracked |
 | F-3 | Low | Session cookie not `Secure` by default; no production warning when left off | Tracked |
 | F-4 | Info | Import handler reads uploaded bytes with no independent server-side size cap (front-end limit only) | Tracked |
@@ -80,7 +80,7 @@ Each category is marked **applies** (with the concrete check and result) or
 
 | Category | Check | Result |
 |---|---|---|
-| Information gathering / recon | What an unauthenticated client sees: headers, error bodies, version, docs | **F-1, F-2**: `/health` and always-on OpenAPI docs leak version + operational state. 5xx leaks nothing (`api/errors.py:73-89`). No stack traces outside debug. |
+| Information gathering / recon | What an unauthenticated client sees: headers, error bodies, version, docs | **F-1 (fixed)**: `/health` now discloses by tier — an unauthenticated caller gets liveness only (`health-tiered-disclosure`, KAL-SEC-001). **F-2**: always-on OpenAPI docs still leak the schema. 5xx leaks nothing (`api/errors.py:73-89`). No stack traces outside debug. |
 | Web application analysis | Authn on every route; authz = family isolation on `/api/v1/*` | Router-level `require_api_auth` gates all v1 routes except health; writes require a bearer token (`deps.py:143-154`). Isolation enforced by `schema_translate_map` + refuse-on-None. Static review found **no route that reads across families** (**F-5** notes it is the single control). ZAP/manual Burp pass deferred to Slice 2. |
 | Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4**: server-side handler reads uploaded bytes with only the front-end 50 MB limit — no independent byte cap. Schema-aware fuzzing (`schemathesis`) deferred to Slice 2. |
 | Database / SQL injection | Raw SQL audit; blind-index safety | Only `text()` uses are constants, bound params, or regex-validated schema identifiers (`tenant_service.py:102,110`); **no user-controlled raw SQL**. Blind-index columns maintained by an ORM `before_flush` hook and queried via ORM equality — no raw `_bidx` query. sqlmap pass deferred to Slice 2. |
@@ -120,13 +120,23 @@ allowlist. No action now.
 
 ## Findings detail
 
-- **F-1 (Low) — `/health` discloses operational state.** Unauthenticated
-  `GET /health` returns app version, DB reachability, migration-pending flag,
-  auth backend, unlocked-keyring session count, and **suspended family ids**
-  (`api/v1/health.py:35-51`). Version + suspended-ids aid an attacker's recon.
-  *Remediation options (Slice 2):* trim the body for unauthenticated callers
-  (health boolean only), move the detailed payload behind auth, or drop the
-  suspended-ids list. Track before public deploy.
+- **F-1 (Low, FIXED) — `/health` discloses operational state.** Unauthenticated
+  `GET /health` used to return app version, DB reachability, migration-pending
+  flag, auth backend, unlocked-keyring session count, and **suspended family
+  ids** to anyone. Version + suspended-ids aid an attacker's recon, and the
+  suspended-ids are cross-family.
+  *Fixed* in `health-tiered-disclosure` (plan + KAL-SEC-001): the probe now
+  discloses by tier. **Public** (no credential) gets liveness only — `status`
+  + `database_ok` (503 when the DB is down). **Family** (any valid family
+  bearer token, or a signed-in cookie session) adds the version, the sign-in
+  backend and the `migrations_pending` boolean. **Admin** — reached only by an
+  instance-level credential (the `KALETA_API_TOKEN` env token, or a cookie
+  session the registry confirms is an instance administrator, never the session
+  nav hint) — adds the cross-family state: the pending-migration count, the
+  keyring-session count and the suspended-family ids. A *family-scoped*
+  credential never reaches the admin tier, so no family can read another
+  family's operational state. The resolver never raises (a probe answers
+  200/503, not 401).
 - **F-2 (Low) — OpenAPI docs always on.** `/api-docs` and
   `/api-docs/openapi.json` are served unconditionally (`main.py:72-81`), giving
   any client the full API schema. *Remediation:* gate behind `KALETA_DEBUG` or
@@ -161,5 +171,7 @@ allowlist. No action now.
 
 Slice 2 (`docs/plans/security-assessment.md`): dynamic runner scripts (ZAP
 baseline, `schemathesis` against the OpenAPI doc) against a live instance, a
-`KAL-SEC-*` regression test per confirmed finding, and fixes for F-1..F-4 on
-their own branches.
+`KAL-SEC-*` regression test per confirmed finding, and fixes for the remaining
+hardening items on their own branches. **F-1 is fixed** (`health-tiered-disclosure`);
+F-2 (docs behind a flag), F-3 (cookie `Secure` warning) and F-4 (upload byte
+cap) are next.
