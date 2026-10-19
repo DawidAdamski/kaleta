@@ -3,8 +3,9 @@ plan_id: health-tiered-disclosure
 title: /health — tiered disclosure so a family can never read another family's operational state
 area: security (api)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-19
+roadmap_ref: ../../roadmap.md
 ---
 
 # /health — tiered disclosure so a family can never read another family's operational state
@@ -145,3 +146,29 @@ the instance's cross-family counts.
   reverting restores green.
 </content>
 </invoke>
+
+## Implementation
+
+Landed on 2026-10-19 (PR #299).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `68b6378` | Dawid Adamski | 2026-10-19 | Merge pull request #299 from DawidAdamski/feat/health-tiered-disclosure |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/health-tiered-disclosure.md
+- docs/security/assessment-2026-10-12.md
+- src/kaleta/api/v1/health.py
+- src/kaleta/schemas/health.py
+- src/kaleta/services/health_service.py
+- tests/integration/test_health.py
+- tests/integration/test_hosted_operations.py
+- tests/unit/api/test_health.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
