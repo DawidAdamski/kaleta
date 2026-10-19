@@ -32,6 +32,7 @@ from kaleta.schemas.wizard_projections import (
     PulledRow,
     SubscriptionCharge,
 )
+from kaleta.services.subscription_service import _to_monthly
 from kaleta.services.text_order import by_name
 
 # ── Frequency → monthly equivalent ───────────────────────────────────────────
@@ -58,10 +59,14 @@ def _monthly_from_planned(pt: PlannedTransaction) -> Decimal:
 
 
 def _monthly_from_subscription(sub: Subscription) -> Decimal:
-    """amount × 30 / cadence_days so yearly subs amortise to monthly."""
-    if sub.cadence_days <= 0:
-        return abs(sub.amount)
-    return (abs(sub.amount) * Decimal("30") / Decimal(sub.cadence_days)).quantize(
+    """Normalise a subscription to a monthly figure, the way the panel does.
+
+    Delegates to ``subscription_service._to_monthly`` so a monthly bill counts
+    in full and a yearly one as a twelfth (``KAL-SUB-002``) — rather than the
+    30-day approximation this used to apply to every cadence, which made a
+    yearly bill read differently here than in the Subscriptions panel.
+    """
+    return _to_monthly(abs(sub.amount), sub.cadence_days).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 

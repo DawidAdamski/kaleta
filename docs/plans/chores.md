@@ -237,13 +237,22 @@ check it still reproduces before acting on it.
       `plan/payees-identities-automerge` (it now reassigns subscriptions
       too; the two merges still exist side by side).
 
-- [ ] `WizardProjectionService._monthly_from_subscription` still amortises
+- [x] `WizardProjectionService._monthly_from_subscription` still amortises
       a subscription as `amount × 30 / cadence_days` (120.00 yearly →
       9.86/mo) with its own 27–33 / 350–380 cadence ranges, while the
       Subscriptions panel now counts a yearly bill as a twelfth (KAL-SUB-002).
       Reuse `subscription_service._to_monthly` and its
       `MONTHLY_CADENCE_RANGE` / `YEARLY_CADENCE_RANGE`. Found by
       `plan/subscriptions-panel-gaps`.
+      Fixed in `projection-subscription-monthly` (KAL-SUB-009): the projection
+      now delegates to `_to_monthly`, so the builder and the panel agree
+      (yearly 120.00 → 10.00). The `_subscription_cadence_label` ranges are
+      still inlined — a cosmetic duplicate, left as a separate follow-up below.
+- [ ] `wizard_projection_service._subscription_cadence_label` inlines the same
+      27–33 / 350–380 day ranges as `subscription_service`'s
+      `MONTHLY_CADENCE_RANGE` / `YEARLY_CADENCE_RANGE`. Point it at the shared
+      constants too (zero behaviour change) — deferred from
+      `projection-subscription-monthly` to keep that diff single-purpose.
 
 - [ ] A cancellation scheduled for a future date (KAL-SUB-004) only flips
       to `cancelled` when `SubscriptionService.settle_due_cancellations`
