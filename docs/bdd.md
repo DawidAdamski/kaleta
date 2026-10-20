@@ -4844,6 +4844,14 @@ Feature: Public API
     And the k3s Deployment pins runAsNonRoot so the cluster refuses a root container
     And the session volume is mounted under that user's home, not /root
 
+  KAL-SEC-006 @automated
+  Scenario: The web app sets security response headers on every response
+    Given the web app serves a response (a page, an API reply, or an auth redirect)
+    Then it carries a Content-Security-Policy and X-Frame-Options DENY so it cannot be framed
+    And it carries X-Content-Type-Options nosniff, a Referrer-Policy and a Permissions-Policy
+    But Strict-Transport-Security is sent only when the session cookie is Secure (TLS in front)
+    And KALETA_SECURITY_HEADERS_ENABLED false removes the headers for an unusual deploy
+
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API
     Given a valid API bearer token

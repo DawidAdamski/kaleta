@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     #: ``strict`` drops the cookie on every navigation that starts outside the
     #: app, e-mail confirmation links included; ``lax`` is the safe default.
     session_cookie_samesite: Literal["lax", "strict"] = "lax"
+    #: Stamp security response headers (CSP, ``X-Frame-Options``,
+    #: ``X-Content-Type-Options``, ``Referrer-Policy``, ``Permissions-Policy``,
+    #: and HSTS behind TLS) on every web response (security assessment F-8). On
+    #: by default; an escape hatch for an unusual deploy.
+    #: ``Strict-Transport-Security`` is sent only when ``session_cookie_secure``.
+    security_headers_enabled: bool = True
     demo: bool = False
     events_enabled: bool = True
     event_retention_days: int = 7
