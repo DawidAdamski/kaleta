@@ -24,7 +24,11 @@ from kaleta.api import create_api_router
 from kaleta.api.docs import mount_api_docs
 from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
-from kaleta.auth.session import session_middleware_kwargs, warn_secure_cookie_in_debug
+from kaleta.auth.session import (
+    session_middleware_kwargs,
+    warn_insecure_cookie_in_production,
+    warn_secure_cookie_in_debug,
+)
 from kaleta.logging_config import RequestContextMiddleware, configure_logging
 
 
@@ -253,6 +257,7 @@ def run_web() -> None:
     # Before the views register the log ring buffer's NiceGUI session resolver:
     # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
     warn_secure_cookie_in_debug()
+    warn_insecure_cookie_in_production()
     _preload_database()
     _setup_pwa()
     _register_request_context()

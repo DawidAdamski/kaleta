@@ -4821,6 +4821,14 @@ Feature: Public API
     Then both are served again and the schema lists every public endpoint
     And in development (debug on) the docs are served by default
 
+  KAL-SEC-003 @automated
+  Scenario: A production run warns when it serves the session cookie without Secure
+    Given a production-shaped run (KALETA_DEBUG false)
+    When the session cookie is served without the Secure attribute (the default)
+    Then a start-up warning says the cookie is sent over plain http and to enable it behind TLS
+    But the instance still starts (a plain-http run behind a TLS proxy is legitimate)
+    And no such warning is logged in development, or when the cookie is already Secure
+
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API
     Given a valid API bearer token
