@@ -3,8 +3,9 @@ plan_id: cookie-secure-prod-warning
 title: Warn when a production run serves the session cookie without Secure
 area: security (auth)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-20
+roadmap_ref: ../../roadmap.md
 ---
 
 # Warn when a production run serves the session cookie without Secure
@@ -99,3 +100,26 @@ once TLS is in front.
   `test_warns_when_production_serves_cookie_without_secure` fail on the missing
   warning; restoring it restores green. The warning text itself is the new
   behaviour that did not exist before this slice.
+
+## Implementation
+
+Landed on 2026-10-20 (PR #302).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `59378a2` | Dawid Adamski | 2026-10-20 | Merge pull request #302 from DawidAdamski/feat/cookie-secure-prod-warning |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/cookie-secure-prod-warning.md
+- docs/security/assessment-2026-10-12.md
+- src/kaleta/auth/session.py
+- src/kaleta/main.py
+- tests/integration/test_cookie_security.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
