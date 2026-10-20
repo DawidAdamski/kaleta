@@ -19,7 +19,7 @@ Code citations are `file:line` at the reviewed commit.
 The isolation and auth design is sound. The application-level items (F-1..F-4)
 were all information-disclosure / hardening defaults, now fixed. The dynamic
 Slice-2 pass (Trivy) then added two infrastructure findings: the container
-images run as root (F-6, High — fixable) and the base image carries Debian OS
+images ran as root (F-6, High — now fixed) and the base image carries Debian OS
 CVEs (F-7, tracked — mostly no fix available upstream).
 
 | # | Severity | Finding | Status |
@@ -29,7 +29,7 @@ CVEs (F-7, tracked — mostly no fix available upstream).
 | F-3 | Low | Session cookie not `Secure` by default; no production warning when left off | **Fixed** (`cookie-secure-prod-warning`, KAL-SEC-003) |
 | F-4 | Info | Import handler reads uploaded bytes with no independent server-side size cap (front-end limit only) | **Fixed** (`upload-byte-cap`, KAL-SEC-004) |
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
-| F-6 | High | `Containerfile` / `Containerfile.full` define no non-root `USER`, so the app runs as root in-container (Trivy DS-0002) | Filed — fix on its own branch |
+| F-6 | High | `Containerfile` / `Containerfile.full` defined no non-root `USER`, so the app ran as root in-container (Trivy DS-0002) | **Fixed** (`container-nonroot-hardening`, KAL-SEC-005) |
 | F-7 | High (upstream) | Base image `python:3.13-slim` (Debian 13) carries 44 High OS-package CVEs (Trivy image scan) | Tracked — mostly no upstream fix; rebuild-on-latest mitigation |
 
 ## Surface map
@@ -194,14 +194,17 @@ allowlist. No action now.
   (tenant-bound) and no v1 module reaches for the public/registry or a raw
   session factory — so a future route that skipped the family binding fails the
   suite. F-5 stays accepted by design, now defended.
-- **F-6 (High) — container images run as root.** *Filed.* Trivy `config`
-  (DS-0002) reports that neither `Containerfile` nor `Containerfile.full`
-  declares a non-root `USER`, so the process runs as `root` inside the
-  container — a container escape then starts with root. The fix is a dedicated
-  non-root user in both images (and, defence-in-depth, a `runAsNonRoot`
-  securityContext in the k3s `deployment.yaml`). It is deployment behaviour,
-  not application code, so it ships on its own branch — not in the
-  tooling-only `security-trivy-scan` slice.
+- **F-6 (High) — container images ran as root.** *Fixed*
+  (`container-nonroot-hardening`, KAL-SEC-005). Trivy `config` (DS-0002)
+  reported that neither `Containerfile` nor `Containerfile.full` declared a
+  non-root `USER`, so the process ran as `root` inside the container — a
+  container escape then started with root. Both images now add a dedicated
+  non-root user (uid/gid 10001 `app`) and `USER` down to it before `CMD`; as
+  defence-in-depth the k3s `deployment.yaml` pod `securityContext` pins
+  `runAsNonRoot: true` with `runAsUser`/`runAsGroup`/`fsGroup: 10001`, and the
+  session volumes moved from `/root/.kaleta` to `/home/app/.kaleta`. A rebuilt
+  image reports `uid=10001(app)` and a fresh `trivy config` no longer flags
+  DS-0002; `tests/integration/test_container_hardening.py` guards it.
 - **F-7 (High, upstream) — base-image OS CVEs.** *Tracked.* Scanning
   `python:3.13-slim` (Debian 13.7) reports 44 High OS-package CVEs in
   Debian-maintained system libraries. They were not individually assessed;
@@ -221,10 +224,12 @@ fixes for the remaining hardening items on their own branches.
   `cookie-secure-prod-warning`, `upload-byte-cap`); **F-5** accepted by design
   and defended by the isolation guard.
 - **Trivy runner added** (`security-trivy-scan`): `fs`/`secret`/`config`/`image`
-  via `scripts/security/scan_trivy.sh`. It surfaced **F-6** (containers run as
-  root — to fix next, on its own branch) and **F-7** (base-image OS CVEs —
-  tracked).
+  via `scripts/security/scan_trivy.sh`. It surfaced **F-6** (containers ran as
+  root — now **fixed** by `container-nonroot-hardening`) and **F-7**
+  (base-image OS CVEs — tracked).
+- **F-6 fixed** (`container-nonroot-hardening`, KAL-SEC-005): both images run as
+  the non-root `app` user and the k3s Deployment pins `runAsNonRoot`.
 - **Still to do in Slice 2:** the **ZAP baseline** and **`schemathesis`**
-  runners against a live instance, then the **F-6** non-root-user fix. Wiring
-  the headless checks (Trivy `fs`/`config`/`secret`, pip-audit) into a nightly
-  CI job is the follow-up after the runners land.
+  runners against a live instance. Wiring the headless checks (Trivy
+  `fs`/`config`/`secret`, pip-audit) into a nightly CI job is the follow-up
+  after the runners land.

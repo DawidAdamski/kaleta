@@ -115,10 +115,13 @@ This is a `large` plan; it ships in single-purpose PRs rather than one diff:
 
 - **Trivy runner landed** (`security-trivy-scan`): `scripts/security/scan_trivy.sh`
   with `fs` / `config` / `secret` / `image` modes (local binary or the pinned
-  container image). First run surfaced **F-6** (containers run as root, High —
-  fix on its own branch) and **F-7** (base-image OS CVEs — tracked); fs/secret
-  clean. Still open for Slice 2: the ZAP baseline and `schemathesis` runners,
-  the F-6 fix, and wiring the headless checks into nightly CI.
+  container image). First run surfaced **F-6** (containers ran as root, High)
+  and **F-7** (base-image OS CVEs — tracked); fs/secret clean.
+- **F-6 fixed** (`container-nonroot-hardening`, KAL-SEC-005, PR #309): both
+  images run as the non-root `app` user (uid/gid 10001) and the k3s Deployment
+  pins `runAsNonRoot`; a rebuilt image no longer trips Trivy DS-0002. Still open
+  for Slice 2: the ZAP baseline and `schemathesis` runners, and wiring the
+  headless checks into nightly CI.
 
 ## Open questions
 

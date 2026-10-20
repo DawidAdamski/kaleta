@@ -3,8 +3,9 @@ plan_id: container-nonroot-hardening
 title: Run the container images as a non-root user (F-6)
 area: security (deploy/containers)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-20
+roadmap_ref: ../../roadmap.md
 ---
 
 # Run the container images as a non-root user (F-6)
@@ -89,3 +90,31 @@ assessment here would touch a version of the file that has no F-6 row yet.
   `chown -R 10001:10001` the volume once. Noted here rather than scripted,
   since sessions are ephemeral by design.
 - `docs/deployment.md` updated (`/root/.kaleta` → `/home/app/.kaleta`).
+
+## Implementation
+
+Landed on 2026-10-20 (PR #309).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8e3d6ce` | Dawid Adamski | 2026-10-20 | Merge pull request #309 from DawidAdamski/feat/container-nonroot-hardening |
+| `c5e3809` | Dawid (Ani) | 2026-10-20 | feat(deploy): run the container images as a non-root user (F-6) |
+
+**Files changed:**
+- compose.hosted-dev.yml
+- Containerfile
+- Containerfile.full
+- deploy/k3s/templates/deployment.yaml
+- docker-compose.yml
+- docs/bdd.md
+- docs/deployment.md
+- docs/plans/container-nonroot-hardening.md
+- tests/integration/test_container_hardening.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Touchpoints verified manually against `c5e3809` (all listed files changed). Plan not listed in the `docs/plans/README.md` index, so no index row was updated. Acceptance criteria were not re-run (validated by PR CI).
