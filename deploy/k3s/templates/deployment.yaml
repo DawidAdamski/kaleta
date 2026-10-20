@@ -39,6 +39,12 @@ spec:
       terminationGracePeriodSeconds: {{ .Values.rollout.terminationGracePeriodSeconds }}
       {{- end }}
       securityContext:
+        # Match the image's non-root user (uid/gid 10001, assessment F-6) and
+        # make the mounted sessions volume group-writable by it.
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -115,10 +121,10 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            # Image runs as root (no USER in the Containerfile); HOME=/root, so
-            # NiceGUI's file-backed sessions live under /root/.kaleta.
+            # The image runs as non-root (uid 10001, HOME=/home/app), so
+            # NiceGUI's file-backed sessions live under /home/app/.kaleta.
             - name: sessions
-              mountPath: /root/.kaleta
+              mountPath: /home/app/.kaleta
             - name: tmp
               mountPath: /tmp
       volumes:

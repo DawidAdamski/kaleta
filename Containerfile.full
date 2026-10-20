@@ -31,6 +31,17 @@ RUN SETUPTOOLS_SCM_PRETEND_VERSION="${KALETA_VERSION:-0.0.0}" \
 # `uv run` would otherwise sync the dev group into the image at every start.
 ENV UV_NO_SYNC=1
 
+# Run as a non-root user (Trivy DS-0002 / assessment F-6). The code and the
+# .venv were built as root; hand /app to the runtime user and drop to it.
+# An explicit HOME keeps NiceGUI's file-backed sessions under /home/app/.kaleta.
+# Pre-create that dir owned by the user so a Compose named volume mounted there
+# initialises app-owned (Compose has no fsGroup; k3s uses fsGroup instead).
+RUN useradd --create-home --uid 10001 --user-group app \
+    && mkdir -p /home/app/.kaleta \
+    && chown -R app:app /app /home/app
+ENV HOME=/home/app
+USER app
+
 EXPOSE 8080
 
 CMD ["uv", "run", "kaleta"]

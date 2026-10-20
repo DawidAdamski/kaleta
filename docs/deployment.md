@@ -175,8 +175,9 @@ KALETA_REDIS_URL=redis://:password@valkey-host:6379/0
 | set | keys `kaleta:user-<id>` (via `NICEGUI_REDIS_URL`) | keys `kaleta:login:<ip>`, `kaleta:mfa:<user id>` |
 
 **One replica on a persistent volume (the hosted default).** Mount a volume
-at `~/.kaleta` (`/root/.kaleta` in the image): sessions survive a restart in
-the files, and a restart resets the failed-login counts. No Redis needed.
+at `~/.kaleta` (`/home/app/.kaleta` in the image — the non-root runtime user's
+home): sessions survive a restart in the files, and a restart resets the
+failed-login counts. No Redis needed.
 
 **Two or more replicas.** Set `KALETA_REDIS_URL` on every replica, all
 pointing at the same server — Valkey is the recommended one (BSD-licensed;
