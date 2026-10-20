@@ -24,7 +24,7 @@ items are information-disclosure and hardening defaults, all Low/Info.
 | F-1 | Low | `/health` (unauthenticated) discloses version, migration state, suspended family ids, unlocked-keyring count | **Fixed** (`health-tiered-disclosure`, KAL-SEC-001) |
 | F-2 | Low | `/api-docs` + OpenAPI JSON served unconditionally (not debug-gated) | **Fixed** (`api-docs-gated`, KAL-SEC-002) |
 | F-3 | Low | Session cookie not `Secure` by default; no production warning when left off | **Fixed** (`cookie-secure-prod-warning`, KAL-SEC-003) |
-| F-4 | Info | Import handler reads uploaded bytes with no independent server-side size cap (front-end limit only) | Tracked |
+| F-4 | Info | Import handler reads uploaded bytes with no independent server-side size cap (front-end limit only) | **Fixed** (`upload-byte-cap`, KAL-SEC-004) |
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
 
 ## Surface map
@@ -82,7 +82,7 @@ Each category is marked **applies** (with the concrete check and result) or
 |---|---|---|
 | Information gathering / recon | What an unauthenticated client sees: headers, error bodies, version, docs | **F-1 (fixed)**: `/health` now discloses by tier — an unauthenticated caller gets liveness only (`health-tiered-disclosure`, KAL-SEC-001). **F-2 (fixed)**: the OpenAPI docs are now gated off in a production-shaped run (`api-docs-gated`, KAL-SEC-002). 5xx leaks nothing (`api/errors.py:73-89`). No stack traces outside debug. |
 | Web application analysis | Authn on every route; authz = family isolation on `/api/v1/*` | Router-level `require_api_auth` gates all v1 routes except health; writes require a bearer token (`deps.py:143-154`). Isolation enforced by `schema_translate_map` + refuse-on-None. Static review found **no route that reads across families** (**F-5** notes it is the single control). ZAP/manual Burp pass deferred to Slice 2. |
-| Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4**: server-side handler reads uploaded bytes with only the front-end 50 MB limit — no independent byte cap. Schema-aware fuzzing (`schemathesis`) deferred to Slice 2. |
+| Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4 (fixed)**: the handler now enforces a server-side byte cap before reading the body (`upload-byte-cap`, KAL-SEC-004). Schema-aware fuzzing (`schemathesis`) deferred to Slice 2. |
 | Database / SQL injection | Raw SQL audit; blind-index safety | Only `text()` uses are constants, bound params, or regex-validated schema identifiers (`tenant_service.py:102,110`); **no user-controlled raw SQL**. Blind-index columns maintained by an ORM `before_flush` hook and queried via ORM equality — no raw `_bidx` query. sqlmap pass deferred to Slice 2. |
 | Password / brute force | Login + MFA rate limits, lockout, token revocation | 5/15-min lockout; per-user revocation watermark; `secrets.compare_digest` on token + nonce. In-process limiter is non-atomic across replicas (use Redis in prod). |
 | Sniffing / TLS / cookies | Cookie flags, secrets in URLs | **F-3 (fixed)**: `session_cookie_secure` defaults `False` (deliberate for http-only installs), and a production-shaped run without `Secure` now logs a start-up warning (`cookie-secure-prod-warning`, KAL-SEC-003). `SameSite=lax`. HttpOnly via Starlette default. No PII/secrets placed in URLs. `testssl.sh` is a deployment-edge check (Caddy), out of scope for a local HTTP instance. |
@@ -155,11 +155,15 @@ allowlist. No action now.
   legitimate behind a TLS-terminating reverse proxy or on a trusted LAN, and the
   app has no reliable signal that TLS is present — so the operator sets
   `KALETA_SESSION_COOKIE_SECURE=true` once TLS is in front.
-- **F-4 (Info) — no server-side upload byte cap.** `max_file_size=50MB` is a
-  NiceGUI front-end limit; `handle_upload` reads `await e.file.read()` into
-  memory with no independent server-side cap (`views/import_view/page.py:388`).
-  A crafted large body could pressure memory. *Remediation (Slice 2):* enforce a
-  byte cap in the handler and/or a row cap in the parser.
+- **F-4 (Info) — no server-side upload byte cap.** *Fixed (`upload-byte-cap`,
+  KAL-SEC-004).* `max_file_size=50MB` was only a NiceGUI front-end limit, and
+  `handle_upload` read `await e.file.read()` with no independent server-side
+  cap, so a crafted POST could pressure memory. The handler now rejects an
+  upload larger than `settings.max_upload_bytes` (`KALETA_MAX_UPLOAD_BYTES`,
+  default 50 MiB) via `upload_exceeds_cap`, checking `FileUpload.size()`
+  **before** `read()` so an oversize body never becomes an in-memory `bytes`
+  object. The browser `max_file_size` now reads the same setting, so the two
+  cannot drift.
 - **F-5 (Info, accepted) — isolation is the single cross-family control.**
   There is no secondary per-row `family_id` predicate in API services; isolation
   rests entirely on correct tenant binding + schema separation. This is by
@@ -178,5 +182,7 @@ Slice 2 (`docs/plans/security-assessment.md`): dynamic runner scripts (ZAP
 baseline, `schemathesis` against the OpenAPI doc) against a live instance, a
 `KAL-SEC-*` regression test per confirmed finding, and fixes for the remaining
 hardening items on their own branches. **F-1 is fixed** (`health-tiered-disclosure`),
-**F-2 is fixed** (`api-docs-gated`) and **F-3 is fixed**
-(`cookie-secure-prod-warning`); F-4 (upload byte cap) is next.
+**F-2 is fixed** (`api-docs-gated`), **F-3 is fixed**
+(`cookie-secure-prod-warning`) and **F-4 is fixed** (`upload-byte-cap`). All
+tracked assessment findings are now closed; Slice C (dynamic runners — ZAP
+baseline, `schemathesis`) is the remaining security work.

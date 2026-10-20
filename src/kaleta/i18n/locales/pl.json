@@ -1229,6 +1229,7 @@
     "transfer_pair_accepted": "Połączono w jeden przelew.",
     "transfer_pair_dismissed": "Ta para nie będzie już proponowana.",
     "transfer_pairs_empty": "Brak par przelewów do zaproponowania.",
+    "file_too_large": "Plik jest za duży — limit to {limit_mb} MB. Nie został zaimportowany.",
     "queue_reset_failed": "Wyczyszczono poprzedni import z kolejki — plik z błędem nie został zaimportowany.",
     "queue_section": "Pliki do importu",
     "queue_empty": "Upuść jeden lub więcej plików powyżej, aby zbudować kolejkę.",

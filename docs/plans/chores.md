@@ -515,19 +515,16 @@ check it still reproduces before acting on it.
       `rows.py::_render_sub_row_notes` no longer uses them). Drop them from both
       locales. Spotted by i18n-verifier during `subscriptions-categories` Part B.
       Dropped in `i18n-hygiene-orphans-and-gender` (both locales).
-- [ ] **Security assessment finding F-4 awaits a fix.** The 2026-10-12
+- [x] **Security assessment findings F-1..F-4 fixed.** The 2026-10-12
       assessment (`docs/security/assessment-2026-10-12.md`) recorded four
-      Low/Info items. **F-1** (`/health` info disclosure) is fixed by
-      `health-tiered-disclosure` (KAL-SEC-001): the probe discloses by tier, so
-      a family credential never sees another family's state. **F-2**
-      (always-on OpenAPI docs) is fixed by `api-docs-gated` (KAL-SEC-002): the
-      docs are off in a production-shaped run unless `KALETA_API_DOCS` opts in.
-      **F-3** (cookie not `Secure`-by-default with no prod warning) is fixed by
-      `cookie-secure-prod-warning` (KAL-SEC-003): a production-shaped run without
-      `Secure` now logs a start-up warning. Remaining: F-4 no server-side upload
-      byte cap. Slice 2 of `security-assessment` plans its fix (with a
-      `KAL-SEC-*` regression test); logged here so it is not lost if Slice 2
-      slips.
+      Low/Info items, all now closed, each with a `KAL-SEC-*` regression test:
+      **F-1** (`/health` info disclosure) → `health-tiered-disclosure`
+      (KAL-SEC-001); **F-2** (always-on OpenAPI docs) → `api-docs-gated`
+      (KAL-SEC-002); **F-3** (cookie not `Secure`-by-default with no prod
+      warning) → `cookie-secure-prod-warning` (KAL-SEC-003); **F-4** (no
+      server-side upload byte cap) → `upload-byte-cap` (KAL-SEC-004). Remaining
+      security work is Slice C of `security-assessment`: dynamic runners (ZAP
+      baseline, `schemathesis`).
 - [ ] **No automated check that the sidebar omits the "API docs" link when the
       docs are gated off.** `api-docs-gated` (KAL-SEC-002) hides the link when
       `settings.api_docs_enabled` is false, but the e2e suite runs with

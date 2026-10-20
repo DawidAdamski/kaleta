@@ -9,6 +9,7 @@ from typing import Any
 
 from nicegui import events, ui
 
+from kaleta.config import settings
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import plural_key, t
 from kaleta.services import (
@@ -56,6 +57,7 @@ from kaleta.views.import_view.state import (
 from kaleta.views.import_view.step_indicator import render_step_indicator
 from kaleta.views.import_view.summary_section import build_summary_section
 from kaleta.views.import_view.transfer_section import build_transfer_section
+from kaleta.views.import_view.upload_guard import upload_exceeds_cap
 from kaleta.views.import_view.upload_section import build_upload_section
 from kaleta.views.import_view.wizard import (
     STEP_LABEL_KEYS,
@@ -404,6 +406,14 @@ async def import_page() -> None:
             _start_new_import()
             if had_failed:
                 ui.notify(t("import.queue_reset_failed"), type="info")
+
+        # Server-side cap, independent of the browser's max_file_size (F-4): a
+        # crafted POST can exceed it. Checked via size() before read(), so an
+        # oversize body never becomes an in-memory bytes object.
+        if upload_exceeds_cap(e.file):
+            limit_mb = settings.max_upload_bytes // (1024 * 1024)
+            ui.notify(t("import.file_too_large", limit_mb=limit_mb), type="negative")
+            return
 
         raw = await e.file.read()
         content, encoding = decode_upload(raw)

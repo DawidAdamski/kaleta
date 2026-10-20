@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     #: shaped like a family token (``kt_<digits>_…``) is read as one and never
     #: matches: choose another.
     api_token: str | None = None
+    #: Hard server-side cap on a single uploaded file, in bytes (default 50 MiB).
+    #: The import wizard's browser-side ``max_file_size`` reads the same value, so
+    #: the two cannot drift; the handler rejects anything larger before reading it
+    #: (security assessment F-4), independent of the browser limit.
+    max_upload_bytes: int = 50 * 1024 * 1024
     session_ttl_hours: int = 72
     #: Hours without a request after which a UI session ends, however young it
     #: is (``0`` disables). Never longer than ``session_ttl_hours``.
@@ -289,6 +294,13 @@ class Settings(BaseSettings):
     def _validate_bug_report_retention(cls, value: int) -> int:
         if value < 1:
             raise ValueError("KALETA_BUG_REPORT_RETENTION_DAYS must be >= 1")
+        return value
+
+    @field_validator("max_upload_bytes")
+    @classmethod
+    def _validate_max_upload_bytes(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_MAX_UPLOAD_BYTES must be >= 1")
         return value
 
     @model_validator(mode="after")
