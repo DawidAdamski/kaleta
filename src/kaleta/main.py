@@ -30,6 +30,7 @@ from kaleta.auth.session import (
     warn_secure_cookie_in_debug,
 )
 from kaleta.logging_config import RequestContextMiddleware, configure_logging
+from kaleta.security_headers import SecurityHeadersMiddleware
 
 
 def _setup_pwa() -> None:
@@ -41,6 +42,17 @@ def _setup_pwa() -> None:
 def _register_request_context() -> None:
     """Correlate every HTTP request; NiceGUI events use the UI resolver."""
     nicegui_app.add_middleware(RequestContextMiddleware)
+
+
+def _register_security_headers() -> None:
+    """Stamp security response headers on every web response (F-8).
+
+    Registered last in ``run_web`` so it is the outermost middleware and so
+    every response — including the redirects ``AuthMiddleware`` returns — is
+    stamped. ``KALETA_SECURITY_HEADERS_ENABLED=false`` opts out.
+    """
+    if settings.security_headers_enabled:
+        nicegui_app.add_middleware(SecurityHeadersMiddleware)
 
 
 def _register_error_tracker() -> None:
@@ -267,6 +279,9 @@ def run_web() -> None:
     _register_event_retention_scheduler()
     _register_nbp_rate_scheduler()
     _register_storage_sweep()
+    # Last, so it is the outermost middleware and stamps headers on every
+    # response, including AuthMiddleware's redirects.
+    _register_security_headers()
     ui.run(
         host=settings.host,
         port=settings.port,

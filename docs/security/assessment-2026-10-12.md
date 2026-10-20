@@ -22,8 +22,8 @@ Slice-2 pass (Trivy) then added two infrastructure findings: the container
 images ran as root (F-6, High — now fixed) and the base image carries Debian OS
 CVEs (F-7, tracked — mostly no fix available upstream). The ZAP baseline (a
 passive scan of the running app) added one web-hardening finding: no security
-response headers are set (F-8, Medium — filed); its cookie, info-disclosure and
-TLS-transition checks all passed.
+response headers were set (F-8, Medium — now fixed); its cookie,
+info-disclosure and TLS-transition checks all passed.
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
@@ -34,7 +34,7 @@ TLS-transition checks all passed.
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
 | F-6 | High | `Containerfile` / `Containerfile.full` defined no non-root `USER`, so the app ran as root in-container (Trivy DS-0002) | **Fixed** (`container-nonroot-hardening`, KAL-SEC-005) |
 | F-7 | High (upstream) | Base image `python:3.13-slim` (Debian 13) carries 44 High OS-package CVEs (Trivy image scan) | Tracked — mostly no upstream fix; rebuild-on-latest mitigation |
-| F-8 | Medium | App sets no security response headers (no CSP, `X-Frame-Options`/`frame-ancestors`, `X-Content-Type-Options`, `Permissions-Policy`, nor COOP/COEP/CORP) — ZAP baseline WARN 10038/10020/10021/10063/90004 | Filed — fix on its own branch |
+| F-8 | Medium | App set no security response headers (no CSP, `X-Frame-Options`/`frame-ancestors`, `X-Content-Type-Options`, `Permissions-Policy`, nor COOP/COEP/CORP) — ZAP baseline WARN 10038/10020/10021/10063/90004 | **Fixed** (`security-response-headers`, KAL-SEC-006) — CSP + the smaller headers; the site-isolation set (90004, Low) deferred (broke the websocket) |
 
 ## Surface map
 
@@ -226,18 +226,28 @@ allowlist. No action now.
   land as Debian ships them, and consider a slimmer/distroless runtime base as
   a later hardening step. Not individually actionable now; re-checked by the
   `image` scan each pass.
-- **F-8 (Medium) — no security response headers.** *Filed.* The ZAP baseline
-  (`scripts/security/scan_zap.sh`) reports the app sets none of the standard
+- **F-8 (Medium) — no security response headers.** *Fixed*
+  (`security-response-headers`, KAL-SEC-006). The ZAP baseline
+  (`scripts/security/scan_zap.sh`) reported the app set none of the standard
   hardening headers: no `Content-Security-Policy` (10038) and no
   anti-clickjacking (`X-Frame-Options` / CSP `frame-ancestors`, 10020) — both
   Medium — plus, at Low, no `X-Content-Type-Options: nosniff` (10021), no
   `Permissions-Policy` (10063), and no cross-origin isolation headers
-  (COOP/COEP/CORP, 90004). A clickjacking or MIME-sniffing vector is therefore
-  not closed at the edge. The fix is a response-headers middleware (a sensible
-  default CSP for the NiceGUI/Vue front-end plus the smaller headers), on its
-  own branch with a `KAL-SEC-*` regression test — deliberately not in this
-  tooling-only slice. (ZAP also WARNs "Dangerous JS Functions" (10110) against
-  the bundled front-end JS and flags itself out of date; both are noise here.)
+  (COOP/COEP/CORP, 90004). A new pure-ASGI `SecurityHeadersMiddleware`
+  (`src/kaleta/security_headers.py`), registered outermost in `run_web`, now
+  stamps a NiceGUI/Vue-safe CSP plus `X-Frame-Options: DENY`, `nosniff`,
+  `Referrer-Policy` and `Permissions-Policy` on every response (HSTS only behind
+  TLS, gated on `session_cookie_secure`). A ZAP re-run confirms it:
+  10038/10020/10021/10063 clear (0 FAIL, 11→8 WARN, 56→59 PASS). **Residual, by
+  design:** ZAP now raises the Low "CSP: Wildcard Directive" (10055) because the
+  policy must allow `ws:`/`wss:` (the Socket.IO websocket) and `data:` images
+  for NiceGUI — tightening those would break the UI. **The Spectre
+  site-isolation set (COOP/COEP/CORP, 90004, Low) is deferred:** shipping
+  `Cross-Origin-Resource-Policy: same-origin` broke NiceGUI's websocket-driven
+  navigation in the e2e tier (the login → `/login/mfa` step bounced to
+  `/login`), so the whole set waits for a guarded follow-up and 90004 stays a
+  WARN. ("Dangerous JS Functions" 10110 against the bundled front-end JS, and
+  ZAP's out-of-date self-note, stay noise.)
 
 ## Next
 
@@ -256,8 +266,12 @@ fixes for the remaining hardening items on their own branches.
   the non-root `app` user and the k3s Deployment pins `runAsNonRoot`.
 - **ZAP baseline runner added** (`security-zap-baseline`):
   `scripts/security/scan_zap.sh`, a passive scan against a live instance. First
-  run surfaced **F-8** (no security response headers, Medium — filed).
+  run surfaced **F-8** (no security response headers, Medium).
+- **F-8 fixed** (`security-response-headers`, KAL-SEC-006): a
+  `SecurityHeadersMiddleware` stamps a NiceGUI-safe CSP + the smaller hardening
+  headers on every web response; a ZAP re-run clears 10038/10020/10021/10063.
 - **Still to do in Slice 2:** the **`schemathesis`** runner against the OpenAPI
-  doc, the **F-8** response-headers fix (its own branch, `KAL-SEC-*`), and
-  wiring the headless checks (Trivy `fs`/`config`/`secret`, pip-audit) into a
-  nightly CI job once the runners land.
+  doc, and wiring the headless checks (Trivy `fs`/`config`/`secret`, pip-audit)
+  into a nightly CI job once the runners land. A later guarded step may add the
+  **site-isolation headers** (COOP/COEP/CORP) to clear the 90004 Low — deferred
+  from F-8 because CORP broke the NiceGUI websocket.
