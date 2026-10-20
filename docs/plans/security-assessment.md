@@ -123,9 +123,17 @@ This is a `large` plan; it ships in single-purpose PRs rather than one diff:
 - **ZAP baseline runner added** (`security-zap-baseline`, Slice 2a):
   `scripts/security/scan_zap.sh`, a passive scan against a live instance via the
   pinned ZAP container. First run (0 FAIL / 11 WARN / 56 PASS) surfaced **F-8**
-  (no security response headers, Medium — filed). Still open for Slice 2: the
-  `schemathesis` runner (2b), the F-8 fix on its own branch, and wiring the
-  headless checks into nightly CI.
+  (no security response headers, Medium).
+- **F-8 fixed** (`security-response-headers`, KAL-SEC-006): a response-headers
+  middleware stamps a NiceGUI-safe CSP + the smaller headers; a ZAP re-run
+  clears them. The Spectre site-isolation set (90004, Low) was deferred (CORP
+  broke the websocket).
+- **schemathesis runner added** (`security-schemathesis`, Slice 2b):
+  `scripts/security/scan_schemathesis.sh` fuzzes the OpenAPI schema against a
+  live instance. First run clean (52 ops / 4831 cases, 0 server errors; 51 ops
+  auth-gated). The authenticated conformance fuzz is operator-run (needs a
+  bearer). **Still open for Slice 2:** wiring the headless checks into nightly
+  CI.
 
 ## Open questions
 

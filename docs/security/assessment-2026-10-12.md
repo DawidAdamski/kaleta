@@ -91,7 +91,7 @@ Each category is marked **applies** (with the concrete check and result) or
 |---|---|---|
 | Information gathering / recon | What an unauthenticated client sees: headers, error bodies, version, docs | **F-1 (fixed)**: `/health` now discloses by tier — an unauthenticated caller gets liveness only (`health-tiered-disclosure`, KAL-SEC-001). **F-2 (fixed)**: the OpenAPI docs are now gated off in a production-shaped run (`api-docs-gated`, KAL-SEC-002). 5xx leaks nothing (`api/errors.py:73-89`). No stack traces outside debug. |
 | Web application analysis | Authn on every route; authz = family isolation on `/api/v1/*` | Router-level `require_api_auth` gates all v1 routes except health; writes require a bearer token (`deps.py:143-154`). Isolation enforced by `schema_translate_map` + refuse-on-None. Static review found **no route that reads across families** (**F-5** notes it is the single control). The **ZAP baseline** (`scripts/security/scan_zap.sh`, passive) then ran against a live instance: **0 FAIL, 56 PASS**, and the one hardening gap is **F-8** — no security response headers. Its cookie-flag, info-disclosure and HTTP/HTTPS-transition rules all passed. Active-scan / authenticated Burp pass still manual. |
-| Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4 (fixed)**: the handler now enforces a server-side byte cap before reading the body (`upload-byte-cap`, KAL-SEC-004). Schema-aware fuzzing (`schemathesis`) deferred to Slice 2. |
+| Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4 (fixed)**: the handler now enforces a server-side byte cap before reading the body (`upload-byte-cap`, KAL-SEC-004). **Schema-aware fuzzing** (`scripts/security/scan_schemathesis.sh`, Slice 2b) then fuzzed every documented operation: **52 operations / 4831 generated cases, 0 server errors** — no malformed input 5xxes the auth layer or the public surface (51 ops are auth-gated, as expected). The deeper authenticated conformance fuzz is operator-run (needs a bearer). |
 | Database / SQL injection | Raw SQL audit; blind-index safety | Only `text()` uses are constants, bound params, or regex-validated schema identifiers (`tenant_service.py:102,110`); **no user-controlled raw SQL**. Blind-index columns maintained by an ORM `before_flush` hook and queried via ORM equality — no raw `_bidx` query. sqlmap pass deferred to Slice 2. |
 | Password / brute force | Login + MFA rate limits, lockout, token revocation | 5/15-min lockout; per-user revocation watermark; `secrets.compare_digest` on token + nonce. In-process limiter is non-atomic across replicas (use Redis in prod). |
 | Sniffing / TLS / cookies | Cookie flags, secrets in URLs | **F-3 (fixed)**: `session_cookie_secure` defaults `False` (deliberate for http-only installs), and a production-shaped run without `Secure` now logs a start-up warning (`cookie-secure-prod-warning`, KAL-SEC-003). `SameSite=lax`. HttpOnly via Starlette default. No PII/secrets placed in URLs. `testssl.sh` is a deployment-edge check (Caddy), out of scope for a local HTTP instance. |
@@ -142,6 +142,14 @@ Each category is marked **applies** (with the concrete check and result) or
   server-version leak, no debug-error disclosure, no sensitive data in URLs —
   the F-1/F-3 hardening holds up over HTTP. The baseline is passive (no
   payloads); an authenticated active scan stays manual.
+- **schemathesis** — `./scripts/security/scan_schemathesis.sh` (Slice 2b),
+  `schemathesis 4.x`, property-based fuzzing of the OpenAPI schema against a live
+  instance (default check `not_a_server_error`, 50 examples/operation): **52
+  operations, 4831 generated cases, 0 server errors** (exit 0). 51 operations
+  returned only 401/403 — the bearer auth gate, confirmed to hold for fuzzed
+  input. No new finding. The authenticated conformance fuzz (handler logic
+  behind the gate) is operator-run with a real bearer (`ST_BEARER`,
+  `ST_CHECKS=all`), since a token needs an active family + unlocked keyring.
 
 ### Note on the S310 noqa (NBP rate fetch)
 
@@ -270,8 +278,12 @@ fixes for the remaining hardening items on their own branches.
 - **F-8 fixed** (`security-response-headers`, KAL-SEC-006): a
   `SecurityHeadersMiddleware` stamps a NiceGUI-safe CSP + the smaller hardening
   headers on every web response; a ZAP re-run clears 10038/10020/10021/10063.
-- **Still to do in Slice 2:** the **`schemathesis`** runner against the OpenAPI
-  doc, and wiring the headless checks (Trivy `fs`/`config`/`secret`, pip-audit)
-  into a nightly CI job once the runners land. A later guarded step may add the
-  **site-isolation headers** (COOP/COEP/CORP) to clear the 90004 Low — deferred
-  from F-8 because CORP broke the NiceGUI websocket.
+- **schemathesis runner added** (`security-schemathesis`): fuzzes the OpenAPI
+  schema against a live instance; first run clean (52 ops / 4831 cases, 0 server
+  errors). No new finding.
+- **Still to do in Slice 2:** wiring the headless checks (Trivy
+  `fs`/`config`/`secret`, pip-audit) into a nightly CI job. A later guarded step
+  may add the **site-isolation headers** (COOP/COEP/CORP) to clear the 90004 Low
+  — deferred from F-8 because CORP broke the NiceGUI websocket. The deeper
+  authenticated schemathesis conformance fuzz stays operator-run (needs a
+  bearer).
