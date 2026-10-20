@@ -111,6 +111,15 @@ This is a `large` plan; it ships in single-purpose PRs rather than one diff:
   candidates; the dynamic scanners stay manual-before-release. Wiring a nightly
   job is deferred to Slice 2 so PR latency is untouched now.
 
+### Progress (Slice 2)
+
+- **Trivy runner landed** (`security-trivy-scan`): `scripts/security/scan_trivy.sh`
+  with `fs` / `config` / `secret` / `image` modes (local binary or the pinned
+  container image). First run surfaced **F-6** (containers run as root, High —
+  fix on its own branch) and **F-7** (base-image OS CVEs — tracked); fs/secret
+  clean. Still open for Slice 2: the ZAP baseline and `schemathesis` runners,
+  the F-6 fix, and wiring the headless checks into nightly CI.
+
 ## Open questions
 
 - Run the scanners in CI on every PR, nightly, or by hand before a release? Default:

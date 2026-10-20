@@ -16,8 +16,11 @@ Code citations are `file:line` at the reviewed commit.
 
 ## Summary of findings
 
-No High or Critical findings. The isolation and auth design is sound; the open
-items are information-disclosure and hardening defaults, all Low/Info.
+The isolation and auth design is sound. The application-level items (F-1..F-4)
+were all information-disclosure / hardening defaults, now fixed. The dynamic
+Slice-2 pass (Trivy) then added two infrastructure findings: the container
+images run as root (F-6, High — fixable) and the base image carries Debian OS
+CVEs (F-7, tracked — mostly no fix available upstream).
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
@@ -26,6 +29,8 @@ items are information-disclosure and hardening defaults, all Low/Info.
 | F-3 | Low | Session cookie not `Secure` by default; no production warning when left off | **Fixed** (`cookie-secure-prod-warning`, KAL-SEC-003) |
 | F-4 | Info | Import handler reads uploaded bytes with no independent server-side size cap (front-end limit only) | **Fixed** (`upload-byte-cap`, KAL-SEC-004) |
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
+| F-6 | High | `Containerfile` / `Containerfile.full` define no non-root `USER`, so the app runs as root in-container (Trivy DS-0002) | Filed — fix on its own branch |
+| F-7 | High (upstream) | Base image `python:3.13-slim` (Debian 13) carries 44 High OS-package CVEs (Trivy image scan) | Tracked — mostly no upstream fix; rebuild-on-latest mitigation |
 
 ## Surface map
 
@@ -110,6 +115,20 @@ Each category is marked **applies** (with the concrete check and result) or
   **clean**. Five `# noqa: S…`, each with an explanatory comment:
   three `S105` on non-password constants, two `S310` on `urllib.urlopen` in the
   NBP rate fetch where the URL is an https constant (see note below).
+- **Trivy** — `./scripts/security/scan_trivy.sh` (Slice 2), pinned `0.76.0`,
+  gate `HIGH,CRITICAL`:
+  - `fs` (reads `uv.lock`): **clean** — a second opinion that agrees with
+    pip-audit. The walk skips installed virtualenvs and the `.claude`
+    worktrees, so it reports the dependency *source*, not what a throwaway env
+    happens to have synced.
+  - `secret`: **clean** — no committed secret at or above the gate.
+  - `config` (IaC / Containerfile misconfig): **F-6** — both `Containerfile`
+    and `Containerfile.full` fail `DS-0002` (no non-root `USER`). The
+    `deploy/k3s` Helm chart is not rendered (its `secretKey` default is empty
+    by design — the app refuses the insecure default), so Trivy skips it; a
+    full chart scan needs `--helm-set`.
+  - `image python:3.13-slim`: **F-7** — 44 High OS-package CVEs in the Debian
+    13 base (plus a few in base Python tooling). Recorded below.
 
 ### Note on the S310 noqa (NBP rate fetch)
 
@@ -175,14 +194,37 @@ allowlist. No action now.
   (tenant-bound) and no v1 module reaches for the public/registry or a raw
   session factory — so a future route that skipped the family binding fails the
   suite. F-5 stays accepted by design, now defended.
+- **F-6 (High) — container images run as root.** *Filed.* Trivy `config`
+  (DS-0002) reports that neither `Containerfile` nor `Containerfile.full`
+  declares a non-root `USER`, so the process runs as `root` inside the
+  container — a container escape then starts with root. The fix is a dedicated
+  non-root user in both images (and, defence-in-depth, a `runAsNonRoot`
+  securityContext in the k3s `deployment.yaml`). It is deployment behaviour,
+  not application code, so it ships on its own branch — not in the
+  tooling-only `security-trivy-scan` slice.
+- **F-7 (High, upstream) — base-image OS CVEs.** *Tracked.* Scanning
+  `python:3.13-slim` (Debian 13.7) reports 44 High OS-package CVEs in
+  Debian-maintained system libraries. They were not individually assessed;
+  many carry no fixed version upstream yet (the `fixed` column is empty).
+  Mitigation: rebuild on the latest `python:3.13-slim` on each release so fixes
+  land as Debian ships them, and consider a slimmer/distroless runtime base as
+  a later hardening step. Not individually actionable now; re-checked by the
+  `image` scan each pass.
 
 ## Next
 
-Slice 2 (`docs/plans/security-assessment.md`): dynamic runner scripts (ZAP
-baseline, `schemathesis` against the OpenAPI doc) against a live instance, a
-`KAL-SEC-*` regression test per confirmed finding, and fixes for the remaining
-hardening items on their own branches. **F-1 is fixed** (`health-tiered-disclosure`),
-**F-2 is fixed** (`api-docs-gated`), **F-3 is fixed**
-(`cookie-secure-prod-warning`) and **F-4 is fixed** (`upload-byte-cap`). All
-tracked assessment findings are now closed; Slice C (dynamic runners — ZAP
-baseline, `schemathesis`) is the remaining security work.
+Slice 2 (`docs/plans/security-assessment.md`): dynamic runner scripts against a
+live or built target, a `KAL-SEC-*` regression test per confirmed finding, and
+fixes for the remaining hardening items on their own branches.
+
+- **F-1..F-4 fixed** (`health-tiered-disclosure`, `api-docs-gated`,
+  `cookie-secure-prod-warning`, `upload-byte-cap`); **F-5** accepted by design
+  and defended by the isolation guard.
+- **Trivy runner added** (`security-trivy-scan`): `fs`/`secret`/`config`/`image`
+  via `scripts/security/scan_trivy.sh`. It surfaced **F-6** (containers run as
+  root — to fix next, on its own branch) and **F-7** (base-image OS CVEs —
+  tracked).
+- **Still to do in Slice 2:** the **ZAP baseline** and **`schemathesis`**
+  runners against a live instance, then the **F-6** non-root-user fix. Wiring
+  the headless checks (Trivy `fs`/`config`/`secret`, pip-audit) into a nightly
+  CI job is the follow-up after the runners land.
