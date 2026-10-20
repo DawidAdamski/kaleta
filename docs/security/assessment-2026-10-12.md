@@ -20,7 +20,10 @@ The isolation and auth design is sound. The application-level items (F-1..F-4)
 were all information-disclosure / hardening defaults, now fixed. The dynamic
 Slice-2 pass (Trivy) then added two infrastructure findings: the container
 images ran as root (F-6, High — now fixed) and the base image carries Debian OS
-CVEs (F-7, tracked — mostly no fix available upstream).
+CVEs (F-7, tracked — mostly no fix available upstream). The ZAP baseline (a
+passive scan of the running app) added one web-hardening finding: no security
+response headers are set (F-8, Medium — filed); its cookie, info-disclosure and
+TLS-transition checks all passed.
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
@@ -31,6 +34,7 @@ CVEs (F-7, tracked — mostly no fix available upstream).
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
 | F-6 | High | `Containerfile` / `Containerfile.full` defined no non-root `USER`, so the app ran as root in-container (Trivy DS-0002) | **Fixed** (`container-nonroot-hardening`, KAL-SEC-005) |
 | F-7 | High (upstream) | Base image `python:3.13-slim` (Debian 13) carries 44 High OS-package CVEs (Trivy image scan) | Tracked — mostly no upstream fix; rebuild-on-latest mitigation |
+| F-8 | Medium | App sets no security response headers (no CSP, `X-Frame-Options`/`frame-ancestors`, `X-Content-Type-Options`, `Permissions-Policy`, nor COOP/COEP/CORP) — ZAP baseline WARN 10038/10020/10021/10063/90004 | Filed — fix on its own branch |
 
 ## Surface map
 
@@ -86,7 +90,7 @@ Each category is marked **applies** (with the concrete check and result) or
 | Category | Check | Result |
 |---|---|---|
 | Information gathering / recon | What an unauthenticated client sees: headers, error bodies, version, docs | **F-1 (fixed)**: `/health` now discloses by tier — an unauthenticated caller gets liveness only (`health-tiered-disclosure`, KAL-SEC-001). **F-2 (fixed)**: the OpenAPI docs are now gated off in a production-shaped run (`api-docs-gated`, KAL-SEC-002). 5xx leaks nothing (`api/errors.py:73-89`). No stack traces outside debug. |
-| Web application analysis | Authn on every route; authz = family isolation on `/api/v1/*` | Router-level `require_api_auth` gates all v1 routes except health; writes require a bearer token (`deps.py:143-154`). Isolation enforced by `schema_translate_map` + refuse-on-None. Static review found **no route that reads across families** (**F-5** notes it is the single control). ZAP/manual Burp pass deferred to Slice 2. |
+| Web application analysis | Authn on every route; authz = family isolation on `/api/v1/*` | Router-level `require_api_auth` gates all v1 routes except health; writes require a bearer token (`deps.py:143-154`). Isolation enforced by `schema_translate_map` + refuse-on-None. Static review found **no route that reads across families** (**F-5** notes it is the single control). The **ZAP baseline** (`scripts/security/scan_zap.sh`, passive) then ran against a live instance: **0 FAIL, 56 PASS**, and the one hardening gap is **F-8** — no security response headers. Its cookie-flag, info-disclosure and HTTP/HTTPS-transition rules all passed. Active-scan / authenticated Burp pass still manual. |
 | Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4 (fixed)**: the handler now enforces a server-side byte cap before reading the body (`upload-byte-cap`, KAL-SEC-004). Schema-aware fuzzing (`schemathesis`) deferred to Slice 2. |
 | Database / SQL injection | Raw SQL audit; blind-index safety | Only `text()` uses are constants, bound params, or regex-validated schema identifiers (`tenant_service.py:102,110`); **no user-controlled raw SQL**. Blind-index columns maintained by an ORM `before_flush` hook and queried via ORM equality — no raw `_bidx` query. sqlmap pass deferred to Slice 2. |
 | Password / brute force | Login + MFA rate limits, lockout, token revocation | 5/15-min lockout; per-user revocation watermark; `secrets.compare_digest` on token + nonce. In-process limiter is non-atomic across replicas (use Redis in prod). |
@@ -129,6 +133,15 @@ Each category is marked **applies** (with the concrete check and result) or
     full chart scan needs `--helm-set`.
   - `image python:3.13-slim`: **F-7** — 44 High OS-package CVEs in the Debian
     13 base (plus a few in base Python tooling). Recorded below.
+- **ZAP baseline** — `./scripts/security/scan_zap.sh` (Slice 2a), pinned ZAP
+  `2.16.1`, passive scan of a live local instance (`http://localhost:8080`):
+  **0 FAIL, 11 WARN, 56 PASS**. The WARNs are one real class — missing security
+  response headers (**F-8**, below) — plus scanner noise (ZAP-out-of-date,
+  "Modern Web Application", suspicious-comments, non-storable-content). Notable
+  **passes**: cookie `HttpOnly`/`Secure`/`SameSite` rules, no `X-Powered-By` /
+  server-version leak, no debug-error disclosure, no sensitive data in URLs —
+  the F-1/F-3 hardening holds up over HTTP. The baseline is passive (no
+  payloads); an authenticated active scan stays manual.
 
 ### Note on the S310 noqa (NBP rate fetch)
 
@@ -213,6 +226,18 @@ allowlist. No action now.
   land as Debian ships them, and consider a slimmer/distroless runtime base as
   a later hardening step. Not individually actionable now; re-checked by the
   `image` scan each pass.
+- **F-8 (Medium) — no security response headers.** *Filed.* The ZAP baseline
+  (`scripts/security/scan_zap.sh`) reports the app sets none of the standard
+  hardening headers: no `Content-Security-Policy` (10038) and no
+  anti-clickjacking (`X-Frame-Options` / CSP `frame-ancestors`, 10020) — both
+  Medium — plus, at Low, no `X-Content-Type-Options: nosniff` (10021), no
+  `Permissions-Policy` (10063), and no cross-origin isolation headers
+  (COOP/COEP/CORP, 90004). A clickjacking or MIME-sniffing vector is therefore
+  not closed at the edge. The fix is a response-headers middleware (a sensible
+  default CSP for the NiceGUI/Vue front-end plus the smaller headers), on its
+  own branch with a `KAL-SEC-*` regression test — deliberately not in this
+  tooling-only slice. (ZAP also WARNs "Dangerous JS Functions" (10110) against
+  the bundled front-end JS and flags itself out of date; both are noise here.)
 
 ## Next
 
@@ -229,7 +254,10 @@ fixes for the remaining hardening items on their own branches.
   (base-image OS CVEs — tracked).
 - **F-6 fixed** (`container-nonroot-hardening`, KAL-SEC-005): both images run as
   the non-root `app` user and the k3s Deployment pins `runAsNonRoot`.
-- **Still to do in Slice 2:** the **ZAP baseline** and **`schemathesis`**
-  runners against a live instance. Wiring the headless checks (Trivy
-  `fs`/`config`/`secret`, pip-audit) into a nightly CI job is the follow-up
-  after the runners land.
+- **ZAP baseline runner added** (`security-zap-baseline`):
+  `scripts/security/scan_zap.sh`, a passive scan against a live instance. First
+  run surfaced **F-8** (no security response headers, Medium — filed).
+- **Still to do in Slice 2:** the **`schemathesis`** runner against the OpenAPI
+  doc, the **F-8** response-headers fix (its own branch, `KAL-SEC-*`), and
+  wiring the headless checks (Trivy `fs`/`config`/`secret`, pip-audit) into a
+  nightly CI job once the runners land.
