@@ -27,20 +27,38 @@ without rendering — the `deploy/k3s` Helm *templates* are skipped (they are no
 valid YAML until rendered); the plain compose files and `Containerfile*` are
 covered.
 
-## Manual / dynamic checks
+## Dynamic runners (scripted, need a live instance)
 
-These need a running instance and extra tooling; they are run by hand before a
-release, not on every PR. Start a local instance first:
+These are scripted like the headless checks but scan a **running** instance, so
+they are run against a local or staging target rather than in the PR gate. Start
+an instance first:
 
 ```bash
 ./scripts/test_db.sh up
 KALETA_SECRET_KEY=dev-only uv run kaleta   # http://localhost:8080
 ```
 
+| Check | Command | What it covers |
+|---|---|---|
+| Web app baseline scan | `./scripts/security/scan_zap.sh [target-url]` | OWASP ZAP **baseline** (passive): spiders the running app and runs ZAP's passive rules — security response headers, cookie flags, info disclosure. No attack payloads. Exits non-zero on a FAIL (set `ZAP_FAIL_ON=WARN` to also fail on warnings). Triage alerts into the assessment. |
+
+`scan_zap.sh` always uses the ZAP container image (there is no common local
+binary) via `docker`/`podman` (pinned `ZAP_VERSION`, default gate `FAIL`). A
+target whose host is `localhost`/`127.0.0.1` is reached from inside the
+container through `host.docker.internal` — this needs Docker 20.10+/Desktop or
+Podman 4.1+, and the app must listen on `0.0.0.0` (the default `KALETA_HOST`),
+since on Linux Docker the gateway is the bridge IP and an app bound only to
+`127.0.0.1` would be unreachable. Set `ZAP_REPORT_DIR` (an absolute path) to
+also write `report.html` + `report.json`.
+
+## Manual checks
+
+These need a running instance and extra tooling run by hand before a release,
+not on every PR (start a local instance as above):
+
 | Check | Tool | Notes |
 |---|---|---|
-| Web app baseline scan | OWASP ZAP baseline (`zaproxy` / `owasp/zap2docker`) | Passive scan of the running app; triage alerts into the assessment. |
-| Schema-aware API fuzzing | `schemathesis run http://localhost:8080/openapi.json` | Property-based fuzzing of every `/api/v1` route against the OpenAPI doc. |
+| Schema-aware API fuzzing | `schemathesis run http://localhost:8080/openapi.json` | Property-based fuzzing of every `/api/v1` route against the OpenAPI doc. (A scripted runner is planned, Slice 2b.) |
 | SQL-injection probes | `sqlmap` against parameterised routes | Confirms the ORM + `schema_translate_map` leave no raw-SQL hole. |
 | TLS / cookie flags | `testssl.sh` against the Caddy edge | Only meaningful against a TLS-terminating deployment, not local HTTP. |
 | Login / MFA brute force | manual, or `hydra` against the login route | Confirms rate limiting and lockout. |

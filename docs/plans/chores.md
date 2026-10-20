@@ -674,6 +674,15 @@ check it still reproduces before acting on it.
       securityContext in `deploy/k3s/templates/deployment.yaml` for
       defence-in-depth. Deliberately kept out of the `security-trivy-scan`
       slice (tooling only; deployment behaviour was a separate PR).
+- [ ] **F-8: no security response headers (ZAP baseline, Medium).** The app
+      sets none of the standard hardening headers — no CSP (ZAP 10038), no
+      anti-clickjacking `X-Frame-Options`/`frame-ancestors` (10020), no
+      `X-Content-Type-Options` (10021), no `Permissions-Policy` (10063), no
+      COOP/COEP/CORP (90004) — surfaced by `scripts/security/scan_zap.sh` and
+      recorded in `docs/security/assessment-2026-10-12.md`. Fix on its own
+      branch: a response-headers middleware (sensible CSP for the NiceGUI/Vue
+      front-end + the smaller headers) with a `KAL-SEC-*` regression test.
+      Deliberately kept out of the `security-zap-baseline` slice (tooling only).
 - [ ] **Wire the headless security checks into nightly CI.** Once the Slice-2
       runners (Trivy, ZAP, schemathesis) are in, add a scheduled job running
       the server-less ones (`scan_trivy.sh` fs/config/secret, `audit_deps.sh`)

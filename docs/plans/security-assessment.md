@@ -119,8 +119,12 @@ This is a `large` plan; it ships in single-purpose PRs rather than one diff:
   and **F-7** (base-image OS CVEs — tracked); fs/secret clean.
 - **F-6 fixed** (`container-nonroot-hardening`, KAL-SEC-005, PR #309): both
   images run as the non-root `app` user (uid/gid 10001) and the k3s Deployment
-  pins `runAsNonRoot`; a rebuilt image no longer trips Trivy DS-0002. Still open
-  for Slice 2: the ZAP baseline and `schemathesis` runners, and wiring the
+  pins `runAsNonRoot`; a rebuilt image no longer trips Trivy DS-0002.
+- **ZAP baseline runner added** (`security-zap-baseline`, Slice 2a):
+  `scripts/security/scan_zap.sh`, a passive scan against a live instance via the
+  pinned ZAP container. First run (0 FAIL / 11 WARN / 56 PASS) surfaced **F-8**
+  (no security response headers, Medium — filed). Still open for Slice 2: the
+  `schemathesis` runner (2b), the F-8 fix on its own branch, and wiring the
   headless checks into nightly CI.
 
 ## Open questions
