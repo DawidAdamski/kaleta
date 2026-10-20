@@ -3,8 +3,9 @@ plan_id: upload-byte-cap
 title: Enforce a server-side byte cap on uploads, independent of the front-end limit
 area: security (views/import)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-20
+roadmap_ref: ../../roadmap.md
 ---
 
 # Enforce a server-side byte cap on uploads, independent of the front-end limit
@@ -107,3 +108,30 @@ read, so it does not address the memory-pressure risk; the byte cap does.
 - **Fail-on-old verified.** Neutralising the guard (`return False`, a backup
   swap) makes the two reject tests in `tests/integration/test_upload_byte_cap.py`
   fail (an oversize file is accepted); restoring restores green.
+
+## Implementation
+
+Landed on 2026-10-20 (PR #305).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c50cf52` | Dawid Adamski | 2026-10-20 | Merge pull request #305 from DawidAdamski/feat/upload-byte-cap |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/upload-byte-cap.md
+- docs/security/assessment-2026-10-12.md
+- src/kaleta/config/settings.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/upload_guard.py
+- src/kaleta/views/import_view/upload_section.py
+- tests/integration/test_upload_byte_cap.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
