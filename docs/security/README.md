@@ -1,7 +1,7 @@
 # Security checks
 
 This directory holds the output of the security assessment
-(`docs/plans/archive/security-assessment.md`) and the record of how each check
+(`docs/plans/security-assessment.md`) and the record of how each check
 is run. The assessment treats Kali Linux's tool categories as a *checklist of
 attack surfaces* and maps each to a concrete check against **our own** instance
 — never against anyone else's systems.
@@ -16,9 +16,16 @@ attack surfaces* and maps each to a concrete check against **our own** instance
 |---|---|---|
 | Dependency advisories | `./scripts/security/audit_deps.sh` | No pinned third-party dependency has a known CVE (pip-audit / OSV). |
 | Static security lint | `uv run ruff check src/ --select S` | Bandit-derived checks (`S` family), already part of `verify.sh`. |
+| Filesystem / IaC / secret scan | `./scripts/security/scan_trivy.sh {fs,config,secret,all}` | Trivy: `fs` reads `uv.lock` (a second opinion to pip-audit); `config` scans `Containerfile*`, the compose files and `deploy/` for misconfig; `secret` scans for committed secrets. `all` runs the three server-less modes. |
+| Container image CVEs | `./scripts/security/scan_trivy.sh image <ref>` | Trivy: OS-package CVEs in a built image — the layer pip-audit cannot see. Build the image first (`podman build -t kaleta:local -f Containerfile .`) or pass a registry ref. |
 
-Both are fast and need no running server; `audit_deps.sh` needs
-`uv sync --group dev` first.
+`audit_deps.sh` needs `uv sync --group dev` first. `scan_trivy.sh` uses a
+local `trivy` binary when present, otherwise the official container image via
+`docker`/`podman` (pinned `TRIVY_VERSION`, gate `TRIVY_SEVERITY`,
+default `HIGH,CRITICAL`). Its `config` mode scans only what Trivy parses
+without rendering — the `deploy/k3s` Helm *templates* are skipped (they are not
+valid YAML until rendered); the plain compose files and `Containerfile*` are
+covered.
 
 ## Manual / dynamic checks
 

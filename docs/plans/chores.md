@@ -664,3 +664,17 @@ check it still reproduces before acting on it.
       timing flakes are rescued (rule 4). Lives in the conftest, not
       `scripts/verify.sh` (a protected DoD gate script), so CI gets the same
       tolerance. Did not pin individual waits.
+- [ ] **F-6: container images run as root (Trivy DS-0002, High).** Neither
+      `Containerfile` nor `Containerfile.full` declares a non-root `USER`, so
+      the app runs as root in-container (surfaced by
+      `scripts/security/scan_trivy.sh config`, recorded in
+      `docs/security/assessment-2026-10-12.md`). Fix on its own branch: add a
+      dedicated non-root user to both images (and a `runAsNonRoot`
+      securityContext in `deploy/k3s/templates/deployment.yaml` for
+      defence-in-depth). Deliberately left out of the `security-trivy-scan`
+      slice (tooling only; deployment behaviour is a separate PR).
+- [ ] **Wire the headless security checks into nightly CI.** Once the Slice-2
+      runners (Trivy, ZAP, schemathesis) are in, add a scheduled job running
+      the server-less ones (`scan_trivy.sh` fs/config/secret, `audit_deps.sh`)
+      so advisories/misconfig are caught without touching PR latency
+      (`security-assessment.md` Slice 2, open question 1).
