@@ -83,8 +83,9 @@ services:
       # KALETA_DB_URL and KALETA_SECRET_KEY, as files (see the top of this file).
       - kaleta-secrets:/run/secrets:ro
       # NiceGUI's session files: a restarted container keeps its sessions
-      # (and asks every member to unlock again).
-      - kaleta-state:/root/.kaleta
+      # (and asks every member to unlock again). Under the non-root user's
+      # home (uid 10001) — see Containerfile.
+      - kaleta-state:/home/app/.kaleta
     healthcheck:
       test:
         - CMD

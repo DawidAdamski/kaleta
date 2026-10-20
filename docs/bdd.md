@@ -4837,6 +4837,13 @@ Feature: Public API
     And the reader is told the file is too large
     And an upload at or under the cap is imported as before
 
+  KAL-SEC-005 @automated
+  Scenario: The container runs as a non-root user, so an escape does not start as root
+    Given the container images we ship (Containerfile and Containerfile.full)
+    Then each declares a non-root USER before its start command
+    And the k3s Deployment pins runAsNonRoot so the cluster refuses a root container
+    And the session volume is mounted under that user's home, not /root
+
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API
     Given a valid API bearer token
