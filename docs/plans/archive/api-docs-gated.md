@@ -3,8 +3,9 @@ plan_id: api-docs-gated
 title: Gate /api-docs behind a flag so the schema is not handed to every client
 area: security (api)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-20
+roadmap_ref: ../../roadmap.md
 ---
 
 # Gate /api-docs behind a flag so the schema is not handed to every client
@@ -116,3 +117,30 @@ the Swagger page* are published.
   `test_docs_are_absent_in_a_production_shaped_run` and
   `test_api_docs_false_overrides_debug` fail (the docs mount regardless of the
   flag); restoring the guard restores green.
+
+## Implementation
+
+Landed on 2026-10-20 (PR #301).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c40a18f` | Dawid Adamski | 2026-10-19 | Merge pull request #301 from DawidAdamski/feat/api-docs-gated |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/api-docs-gated.md
+- docs/plans/chores.md
+- docs/security/assessment-2026-10-12.md
+- docs/tech-stack.md
+- src/kaleta/api/docs.py
+- src/kaleta/config/settings.py
+- src/kaleta/main.py
+- src/kaleta/views/layout.py
+- tests/integration/test_api_docs.py
+- tests/integration/test_openapi.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
