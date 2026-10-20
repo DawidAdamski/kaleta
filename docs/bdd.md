@@ -4829,6 +4829,14 @@ Feature: Public API
     But the instance still starts (a plain-http run behind a TLS proxy is legitimate)
     And no such warning is logged in development, or when the cookie is already Secure
 
+  KAL-SEC-004 @automated
+  Scenario: An oversize upload is rejected server-side, independent of the browser limit
+    Given an import upload larger than KALETA_MAX_UPLOAD_BYTES (default 50 MB)
+    When it reaches the server handler (a crafted POST can bypass the browser's max_file_size)
+    Then the file is rejected before its bytes are read, so it is neither parsed nor queued
+    And the reader is told the file is too large
+    And an upload at or under the cap is imported as before
+
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API
     Given a valid API bearer token

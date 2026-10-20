@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from nicegui import ui
 
+from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.views.theme import BODY_MUTED, CARD_TITLE, SECTION_CARD, UPLOADER
 
@@ -30,7 +31,7 @@ def build_upload_section() -> UploadSection:
                 auto_upload=True,
                 multiple=True,
                 max_files=20,
-                max_file_size=50 * 1024 * 1024,
+                max_file_size=settings.max_upload_bytes,
             )
             # Wise downloads its MT940 as ``.mt940``; ``.940`` and ``.sta`` are
             # the other extensions the same SWIFT statement arrives under, and
