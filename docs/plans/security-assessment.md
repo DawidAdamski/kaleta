@@ -132,14 +132,22 @@ This is a `large` plan; it ships in single-purpose PRs rather than one diff:
   `scripts/security/scan_schemathesis.sh` fuzzes the OpenAPI schema against a
   live instance. First run clean (52 ops / 4831 cases, 0 server errors; 51 ops
   auth-gated). The authenticated conformance fuzz is operator-run (needs a
-  bearer). **Still open for Slice 2:** wiring the headless checks into nightly
-  CI.
+  bearer).
+- **Nightly CI wired** (`security-nightly-ci`): a dedicated
+  `.github/workflows/security-nightly.yml` (scheduled + `workflow_dispatch`)
+  runs the two server-less checks — `audit_deps.sh` and `scan_trivy.sh all` —
+  each as its own job, invoking the scripts (still the single source of truth).
+  The live-instance runners (ZAP, schemathesis) stay operator/pre-release. This
+  closes Slice 2.
 
 ## Open questions
 
 - Run the scanners in CI on every PR, nightly, or by hand before a release? Default:
   nightly for the cheap headless ones (ZAP baseline, advisory audit), by hand for the rest,
-  so PR latency is untouched.
+  so PR latency is untouched. **Resolved (`security-nightly-ci`):** the two
+  *server-less* checks (`audit_deps.sh`, `scan_trivy.sh all`) run nightly in
+  `security-nightly.yml`; ZAP/schemathesis need a live instance and stay manual
+  (booting + seeding the app in CI is out of scope for now).
 - Use a dedicated Kali container as the runner, or install the few tools we actually use
   into a slim image? Default: a slim image with the chosen tools — reproducible in CI and
   smaller — with Kali named as the reference checklist, not a runtime dependency.
