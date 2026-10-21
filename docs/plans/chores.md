@@ -695,11 +695,13 @@ check it still reproduces before acting on it.
       a resource load the browser treats as cross-origin), fix or scope it, then
       add COOP + CORP + COEP together under a real browser and re-run the MFA
       e2e. 90004 is a Low, so this is not urgent.
-- [ ] **Wire the headless security checks into nightly CI.** Once the Slice-2
+- [x] **Wire the headless security checks into nightly CI.** Once the Slice-2
       runners (Trivy, ZAP, schemathesis) are in, add a scheduled job running
       the server-less ones (`scan_trivy.sh` fs/config/secret, `audit_deps.sh`)
       so advisories/misconfig are caught without touching PR latency
       (`security-assessment.md` Slice 2, open question 1).
+      Done in `security-nightly-ci`: `.github/workflows/security-nightly.yml`
+      (scheduled + `workflow_dispatch`), one job per check.
 - [ ] `scripts/plan_archive.sh` acceptance-criterion extraction is too greedy:
       it treats the first backticked token of *any* `- ` bullet under
       `## Acceptance criteria` as a shell command (`bash -c`), so a prose

@@ -1,0 +1,64 @@
+name: Security nightly
+
+# The server-less security checks (docs/security/), run on a schedule so a new
+# advisory or a newly-introduced misconfiguration/secret is caught without
+# waiting for someone to run the scripts by hand. The scripts in
+# scripts/security/ stay the single source of truth; this workflow only invokes
+# them. Kept out of ci.yml so a red security run is legible on its own and PR
+# latency is untouched. Cron is offset from ci.yml's "17 3 * * *".
+#
+# Only the checks that need no live instance run here: dependency advisories
+# (audit_deps.sh) and the Trivy fs/config/secret scan (scan_trivy.sh all). The
+# scanners that need a running app (ZAP, schemathesis) stay operator/pre-release
+# runs — see docs/plans/security-nightly-ci.md.
+on:
+  schedule:
+    - cron: "37 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-deps:
+    name: Dependency advisories (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: pip-audit
+        run: ./scripts/security/audit_deps.sh
+
+  trivy:
+    name: Trivy (fs / config / secret)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # scan_trivy.sh runs the pinned aquasec/trivy container via Docker (present
+      # on ubuntu-latest) when no local trivy binary exists — no setup action
+      # needed. The vuln DB is cached between runs so the nightly download is not
+      # repeated; the script writes it under ~/.cache/trivy.
+      - name: Cache Trivy vulnerability DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-
+
+      - name: Trivy fs/config/secret
+        run: ./scripts/security/scan_trivy.sh all

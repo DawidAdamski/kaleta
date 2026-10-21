@@ -27,6 +27,14 @@ without rendering — the `deploy/k3s` Helm *templates* are skipped (they are no
 valid YAML until rendered); the plain compose files and `Containerfile*` are
 covered.
 
+The two server-less checks also run **nightly in CI**
+(`.github/workflows/security-nightly.yml`, scheduled + `workflow_dispatch`):
+`audit_deps.sh` and `scan_trivy.sh all`. The workflow only invokes the scripts —
+they stay the single source of truth — so a new advisory, misconfiguration or
+committed secret is caught without waiting for a manual run, and without adding
+to PR latency. The dynamic runners below are not wired nightly (they need a
+running instance).
+
 ## Dynamic runners (scripted, need a live instance)
 
 These are scripted like the headless checks but scan a **running** instance, so
