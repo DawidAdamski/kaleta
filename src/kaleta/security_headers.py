@@ -65,12 +65,19 @@ _STATIC_HEADERS: tuple[tuple[str, str], ...] = (
     ("x-content-type-options", "nosniff"),
     ("referrer-policy", "strict-origin-when-cross-origin"),
     ("permissions-policy", _PERMISSIONS_POLICY),
+    # The Spectre site-isolation set (ZAP 90004). It was deferred from the first
+    # F-8 pass on a (mis-attributed) report that CORP broke NiceGUI's
+    # websocket-driven MFA navigation; a 2026-10-21 re-investigation under a real
+    # browser proved the whole set safe — the websocket, the service worker and
+    # the login → /login/mfa hop all work, and the MFA e2e passes with it on.
+    # COEP require-corp blocks nothing because the app loads only same-origin
+    # subresources (the CSP already pins default-src 'self') and every response
+    # here carries CORP. See the F-8 writeup in
+    # docs/security/assessment-2026-10-12.md.
+    ("cross-origin-opener-policy", "same-origin"),
+    ("cross-origin-embedder-policy", "require-corp"),
+    ("cross-origin-resource-policy", "same-origin"),
 )
-# Note: the Spectre site-isolation set (COOP/COEP/CORP, ZAP 90004, Low) is NOT
-# set here. `Cross-Origin-Resource-Policy: same-origin` broke NiceGUI's
-# websocket-driven navigation in the e2e tier (the login → /login/mfa step), so
-# the whole site-isolation set is deferred to a guarded follow-up (see
-# docs/plans/chores.md) rather than shipped half-working.
 
 
 class SecurityHeadersMiddleware:

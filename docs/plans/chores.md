@@ -685,16 +685,18 @@ check it still reproduces before acting on it.
       headers (HSTS only behind TLS) on every web response; a ZAP re-run clears
       10038/10020/10021/10063. Kept out of the `security-zap-baseline` slice
       (tooling only).
-- [ ] **F-8 follow-up: Spectre site-isolation headers (COOP/COEP/CORP, ZAP
-      90004, Low).** `security-response-headers` ships **none** of these:
-      adding `Cross-Origin-Resource-Policy: same-origin` broke NiceGUI's
-      websocket-driven navigation in the e2e tier (the login → `/login/mfa` step
-      bounced to `/login`), proven by bisecting with the
-      `KALETA_SECURITY_HEADERS_ENABLED` toggle. To clear the 90004 Low later:
-      work out why CORP breaks the Socket.IO path (likely the service worker or
-      a resource load the browser treats as cross-origin), fix or scope it, then
-      add COOP + CORP + COEP together under a real browser and re-run the MFA
-      e2e. 90004 is a Low, so this is not urgent.
+- [x] **F-8 follow-up: Spectre site-isolation headers (COOP/COEP/CORP, ZAP
+      90004, Low).** `security-response-headers` shipped **none** of these:
+      adding `Cross-Origin-Resource-Policy: same-origin` was reported to break
+      NiceGUI's websocket-driven navigation in the e2e tier (the login →
+      `/login/mfa` step bounced to `/login`). Done in
+      `security-site-isolation-headers`: a 2026-10-21 re-investigation under a
+      real browser (Playwright) found the blocker no longer reproduces — the
+      websocket, the service worker and the MFA hop all work with the full set,
+      MFA e2e 3/3 green with CORP alone and 3/3 with COOP+COEP+CORP. The three
+      headers now ride on every response and 90004 is cleared; the original
+      failure was most likely a flaky e2e mis-attributed in a one-shot bisection
+      or a since-fixed race.
 - [x] **Wire the headless security checks into nightly CI.** Once the Slice-2
       runners (Trivy, ZAP, schemathesis) are in, add a scheduled job running
       the server-less ones (`scan_trivy.sh` fs/config/secret, `audit_deps.sh`)

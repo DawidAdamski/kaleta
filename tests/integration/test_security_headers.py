@@ -21,6 +21,11 @@ _EXPECTED = {
     "x-frame-options": "DENY",
     "x-content-type-options": "nosniff",
     "referrer-policy": "strict-origin-when-cross-origin",
+    # The Spectre site-isolation set (ZAP 90004) — shipped after the F-8
+    # follow-up investigation found it safe with NiceGUI.
+    "cross-origin-opener-policy": "same-origin",
+    "cross-origin-embedder-policy": "require-corp",
+    "cross-origin-resource-policy": "same-origin",
 }
 
 
@@ -45,7 +50,8 @@ def _client(app: Starlette) -> AsyncClient:
 
 @pytest.mark.asyncio
 async def test_a_normal_response_carries_the_security_headers() -> None:
-    """A 200 response carries the CSP and the smaller hardening headers.
+    """A 200 response carries the CSP, the smaller hardening headers and the
+    site-isolation trio (COOP/COEP/CORP).
 
     Covers: KAL-SEC-006
     """
@@ -63,10 +69,6 @@ async def test_a_normal_response_carries_the_security_headers() -> None:
     assert "geolocation=()" in resp.headers["permissions-policy"]
     for name, value in _EXPECTED.items():
         assert resp.headers[name] == value
-    # The Spectre site-isolation set is deliberately not set: CORP same-origin
-    # broke NiceGUI's websocket navigation in e2e, so the whole set is deferred.
-    assert "cross-origin-resource-policy" not in resp.headers
-    assert "cross-origin-opener-policy" not in resp.headers
 
 
 @pytest.mark.asyncio
