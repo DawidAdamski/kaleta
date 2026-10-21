@@ -3,8 +3,9 @@ plan_id: budgets-unification-slice-1
 title: Budgets unification — slice 1 (Plan tab + /budget-plan redirect)
 area: views (budgets)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets-current-budgets-view
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md#budgets-current-budgets-view
 ---
 
 # Budgets unification — slice 1 (Plan tab + /budget-plan redirect)
@@ -12,7 +13,7 @@ roadmap_ref: ../roadmap.md#budgets-current-budgets-view
 ## Intent
 
 First self-contained increment of the large
-[`budgets-plan-unification`](budgets-plan-unification.md) draft. That draft
+[`budgets-plan-unification`](../budgets-plan-unification.md) draft. That draft
 wants the two budget destinations merged into one `/budgets` page with tabs so
 the user plans and tracks the month in one place instead of context-switching
 between `/budgets` and `/budget-plan`.
@@ -139,3 +140,39 @@ Resolved from the umbrella draft for this slice:
   The other `/budget-plan` gotos (vs-actual, comparisons) follow the redirect
   onto the active Plan tab and needed no change. Full `./scripts/verify.sh --e2e`
   green: 266 e2e passed (incl. the new KAL-BUD-018), spec_coverage 405 covered.
+
+## Implementation
+
+Landed on 2026-10-21 (PR #322).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `a3e534d` | Dawid Adamski | 2026-10-21 | Merge pull request #322 from DawidAdamski/feat/budgets-unification-slice-1 |
+
+**Files changed:**
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/budgets-unification-slice-1.md
+- docs/plans/chores.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/budget_plan/__init__.py
+- src/kaleta/views/budget_plan/panel.py
+- src/kaleta/views/budgets/page.py
+- src/kaleta/views/layout.py
+- tests/e2e/test_budget_plan.py
+- tests/e2e/test_navigation.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `grep -q 'tab_plan' src/kaleta/i18n/locales/en.json` | 0 |
+| `grep -q 'render_plan_panel' src/kaleta/views/budgets/page.py` | 0 |
+| `grep -q 'RedirectResponse' src/kaleta/views/budget_plan/__init__.py` | 0 |
+| `test -z "$(grep -n '"/budget-plan"' src/kaleta/views/layout.py)"` | 0 |
+| `grep -q 'KAL-BUD-018' docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | skipped (--fast); green at PR #322 merge |
+
+**Notes:** Touchpoint overlap is full (script's partial-coverage warning was a false positive). Heavy e2e criteria were not re-run at archive time; they were green at merge.
