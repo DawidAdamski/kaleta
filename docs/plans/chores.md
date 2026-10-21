@@ -290,12 +290,16 @@ check it still reproduces before acting on it.
       figure means "spending" rather than "cash moved". Found by
       `plan/debts-ledger-link`.
 
-- [ ] `uv run alembic check` on a fresh head DB reports index drift
+- [x] `uv run alembic check` on a fresh head DB reports index drift
       unrelated to any recent plan: `ix_categorisation_rules_pattern`,
       `ix_import_rules_filename_pattern`, `ix_import_runs_account_id`,
       `ix_import_runs_created_at` exist in migrations but not in the models
       (or vice versa). Reconcile with one migration or `index=True`. Found by
       `plan/debts-ledger-link`.
+      (Fixed: plan/alembic-drift-reconcile — the two `ix_import_runs_*`
+      indexes are now declared on `ImportRun`. The two `*_pattern` indexes
+      are not drift: the field-encryption revision drops them on purpose,
+      and the models correctly omit them; left untouched.)
 - [x] Move `merchant_key_from_description` out of `subscription_service` into
       a shared helper module. The radar and `PlannedPriceDriftService` import
       it from there, and `subscription_service` now imports
@@ -426,7 +430,7 @@ check it still reproduces before acting on it.
       so the cell reads `-3 273.99`, not `-12.99`. It passes alone and fails
       with its file, on `main` too (seen 2026-10-02). Fix: pick a day that is
       neither today nor seeded, e.g. the 3rd, or the 4th when today is the 3rd.
-- [ ] **`alembic check` reports drift that predates the models it names**:
+- [x] **`alembic check` reports drift that predates the models it names**:
       `ix_import_runs_account_id` and `ix_import_runs_created_at` exist in the
       migrations but not on `ImportRun`; on Postgres also `TIMESTAMP` vs
       `DateTime(timezone=True)` on `currency_rates`, `saved_reports`, `tags`,
@@ -434,6 +438,12 @@ check it still reproduces before acting on it.
       Seen while checking `hosted-field-encryption`'s revision, which is clean.
       Fix: declare the indexes on the model (or drop them) and align the types
       in one revision.
+      (Fixed: plan/alembic-drift-reconcile — revision `9f318d21f98a`.
+      `ix_import_runs_*` declared on the model; FK gains `ON DELETE SET NULL`;
+      the `currency_rates`/`saved_reports`/`tags` timestamps become
+      `timestamptz`. `reserve_funds.archived_at` was the reverse of this note —
+      the DB had `timestamptz`, the model declares a plain `DateTime()` — so it
+      becomes `timestamp without time zone`, reconciling toward the model.)
 - [ ] **CI does not run the suite with `KALETA_ENCRYPTION=passphrase`.**
       `hosted-field-encryption` made `uv run pytest tests/unit tests/integration`
       green in that mode on SQLite and Postgres, but only locally; add a

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String
+from sqlalchemy import Date, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
@@ -15,6 +15,13 @@ class ImportRun(TimestampMixin, UserOwnedMixin, Base):
     """One completed CSV file import into a single account."""
 
     __tablename__ = "import_runs"
+    # Both indexes already exist in the DB (created with the table). They back
+    # the per-account "last import" window (account_service) and the newest-first
+    # listing (import_service), so they are declared here rather than dropped.
+    __table_args__ = (
+        Index("ix_import_runs_account_id", "account_id"),
+        Index("ix_import_runs_created_at", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(
