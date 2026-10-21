@@ -4794,6 +4794,13 @@ Feature: Public API
     When I GET /api/v1/budgets for the current month
     Then the response contains the per-category planned amounts
 
+  KAL-API-007 @automated
+  Scenario: Read a single year's budgets via the API
+    Given a valid API bearer token and budgets for 2025 and 2026
+    When I GET /api/v1/budgets?year=2026
+    Then the response contains only the 2026 budgets
+    And no 2025 budget is returned
+
   KAL-API-003 @automated
   Scenario: API schema lists every public endpoint
     Given a running instance with the OpenAPI docs enabled (see KAL-SEC-002)
