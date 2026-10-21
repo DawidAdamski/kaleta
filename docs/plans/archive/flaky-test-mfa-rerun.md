@@ -3,8 +3,9 @@ plan_id: flaky-test-mfa-rerun
 title: Rescue the load-sensitive test_mfa flake via the e2e rerun allowlist
 area: tests (e2e harness)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Rescue the load-sensitive test_mfa flake
@@ -104,3 +105,27 @@ exact reasoning to Playwright timeouts and strict-mode races.
 - **The production race is tracked, not fixed here** — see the extended
   `test_mfa` item in `docs/plans/chores.md` (durable hand-off / no-navigation
   MFA prompt, its own slice).
+
+## Implementation
+
+Landed on 2026-10-21 (PR #324).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ca0afce` | Dawid Adamski | 2026-10-21 | Merge pull request #324 from DawidAdamski/fix/flaky-test-mfa |
+
+**Files changed:**
+- docs/plans/chores.md
+- docs/plans/flaky-test-mfa-rerun.md
+- tests/e2e/conftest.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `grep -q 'login/mfa' tests/e2e/conftest.py` | 0 |
+| regex assertion on `Page URL expected to be .*login/mfa` | 0 |
+| `uv run pytest tests/e2e/test_mfa.py -q` | skipped (--fast); green at PR #324 merge |
+| `./scripts/verify.sh --e2e` | skipped (--fast); green at PR #324 merge |
+
+**Notes:** Touchpoint overlap is full (script's partial-coverage warning was a false positive). Heavy e2e criteria were not re-run at archive time; they were green at merge.
