@@ -348,13 +348,17 @@ def load_settings() -> Settings:
     Matches the previous fail-at-import behaviour (an invalid configuration
     still stops startup here) but raises a sanitised
     :class:`kaleta.exceptions.ValidationError` instead of the bare pydantic
-    error, and uses ``from None`` so the chained pydantic exception — which
-    still holds the raw ``input`` values — cannot surface in a traceback.
+    error. The sanitised message is captured inside the ``except`` block and
+    raised *after* leaving it, so the pydantic exception — which still holds
+    the raw ``input`` values on its ``errors()`` — is not attached to our error
+    at all (neither ``__cause__`` nor ``__context__``), rather than merely
+    hidden from traceback rendering by ``from None``.
     """
     try:
         return Settings()
     except PydanticValidationError as exc:
-        raise ValidationError(_format_settings_error(exc)) from None
+        message = _format_settings_error(exc)
+    raise ValidationError(message)
 
 
 settings = load_settings()

@@ -36,17 +36,19 @@ def test_load_settings_names_field_without_leaking_secret(
     # (b) the secret value never appears in the sanitised message...
     assert _SENTINEL_SECRET not in message
     assert "SENTINEL_SECRET" not in message
-    # ...nor anywhere in the raised exception chain (from None drops it).
-    cause = excinfo.value.__cause__
-    context = excinfo.value.__context__
-    assert cause is None
-    assert context is None or "SENTINEL_SECRET" not in repr(context)
+    # ...nor anywhere in the raised exception: load_settings raises outside the
+    # except block, so the pydantic error (which still holds the raw input) is
+    # attached neither as __cause__ nor as __context__.
+    assert excinfo.value.__cause__ is None
+    assert excinfo.value.__context__ is None
 
 
 def test_load_settings_does_not_leak_secret_when_the_secret_field_is_invalid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # The secret itself is the field pydantic refuses (non-debug default key).
+    # A valid secret is present in the environment while an unrelated field
+    # (the log level) is the one pydantic refuses — the failure must still not
+    # echo the secret that happens to be set alongside it.
     monkeypatch.delenv("KALETA_DEBUG", raising=False)
     monkeypatch.setenv("KALETA_SECRET_KEY", _SENTINEL_SECRET)
     monkeypatch.setenv("KALETA_LOG_LEVEL", "NOPE")
