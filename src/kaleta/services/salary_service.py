@@ -217,9 +217,12 @@ class SalaryService:
     async def create_salary_plan(self, payload: SalaryPlanCreate) -> PlannedTransaction:
         """Create the monthly self-transfer that pays the salary out.
 
-        The planned-transactions model carries a single account, so the target
-        account lives in the description — enough for the Payment Calendar to
-        read, and no new scheduling machinery.
+        The plan carries both accounts structurally: ``account_id`` is the
+        source the money leaves and ``target_account_id`` is where it arrives.
+        Posting an occurrence writes both linked legs (see
+        ``PlannedTransactionService._ensure_posted``), so the money that leaves
+        the source account actually arrives on the target. The description keeps
+        the human-readable ``source → target`` label for the Payment Calendar.
         """
         if payload.from_account_id == payload.to_account_id:
             raise ValidationError("Salary source and target accounts must differ.")
@@ -248,6 +251,7 @@ class SalaryService:
                 amount=payload.amount,
                 type=TransactionType.TRANSFER,
                 account_id=payload.from_account_id,
+                target_account_id=payload.to_account_id,
                 description=f"{source.name} → {target.name}",
                 frequency=RecurrenceFrequency.MONTHLY,
                 interval=1,

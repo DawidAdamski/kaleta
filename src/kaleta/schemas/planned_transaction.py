@@ -24,6 +24,9 @@ class PlannedTransactionCreate(BaseModel):
     amount: Decimal = Field(..., gt=0, decimal_places=2)
     type: TransactionType
     account_id: int
+    # Set only for a structured self-transfer (the salary plan): the account
+    # the money arrives on. ``None`` posts a single leg on ``account_id``.
+    target_account_id: int | None = None
     category_id: int | None = None
     description: str | None = Field(default=None, max_length=255)
     payee_id: int | None = None

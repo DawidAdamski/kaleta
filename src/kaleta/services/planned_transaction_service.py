@@ -585,13 +585,16 @@ class PlannedTransactionService:
             raise NotFoundError(f"Planned transaction {planned_id} not found")
 
         description = (pt.description or pt.name or "").strip()
+        if pt.type == TransactionType.TRANSFER and pt.target_account_id is not None:
+            return await self._post_transfer_legs(pt, occurrence_date, description)
+
         tx = Transaction(
             account_id=pt.account_id,
             category_id=pt.category_id,
             amount=abs(pt.amount),
             type=pt.type,
-            # A planned transfer posts only the leg on its own account, the
-            # one the money leaves (``SalaryService`` plans from the source).
+            # A planned transfer without a structured target posts only the leg
+            # on its own account, the one the money leaves.
             transfer_direction=(
                 TransferDirection.OUT if pt.type == TransactionType.TRANSFER else None
             ),
@@ -611,6 +614,68 @@ class PlannedTransactionService:
                 return existing
             raise
         return tx
+
+    async def _post_transfer_legs(
+        self,
+        pt: PlannedTransaction,
+        occurrence_date: datetime.date,
+        description: str,
+    ) -> Transaction:
+        """Post a structured self-transfer as two linked internal legs.
+
+        An outgoing leg on the source account (``pt.account_id``) and an
+        incoming leg on the target (``pt.target_account_id``), linked and both
+        flagged internal — the same shape ``TransactionService.create_transfer``
+        produces, so the money that leaves the source arrives on the target.
+
+        Only the outgoing leg carries ``planned_transaction_id``: the
+        ``(planned_transaction_id, date)`` unique constraint guarantees one
+        occurrence, and the idempotency / ``exclude_posted`` checks key on it.
+        The incoming leg is found through its ``linked_transaction_id``.
+        ``create_transfer`` commits on its own, which would break the savepoint
+        the batch poster wraps this in, so the legs are built directly here.
+
+        Returns the outgoing leg — the row that represents the occurrence.
+        """
+        amount = abs(pt.amount)
+        out_leg = Transaction(
+            account_id=pt.account_id,
+            category_id=None,
+            amount=amount,
+            type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.OUT,
+            date=occurrence_date,
+            description=description,
+            is_internal_transfer=True,
+            is_split=False,
+            planned_transaction_id=pt.id,
+        )
+        in_leg = Transaction(
+            account_id=pt.target_account_id,
+            category_id=None,
+            amount=amount,
+            type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.IN,
+            date=occurrence_date,
+            description=description,
+            is_internal_transfer=True,
+            is_split=False,
+            planned_transaction_id=None,
+        )
+        try:
+            async with self._session.begin_nested():
+                self._session.add(out_leg)
+                await self._session.flush()  # assign out_leg.id
+                in_leg.linked_transaction_id = out_leg.id
+                self._session.add(in_leg)
+                await self._session.flush()  # assign in_leg.id
+                out_leg.linked_transaction_id = in_leg.id
+        except IntegrityError:
+            existing = await self._find_posted(pt.id, occurrence_date)
+            if existing is not None:
+                return existing
+            raise
+        return out_leg
 
     async def _find_posted(
         self,

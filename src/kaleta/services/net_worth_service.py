@@ -11,8 +11,8 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.models.account import Account, AccountType
 from kaleta.models.asset import Asset
-from kaleta.models.transaction import Transaction, TransactionType
-from kaleta.services.account_service import AccountService
+from kaleta.models.transaction import Transaction
+from kaleta.services.account_service import AccountService, signed_ledger_amount
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.text_order import by_name
 
@@ -319,32 +319,28 @@ class NetWorthService:
             balances[a.id] = current[a.id] * rate
             kinds[a.id] = a.type
 
-        # Per-account monthly signed delta from real transactions.
-        #   INCOME  : +amount
-        #   EXPENSE : -amount
-        # Internal transfers are excluded — paired legs cancel at the aggregate
-        # level, so for net-worth history (where we sum across all accounts) the
-        # simpler exclusion keeps results correct without needing to pair legs.
+        # Per-account monthly signed delta, using the same signed figure the
+        # current balance is built from (``signed_ledger_amount``): income
+        # adds, expense subtracts, and each transfer leg moves the account by
+        # its ``transfer_direction``. Rolling this back therefore inverts
+        # exactly what ``AccountService.balances`` added forward, so every
+        # historical month is consistent with the current balance. A transfer
+        # between two of the user's own accounts still nets to zero across
+        # accounts — the outgoing and incoming legs cancel — but each account's
+        # own history is now accurate rather than carrying a lone leg forever.
         result = await self.session.execute(
             select(
                 Transaction.account_id,
                 extract("year", Transaction.date).label("year"),
                 extract("month", Transaction.date).label("month"),
-                Transaction.type,
-                func.sum(Transaction.amount).label("total"),
-            )
-            .where(
-                Transaction.is_internal_transfer == False,  # noqa: E712
-                Transaction.type.in_([TransactionType.INCOME, TransactionType.EXPENSE]),
-            )
-            .group_by(Transaction.account_id, "year", "month", Transaction.type)
+                func.sum(signed_ledger_amount()).label("delta"),
+            ).group_by(Transaction.account_id, "year", "month")
         )
 
         per_account_delta: dict[tuple[int, int, int], Decimal] = {}
         for row in result:
-            signed = row.total if row.type == TransactionType.INCOME else -row.total
             key = (row.account_id, int(row.year), int(row.month))
-            per_account_delta[key] = per_account_delta.get(key, Decimal("0")) + signed
+            per_account_delta[key] = Decimal(str(row.delta))
 
         snapshots: list[MonthlyNetWorth] = []
         for i in range(months):

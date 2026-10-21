@@ -335,7 +335,7 @@ check it still reproduces before acting on it.
       `plan/transfers-manual-pairing`. The direction is stored now
       (`Transaction.transfer_direction`, `plan/accounts-ledger-balances`):
       join on the `out` leg instead of the id order.
-- [ ] A planned transfer (`SalaryService.create_salary_plan`, "Pay
+- [x] A planned transfer (`SalaryService.create_salary_plan`, "Pay
       yourself a salary") posts only its outgoing leg on the source
       account. The target account is named only in the description, so
       now that balances follow the ledger the money leaves one account and
@@ -344,6 +344,7 @@ check it still reproduces before acting on it.
       history (`NetWorthService._monthly_history`) skips every transfer row,
       so it does not see that lone leg either, while the current balance
       does. Found by `plan/accounts-ledger-balances`.
+      (Fixed: `plan/planned-salary-transfer-both-legs`, KAL-SAL-006.)
 - [x] The ledger shows every transfer leg as money out
       (`TransactionService.signed_amount` signs by type only), so the
       incoming leg of a goal contribution reads "-500.00" on the account
