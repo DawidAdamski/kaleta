@@ -301,11 +301,14 @@ check it still reproduces before acting on it.
       it from there, and `subscription_service` now imports
       `PlannedTransactionService`. Nothing is circular yet, but the services
       are coupled. Found by `plan/recurring-to-planned`.
-- [ ] `setup_service._sync_url` rewrites drivers with a whole-string
+- [x] `setup_service._sync_url` rewrites drivers with a whole-string
       `str.replace`. A password containing `+asyncpg` gets corrupted, and
       asyncpg's `?ssl=require` is not psycopg2's `sslmode=require`. Rebuild the
       URL with `make_url(...).set(drivername=...)` and translate the SSL query
       arg. Found by `plan/deps-sqlalchemy-2-1`.
+      (Fixed: `plan/setup-sync-url-rebuild` — structural rebuild; the SSL
+      translation was already present, the password corruption was the live
+      defect.)
 - [ ] Report builder: on a one-dimensional month/year report with a
       change or moving-average column on, `top_n` is not applied (a trend
       needs every period), but the sentence still reads "top 10". Grey the
