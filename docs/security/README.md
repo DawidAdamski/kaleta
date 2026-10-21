@@ -41,6 +41,7 @@ KALETA_SECRET_KEY=dev-only uv run kaleta   # http://localhost:8080
 | Check | Command | What it covers |
 |---|---|---|
 | Web app baseline scan | `./scripts/security/scan_zap.sh [target-url]` | OWASP ZAP **baseline** (passive): spiders the running app and runs ZAP's passive rules — security response headers, cookie flags, info disclosure. No attack payloads. Exits non-zero on a FAIL (set `ZAP_FAIL_ON=WARN` to also fail on warnings). Triage alerts into the assessment. |
+| Schema-aware API fuzzing | `./scripts/security/scan_schemathesis.sh [target-url]` | **schemathesis**: property-based fuzzing of every documented `/api/v1` operation against `/api-docs/openapi.json` (API docs must be on — debug or `KALETA_API_DOCS=true`). Default check `not_a_server_error` (no fuzzed input should 5xx). For a deeper authenticated conformance fuzz: `ST_BEARER=<token> ST_CHECKS=all ...` against a seeded instance. |
 
 `scan_zap.sh` always uses the ZAP container image (there is no common local
 binary) via `docker`/`podman` (pinned `ZAP_VERSION`, default gate `FAIL`). A
@@ -58,7 +59,6 @@ not on every PR (start a local instance as above):
 
 | Check | Tool | Notes |
 |---|---|---|
-| Schema-aware API fuzzing | `schemathesis run http://localhost:8080/openapi.json` | Property-based fuzzing of every `/api/v1` route against the OpenAPI doc. (A scripted runner is planned, Slice 2b.) |
 | SQL-injection probes | `sqlmap` against parameterised routes | Confirms the ORM + `schema_translate_map` leave no raw-SQL hole. |
 | TLS / cookie flags | `testssl.sh` against the Caddy edge | Only meaningful against a TLS-terminating deployment, not local HTTP. |
 | Login / MFA brute force | manual, or `hydra` against the login route | Confirms rate limiting and lockout. |
