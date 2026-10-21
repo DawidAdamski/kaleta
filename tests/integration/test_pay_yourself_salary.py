@@ -205,3 +205,40 @@ async def test_posting_the_salary_transfer_moves_money_between_both_accounts(
     summary_after = await net_worth.get_summary()
     assert summary_after.net_worth == net_worth_before
     assert summary_after.history[-1].net_worth == net_worth_before
+
+
+async def test_re_posting_the_same_salary_occurrence_is_idempotent(
+    session: AsyncSession,
+) -> None:
+    """Re-posting one occurrence must not create a second pair of legs.
+
+    The two-leg transfer path keys idempotency on the outgoing leg's
+    ``(planned_transaction_id, date)``; a re-post must return that leg and move
+    no further money.
+
+    Covers: KAL-SAL-006
+    """
+    business_id, personal_id = await _seed_freelancer(session, FOUR_IRREGULAR_MONTHS)
+    plans = PlannedTransactionService(session)
+    plan = await SalaryService(session).create_salary_plan(
+        SalaryPlanCreate(
+            name="Salary",
+            amount=Decimal("4000.00"),
+            from_account_id=business_id,
+            to_account_id=personal_id,
+            start_date=datetime.date(2026, 7, 1),
+        )
+    )
+
+    first = await plans.post_occurrence(plan.id, datetime.date(2026, 7, 1))
+    accounts = AccountService(session)
+    business_once = await accounts.balance(business_id)
+    personal_once = await accounts.balance(personal_id)
+
+    # Posting the very same occurrence again returns the existing outgoing leg
+    # and moves no further money.
+    again = await plans.post_occurrence(plan.id, datetime.date(2026, 7, 1))
+
+    assert again.id == first.id
+    assert await accounts.balance(business_id) == business_once
+    assert await accounts.balance(personal_id) == personal_once
