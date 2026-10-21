@@ -40,10 +40,22 @@ Explicitly NOT in scope:
 
 ## Open questions
 - Does prophet ship a cp313 wheel (no compiler needed at build time), or must
-  it build from source (needs a C/C++ toolchain / multi-stage split)? Resolved
-  during the build — see Implementation notes.
+  it build from source (needs a C/C++ toolchain / multi-stage split)?
+  **Resolved: cp313 wheels exist** — see Implementation notes. No build-deps,
+  no multi-stage split, the single slim stage is kept.
 
 ## Implementation notes
+- **Build result (podman):** `prophet==1.4.0` + `cmdstanpy==1.3.0` install from
+  cp313 wheels — no source build, no `build-essential`, no Stan compilation at
+  runtime (the wheel bundles the compiled model). So `python:3.13-slim` stays
+  the base with a single-stage build; no multi-stage split was needed.
+- **Proof inside the image:** `podman run --rm -e KALETA_DEBUG=true <img> uv run
+  python -c "import prophet; from kaleta.services.forecasters import
+  is_prophet_available; print('PROPHET_OK', is_prophet_available())"` →
+  `PROPHET_OK True`. (`KALETA_DEBUG=true` only bypasses the prod secret-key
+  check on import; unrelated to Prophet.)
+- **Image size:** ~1.36 GB with Prophet (the `forecast` extra adds ~300 MB of
+  Prophet + Stan, consistent with getting-started.md).
 - BDD (Working Agreement rule 5): no `KAL-*` scenario added. This is a
   packaging change; there is no user-facing app behaviour that pytest/e2e can
   assert, because the app already behaves correctly with and without Prophet.
