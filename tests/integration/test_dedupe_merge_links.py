@@ -148,3 +148,38 @@ class TestMergeDoesNotOverwriteKeeperLink:
         assert refreshed.irregular_item_id == keeper_item_id
         remaining = (await session.execute(select(Transaction.id))).scalars().all()
         assert dupe_id not in remaining
+
+
+class TestMergeTieBreakLowestId:
+    """Covers: KAL-DUP-001
+
+    When several duplicates carry conflicting links and the keeper has none,
+    the lowest-id duplicate wins (duplicates are iterated in ascending id).
+    """
+
+    async def test_lowest_id_duplicate_wins_on_conflict(self, session: AsyncSession):
+        acc = await _account(session)
+        fund_id = await _fund(session)
+        first_item_id = await _irregular_item(session, fund_id, "First dupe item")
+        second_item_id = await _irregular_item(session, fund_id, "Second dupe item")
+        # Keeper has no link; two duplicates each carry a different fund item.
+        keeper = await _tx(session, account_id=acc)
+        first_dupe = await _tx(session, account_id=acc, irregular_item_id=first_item_id)
+        second_dupe = await _tx(session, account_id=acc, irregular_item_id=second_item_id)
+        keeper_id = keeper.id
+        first_dupe_id, second_dupe_id = first_dupe.id, second_dupe.id
+        assert first_dupe_id < second_dupe_id  # created first, so lower id
+
+        deleted = await DedupeService(session).merge_transactions(
+            keeper_id=keeper_id, other_ids=[second_dupe_id, first_dupe_id]
+        )
+
+        assert deleted == 2
+        session.expire_all()
+        refreshed = await session.get(Transaction, keeper_id)
+        assert refreshed is not None
+        # Lowest-id duplicate's link wins, regardless of other_ids ordering.
+        assert refreshed.irregular_item_id == first_item_id
+        remaining = (await session.execute(select(Transaction.id))).scalars().all()
+        assert first_dupe_id not in remaining
+        assert second_dupe_id not in remaining
