@@ -7,6 +7,7 @@ E-mail + password, with a link to sign up while registration is open; with
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
@@ -14,7 +15,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
-from kaleta.auth.login_rate_limit import login_rate_limiter
+from kaleta.auth.login_rate_limit import RATE_LIMITER_BACKEND_ERRORS, login_rate_limiter
 from kaleta.auth.providers import MfaRequired, get_auth_provider
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
@@ -38,11 +39,23 @@ from kaleta.views.auth_common import (
     auth_submit,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def _client_key(request: Request) -> str:
     if request.client is None:
         return "unknown"
     return request.client.host or "unknown"
+
+
+def _rate_limiter_unavailable() -> None:
+    """Toast shown when the rate limiter's backend (Redis) cannot be reached.
+
+    The limiter fails closed on purpose, so the sign-in does not proceed — but
+    a dead click with nothing said is worse than a sentence that asks the user
+    to try again once the backend is back.
+    """
+    ui.notify(t("common.rate_limit_unavailable"), type="warning")
 
 
 def register() -> None:
@@ -106,9 +119,15 @@ def register() -> None:
 
             async def _submit() -> None:
                 _say("")
-                if login_rate_limiter.is_locked(rate_key):
-                    secs = login_rate_limiter.remaining_lock_seconds(rate_key)
-                    _say(t("auth.login_rate_limited", seconds=secs))
+                try:
+                    if login_rate_limiter.is_locked(rate_key):
+                        secs = login_rate_limiter.remaining_lock_seconds(rate_key)
+                        _say(t("auth.login_rate_limited", seconds=secs))
+                        return
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    # Can't reach the counter to know whether this IP is locked,
+                    # so fail closed: do not sign in, say so.
+                    _rate_limiter_unavailable()
                     return
 
                 name = (username.value or "").strip()
@@ -123,18 +142,30 @@ def register() -> None:
                     resend.set_visibility(True)
                     return
                 except UnauthorizedError:
-                    locked = login_rate_limiter.record_failure(rate_key)
-                    if locked:
-                        secs = login_rate_limiter.remaining_lock_seconds(rate_key)
-                        _say(t("auth.login_rate_limited", seconds=secs))
-                    else:
-                        _say(t("auth.login_failed_email"))
+                    try:
+                        locked = login_rate_limiter.record_failure(rate_key)
+                        if locked:
+                            secs = login_rate_limiter.remaining_lock_seconds(rate_key)
+                            _say(t("auth.login_rate_limited", seconds=secs))
+                        else:
+                            _say(t("auth.login_failed_email"))
+                    except RATE_LIMITER_BACKEND_ERRORS:
+                        _rate_limiter_unavailable()
                     return
                 except KaletaError as exc:
                     _say(exc.message)
                     return
 
-                login_rate_limiter.clear(rate_key)
+                try:
+                    login_rate_limiter.clear(rate_key)
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    # The password was right; clearing the counter is cleanup,
+                    # not a gate. A backend that is down now is no reason to
+                    # refuse a sign-in that already succeeded.
+                    logger.warning(
+                        "Rate limiter backend unreachable while clearing login counter",
+                        exc_info=True,
+                    )
                 if isinstance(result, MfaRequired):
                     # The session stays unauthenticated until the code lands:
                     # a half-finished login must not open a single data page.

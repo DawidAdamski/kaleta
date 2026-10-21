@@ -65,6 +65,7 @@
     "demo_banner": "Instancja demo — dane resetowane codziennie.",
     "demo_dismiss": "Ukryj",
     "error_with_event_id": "{message}\nID zdarzenia: {event_id} — dołącz je przy zgłaszaniu błędu.",
+    "rate_limit_unavailable": "Usługa logowania jest chwilowo niedostępna. Spróbuj ponownie za chwilę.",
     "no_data": "Brak danych",
     "actions": "Akcje",
     "close": "Zamknij",

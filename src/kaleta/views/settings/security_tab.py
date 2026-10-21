@@ -12,12 +12,13 @@ not, and that is the whole visible difference.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.auth.login_rate_limit import mfa_rate_limiter
+from kaleta.auth.login_rate_limit import RATE_LIMITER_BACKEND_ERRORS, mfa_rate_limiter
 from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.auth.session import (
@@ -45,10 +46,22 @@ from kaleta.services import (
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.settings.data_passphrase_card import render_data_passphrase_card
 
+logger = logging.getLogger(__name__)
+
 #: Redraw the two-factor card after something changed underneath it. NiceGUI's
 #: ``refreshable.refresh`` hands back an awaitable these callers do not want,
 #: so the return type is the widest thing that says "ignored".
 Refresh = Callable[[], object]
+
+
+def _rate_limiter_unavailable() -> None:
+    """Toast shown when the rate limiter's backend (Redis) cannot be reached.
+
+    The limiter fails closed on purpose, so the guarded action does not
+    proceed — but a dead button with nothing said is worse than a sentence
+    asking the user to try again once the backend is back.
+    """
+    ui.notify(t("common.rate_limit_unavailable"), type="warning")
 
 
 async def render_security_tab() -> None:
@@ -129,9 +142,15 @@ async def _ask_for_code(user_id: int) -> bool:
         error = ui.label("").classes("text-sm text-negative mt-2")
 
         async def _confirm() -> None:
-            if mfa_rate_limiter.is_locked(rate_key):
-                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+            try:
+                if mfa_rate_limiter.is_locked(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    return
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Can't reach the counter to know whether this is locked, so
+                # fail closed: do not run the guarded action, say so.
+                _rate_limiter_unavailable()
                 return
             entered = (code_input.value or "").strip()
             password = password_input.value or ""
@@ -176,14 +195,25 @@ async def _ask_for_code(user_id: int) -> bool:
                 dialog.submit(False)
                 return
             if not passed:
-                if mfa_rate_limiter.record_failure(rate_key):
-                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
-                else:
-                    error.set_text(t("settings.mfa_failed"))
+                try:
+                    if mfa_rate_limiter.record_failure(rate_key):
+                        secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                        error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    else:
+                        error.set_text(t("settings.mfa_failed"))
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    _rate_limiter_unavailable()
                 code_input.value = ""
                 return
-            mfa_rate_limiter.clear(rate_key)
+            try:
+                mfa_rate_limiter.clear(rate_key)
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Cleanup after a correct credential, not a gate: a backend that
+                # is down now must not undo a step that already passed.
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(True)
 
         password_input.on("keydown.enter", _confirm)
@@ -266,9 +296,15 @@ async def _begin_hosted(user_id: int, email: str) -> HostedEnrolment | None:
         error = ui.label("").classes("text-sm text-negative mt-2")
 
         async def _confirm() -> None:
-            if mfa_rate_limiter.is_locked(rate_key):
-                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+            try:
+                if mfa_rate_limiter.is_locked(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    return
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Can't reach the counter to know whether this is locked, so
+                # fail closed: do not run the guarded action, say so.
+                _rate_limiter_unavailable()
                 return
             password = password_input.value or ""
             if not password:
@@ -283,11 +319,14 @@ async def _begin_hosted(user_id: int, email: str) -> HostedEnrolment | None:
             try:
                 enrolment = await with_session(_begin)
             except ValidationError as exc:
-                if mfa_rate_limiter.record_failure(rate_key):
-                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
-                else:
-                    error.set_text(exc.message)
+                try:
+                    if mfa_rate_limiter.record_failure(rate_key):
+                        secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                        error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    else:
+                        error.set_text(exc.message)
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    _rate_limiter_unavailable()
                 password_input.value = ""
                 return
             except ConflictError:
@@ -297,7 +336,15 @@ async def _begin_hosted(user_id: int, email: str) -> HostedEnrolment | None:
             except KaletaError as exc:
                 error.set_text(exc.message)
                 return
-            mfa_rate_limiter.clear(rate_key)
+            try:
+                mfa_rate_limiter.clear(rate_key)
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Cleanup after a correct credential, not a gate: a backend that
+                # is down now must not undo a step that already passed.
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(enrolment)
 
         password_input.on("keydown.enter", _confirm)
@@ -355,9 +402,15 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
             # dialog already has the secret on screen. The counter is here
             # because each wrong code writes an `mfa_enrol_failure` row, and a
             # prompt that never locks is a way to pump the audit log.
-            if mfa_rate_limiter.is_locked(rate_key):
-                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+            try:
+                if mfa_rate_limiter.is_locked(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    return
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Can't reach the counter to know whether this is locked, so
+                # fail closed: do not run the guarded action, say so.
+                _rate_limiter_unavailable()
                 return
             entered = (code_input.value or "").strip()
             if not entered:
@@ -379,11 +432,14 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
                 # row — is a `ConflictError`, and this bucket is the one
                 # guarding the login prompt, so spending it on that would be a
                 # lockout nobody could avoid.
-                if mfa_rate_limiter.record_failure(rate_key):
-                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
-                else:
-                    error.set_text(t("settings.mfa_enrol_failed"))
+                try:
+                    if mfa_rate_limiter.record_failure(rate_key):
+                        secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                        error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    else:
+                        error.set_text(t("settings.mfa_enrol_failed"))
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    _rate_limiter_unavailable()
                 code_input.value = ""
                 return
             except ConflictError:
@@ -395,7 +451,15 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
             except KaletaError as exc:
                 error.set_text(exc.message)
                 return
-            mfa_rate_limiter.clear(rate_key)
+            try:
+                mfa_rate_limiter.clear(rate_key)
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Cleanup after a correct credential, not a gate: a backend that
+                # is down now must not undo a step that already passed.
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(codes)
 
         code_input.on("keydown.enter", _confirm)
@@ -500,9 +564,15 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
         error = ui.label("").classes("text-sm text-negative mt-2")
 
         async def _confirm() -> None:
-            if mfa_rate_limiter.is_locked(rate_key):
-                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+            try:
+                if mfa_rate_limiter.is_locked(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    return
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Can't reach the counter to know whether this is locked, so
+                # fail closed: do not run the guarded action, say so.
+                _rate_limiter_unavailable()
                 return
 
             password = password_input.value or ""
@@ -537,11 +607,14 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
                 # way to avoid. One message for both halves, as the service
                 # gives it: telling a wrong password from a wrong code here
                 # would make this dialog a password oracle.
-                if mfa_rate_limiter.record_failure(rate_key):
-                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
-                else:
-                    error.set_text(t("settings.mfa_disable_failed"))
+                try:
+                    if mfa_rate_limiter.record_failure(rate_key):
+                        secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                        error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                    else:
+                        error.set_text(t("settings.mfa_disable_failed"))
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    _rate_limiter_unavailable()
                 code_input.value = ""
                 return
             except ConflictError:
@@ -553,7 +626,15 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
             except KaletaError as exc:
                 error.set_text(exc.message)
                 return
-            mfa_rate_limiter.clear(rate_key)
+            try:
+                mfa_rate_limiter.clear(rate_key)
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Cleanup after a correct credential, not a gate: a backend that
+                # is down now must not undo a step that already passed.
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(True)
 
         password_input.on("keydown.enter", _confirm)

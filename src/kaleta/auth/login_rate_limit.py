@@ -23,6 +23,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+#: Exceptions a limiter raises when its backend cannot be reached. The counting
+#: fails closed by design (``RedisStore`` lets the ``redis`` error propagate so
+#: an unanswered Redis fails the attempt rather than hanging it); callers on the
+#: login path catch this to turn that failure into a message instead of a dead
+#: click. ``redis`` is the ``hosted`` extra — absent on a local install, where
+#: the store is ``MemoryStore`` and never fails, so the tuple is then empty and
+#: ``except RATE_LIMITER_BACKEND_ERRORS`` catches nothing.
+RATE_LIMITER_BACKEND_ERRORS: tuple[type[Exception], ...]
+try:
+    from redis.exceptions import RedisError as _RedisError
+except ImportError:  # pragma: no cover - depends on whether the hosted extra is installed
+    RATE_LIMITER_BACKEND_ERRORS = ()
+else:
+    RATE_LIMITER_BACKEND_ERRORS = (_RedisError,)
+
 #: Prefix of every limiter key in Redis. NiceGUI's own keys sit under
 #: ``kaleta:`` too (``NICEGUI_REDIS_KEY_PREFIX``) but are ``kaleta:user-…``,
 #: ``kaleta:tab-…`` and ``kaleta:general``, so the two never meet.
