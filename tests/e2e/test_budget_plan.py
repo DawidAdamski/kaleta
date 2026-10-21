@@ -2,12 +2,14 @@
 """E2E tests for Feature: Annual Budget Planning.
 
 Maps scenarios from docs/bdd.md — Feature: Annual Budget Planning.
-Page URL: /budget-plan
+The planning grid now lives on the Budgets page's Plan tab; the historical
+``/budget-plan`` address 302-redirects onto ``/budgets?tab=plan``.
 """
 
 from __future__ import annotations
 
 import datetime
+import re
 
 from playwright.sync_api import Page, expect
 
@@ -23,13 +25,11 @@ CURRENT_MONTH = datetime.date.today().month
 
 
 def test_budget_plan_page_loads(page: Page, base_url: str) -> None:
-    """Budget Plan page renders the grid with month column headers."""
+    """The planning grid renders with month column headers, via the redirect."""
     page.goto(f"{base_url}/budget-plan")
 
-    # Use exact=True to avoid strict-mode violation from multiple "Budget Plan" texts
-    expect(page.get_by_role("main").get_by_text("Budget Plan", exact=True)).to_be_visible(
-        timeout=5000
-    )
+    # /budget-plan now 302-redirects onto the Budgets page's Plan tab.
+    expect(page).to_have_url(re.compile(r"/budgets\?tab=plan"))
     expect(page.get_by_text("Jan", exact=True).first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Dec", exact=True).first).to_be_visible(timeout=5000)
 
@@ -46,9 +46,7 @@ def test_budget_plan_page_shows_planned_and_actual_columns(page: Page, base_url:
     seed_budget(cat_id, 100, CURRENT_MONTH, CURRENT_YEAR)
 
     page.goto(f"{base_url}/budget-plan")
-    expect(page.get_by_role("main").get_by_text("Budget Plan", exact=True)).to_be_visible(
-        timeout=5000
-    )
+    expect(page).to_have_url(re.compile(r"/budgets\?tab=plan"))
     # "Planned" appears as the Month column header label on each row
     expect(page.get_by_text("Planned", exact=True).first).to_be_visible(timeout=5000)
     # "Actual" label appears in actual sub-rows or column headers
@@ -234,3 +232,29 @@ def test_the_grid_tints_the_current_month(page: Page, base_url: str) -> None:
     expect(actual_row).to_be_visible()
     expect(actual_row.locator(".k-mono").first).to_be_visible()
     expect(actual_row.locator(".k-plan-month-now")).to_have_count(1)
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Planning lives on the Budgets page, and the old route redirects
+# ---------------------------------------------------------------------------
+
+
+def test_plan_tab_on_budgets_page_and_old_route_redirects(page: Page, base_url: str) -> None:
+    """Covers: KAL-BUD-018
+
+    The planning grid moved onto the Budgets page as a Plan tab beside Overview
+    and Realization; the historical /budget-plan address redirects onto it.
+    """
+    seed_category("Food Plan Tab E2E")
+
+    # The Budgets page carries a Plan tab alongside Overview and Realization.
+    page.goto(f"{base_url}/budgets")
+    plan_tab = page.get_by_role("tab", name="Plan", exact=True)
+    expect(plan_tab).to_be_visible(timeout=5000)
+    plan_tab.click()
+    expect(page.get_by_text("Food Plan Tab E2E")).to_be_visible(timeout=5000)
+
+    # The old route lands straight on that tab.
+    page.goto(f"{base_url}/budget-plan")
+    expect(page).to_have_url(re.compile(r"/budgets\?tab=plan"))
+    expect(page.get_by_text("Food Plan Tab E2E")).to_be_visible(timeout=5000)

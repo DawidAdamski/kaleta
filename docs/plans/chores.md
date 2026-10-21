@@ -20,6 +20,11 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] The `nav.budget_plan` i18n key (en/pl) is now unreferenced since the
+      sidebar entry was dropped in `budgets-unification-slice-1` (the planning
+      grid is a Budgets tab now). Remove the key when slice 2 removes the
+      `/budget-plan` route, or sooner.
+
 - [x] `IrregularItemService.create_funding_plan` dedupes a planned transfer by
       `existing.amount == plan.monthly_total` (`irregular_item_service.py`).
       Now that the gifts total folds into `monthly_total` (`gifts-irregular-fund`),

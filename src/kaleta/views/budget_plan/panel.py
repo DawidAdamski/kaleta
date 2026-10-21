@@ -1,20 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Budget plan page — routing, layout, and section wiring."""
+"""Budget plan editor as a reusable panel (toolbar + grid).
+
+Hosted by the Budgets page's **Plan** tab (``views/budgets/page.py``). It is the
+former ``/budget-plan`` page body with the ``page_layout`` wrapper removed — the
+host page owns the chrome now; the panel owns only the planning toolbar and the
+editable grid. Kept here so the grace-period ``/budget-plan`` redirect shim and
+the tab share one implementation.
+"""
 
 from __future__ import annotations
 
 import datetime
 from typing import Any
 
-from kaleta.i18n import t
 from kaleta.views.budget_plan.dialogs import EditDialogs
 from kaleta.views.budget_plan.grid import build_plan_grid
 from kaleta.views.budget_plan.toolbar import render_toolbar
-from kaleta.views.layout import page_layout
-from kaleta.views.theme import PAGE_CONTAINER, PAGE_TIGHT
 
 
-async def budget_plan_page() -> None:
+async def render_plan_panel() -> None:
     today = datetime.date.today()
     state: dict[str, Any] = {
         "years": {today.year},
@@ -34,11 +38,10 @@ async def budget_plan_page() -> None:
     plan_grid = build_plan_grid(state, dialogs, on_refresh=_refresh_grid)
     plan_grid_ref["plan_grid"] = plan_grid
 
-    with page_layout(t("budget_plan.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_TIGHT}"):
-        render_toolbar(
-            state,
-            today=today,
-            on_years_changed=_refresh_grid,
-            on_copy_done=_refresh_grid,
-        )
-        await plan_grid()
+    render_toolbar(
+        state,
+        today=today,
+        on_years_changed=_refresh_grid,
+        on_copy_done=_refresh_grid,
+    )
+    await plan_grid()

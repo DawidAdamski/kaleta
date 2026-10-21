@@ -11,6 +11,7 @@ from nicegui import app, ui
 from kaleta.i18n import t
 from kaleta.services import BudgetService, with_session
 from kaleta.services.budget_service import date_range_for_key
+from kaleta.views.budget_plan.panel import render_plan_panel
 from kaleta.views.budgets.dialogs import build_edit_dialog
 from kaleta.views.budgets.helpers import range_label, range_options
 from kaleta.views.budgets.overview import render_overview_content
@@ -38,6 +39,12 @@ from kaleta.views.theme import (
 
 async def budgets_page() -> None:
     today = datetime.date.today()
+    # ?tab=plan|realization lands on that tab (the /budget-plan redirect uses
+    # ?tab=plan); anything else keeps the Overview default.
+    requested_tab = ""
+    _client = ui.context.client
+    if _client is not None and _client.request is not None:
+        requested_tab = _client.request.query_params.get("tab", "")
     budget_year, budget_month = budget_period_for(today)
     current_range: dict[str, str] = {"key": "this_month"}
     realization_state: dict[str, Any] = {
@@ -119,6 +126,11 @@ async def budgets_page() -> None:
         month and a grouping on Realization — and the artboard has room for
         exactly one set beside the tabs.
         """
+        if tabs.value == t("budgets.tab_plan"):
+            # The Plan tab carries its own toolbar (month/year selectors) inside
+            # the embedded panel, so the tab row needs no extra control here.
+            return
+
         if tabs.value == t("budgets.tab_overview"):
 
             def on_range_change(e: Any) -> None:
@@ -196,15 +208,25 @@ async def budgets_page() -> None:
             ):
                 overview_tab = ui.tab(t("budgets.tab_overview"), icon="bar_chart")
                 realization_tab = ui.tab(t("budgets.tab_realization"), icon="track_changes")
+                plan_tab = ui.tab(t("budgets.tab_plan"), icon="edit_note")
+            # Honour ?tab= before the controls render, so the strip, the
+            # tab-row control and the active panel all agree from the start.
+            initial_tab = {"realization": realization_tab, "plan": plan_tab}.get(
+                requested_tab, overview_tab
+            )
+            tabs.set_value(initial_tab)
             ui.space()
             with ui.row().classes("items-center gap-2 pb-2 no-wrap"):
                 _render_tab_controls()
 
         tabs.on_value_change(lambda _: _render_tab_controls.refresh())
 
-        with ui.tab_panels(tabs, value=overview_tab).classes("w-full bg-transparent p-0"):
+        with ui.tab_panels(tabs, value=initial_tab).classes("w-full bg-transparent p-0"):
             with ui.tab_panel(overview_tab).classes("p-0"):
                 await budget_content()
 
             with ui.tab_panel(realization_tab).classes("p-0"):
                 await realization_content()
+
+            with ui.tab_panel(plan_tab).classes("p-0"):
+                await render_plan_panel()

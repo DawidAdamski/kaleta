@@ -137,7 +137,7 @@ kaleta/
 │       ├── planned_transactions.py  # Planned/recurring transactions page (/planned)
 │       ├── credit_calculator.py     # Loan amortization calculator (/credit-calculator)
 │       ├── credit.py                # Credit module (/credit): two tabs — Credit Cards and Loans; "New card"/"New loan" dialogs atomically create Account + profile
-│       ├── budget_plan.py           # Annual budget planning grid (/budget-plan)
+│       ├── budget_plan/              # Annual budget planning grid — hosted as the Budgets "Plan" tab; /budget-plan 302-redirects to /budgets?tab=plan
 │       ├── setup.py                 # First-run database setup page (/setup)
 │       ├── settings/                # Settings page (/settings) — one module per tab
 │       ├── login_mfa.py             # TOTP challenge page (/login/mfa); public route, guards itself

@@ -1961,6 +1961,15 @@ Feature: Annual Budget Planning
     When I open the Realization tab
     Then four cards above the table say planned, actual, remaining and used
       And the Total row at the foot of the table says the same four figures
+
+  KAL-BUD-018 @automated
+  Scenario: Planning lives on the Budgets page, and the old route redirects there
+    Given I am on the Budgets page
+    Then a Plan tab sits beside Overview and Realization
+    When I open the Plan tab
+    Then I see the annual planning grid with a row per category
+    When I visit the old /budget-plan address
+    Then I land on the Budgets page with the Plan tab already open
 ```
 
 ## Feature: Budget Planning Comparisons
