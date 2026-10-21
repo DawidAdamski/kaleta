@@ -34,7 +34,7 @@ info-disclosure and TLS-transition checks all passed.
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
 | F-6 | High | `Containerfile` / `Containerfile.full` defined no non-root `USER`, so the app ran as root in-container (Trivy DS-0002) | **Fixed** (`container-nonroot-hardening`, KAL-SEC-005) |
 | F-7 | High (upstream) | Base image `python:3.13-slim` (Debian 13) carries 44 High OS-package CVEs (Trivy image scan) | Tracked — mostly no upstream fix; rebuild-on-latest mitigation |
-| F-8 | Medium | App set no security response headers (no CSP, `X-Frame-Options`/`frame-ancestors`, `X-Content-Type-Options`, `Permissions-Policy`, nor COOP/COEP/CORP) — ZAP baseline WARN 10038/10020/10021/10063/90004 | **Fixed** (`security-response-headers`, KAL-SEC-006) — CSP + the smaller headers; the site-isolation set (90004, Low) deferred (broke the websocket) |
+| F-8 | Medium | App set no security response headers (no CSP, `X-Frame-Options`/`frame-ancestors`, `X-Content-Type-Options`, `Permissions-Policy`, nor COOP/COEP/CORP) — ZAP baseline WARN 10038/10020/10021/10063/90004 | **Fixed** (`security-response-headers`, KAL-SEC-006) — CSP + the smaller headers; the site-isolation set (90004) added by the `security-site-isolation-headers` follow-up |
 
 ## Surface map
 
@@ -250,12 +250,19 @@ allowlist. No action now.
   design:** ZAP now raises the Low "CSP: Wildcard Directive" (10055) because the
   policy must allow `ws:`/`wss:` (the Socket.IO websocket) and `data:` images
   for NiceGUI — tightening those would break the UI. **The Spectre
-  site-isolation set (COOP/COEP/CORP, 90004, Low) is deferred:** shipping
+  site-isolation set (COOP/COEP/CORP, 90004, Low) is now shipped**
+  (`security-site-isolation-headers`): it was first deferred on a report that
   `Cross-Origin-Resource-Policy: same-origin` broke NiceGUI's websocket-driven
-  navigation in the e2e tier (the login → `/login/mfa` step bounced to
-  `/login`), so the whole set waits for a guarded follow-up and 90004 stays a
-  WARN. ("Dangerous JS Functions" 10110 against the bundled front-end JS, and
-  ZAP's out-of-date self-note, stay noise.)
+  MFA navigation, but a 2026-10-21 re-investigation under a real browser proved
+  the whole set safe (the websocket, the service worker and the login →
+  `/login/mfa` hop all work, MFA e2e green), so COOP `same-origin` + COEP
+  `require-corp` + CORP `same-origin` now ride on every response (unit-asserted
+  in `test_security_headers.py`). A ZAP re-run confirms **90004 moved from WARN
+  to PASS** (WARN 8→7, PASS 59→60, 0 FAIL). COEP `require-corp` blocks nothing
+  because the app loads only same-origin subresources (the CSP already pins
+  `default-src 'self'`).
+  ("Dangerous JS Functions" 10110 against the bundled front-end JS, and ZAP's
+  out-of-date self-note, stay noise.)
 
 ## Next
 
@@ -281,9 +288,11 @@ fixes for the remaining hardening items on their own branches.
 - **schemathesis runner added** (`security-schemathesis`): fuzzes the OpenAPI
   schema against a live instance; first run clean (52 ops / 4831 cases, 0 server
   errors). No new finding.
-- **Still to do in Slice 2:** wiring the headless checks (Trivy
-  `fs`/`config`/`secret`, pip-audit) into a nightly CI job. A later guarded step
-  may add the **site-isolation headers** (COOP/COEP/CORP) to clear the 90004 Low
-  — deferred from F-8 because CORP broke the NiceGUI websocket. The deeper
-  authenticated schemathesis conformance fuzz stays operator-run (needs a
-  bearer).
+- **Nightly CI wired** (`security-nightly-ci`): the server-less headless checks
+  (Trivy `fs`/`config`/`secret`, pip-audit) run on a schedule in
+  `.github/workflows/security-nightly.yml`.
+- **Site-isolation headers shipped** (`security-site-isolation-headers`):
+  COOP/COEP/CORP now ride on every response, clearing the 90004 Low. First
+  deferred from F-8 on a report that CORP broke the NiceGUI websocket; a real-
+  browser re-investigation found the whole set safe. The deeper authenticated
+  schemathesis conformance fuzz stays operator-run (needs a bearer).

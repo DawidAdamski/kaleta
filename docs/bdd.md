@@ -4849,6 +4849,7 @@ Feature: Public API
     Given the web app serves a response (a page, an API reply, or an auth redirect)
     Then it carries a Content-Security-Policy and X-Frame-Options DENY so it cannot be framed
     And it carries X-Content-Type-Options nosniff, a Referrer-Policy and a Permissions-Policy
+    And it carries the Spectre site-isolation set: Cross-Origin-Opener-Policy same-origin, Cross-Origin-Embedder-Policy require-corp and Cross-Origin-Resource-Policy same-origin
     But Strict-Transport-Security is sent only when the session cookie is Secure (TLS in front)
     And KALETA_SECURITY_HEADERS_ENABLED false removes the headers for an unusual deploy
 
