@@ -210,7 +210,10 @@ async def _ask_for_code(user_id: int) -> bool:
             except RATE_LIMITER_BACKEND_ERRORS:
                 # Cleanup after a correct credential, not a gate: a backend that
                 # is down now must not undo a step that already passed.
-                logger.warning("Rate limiter backend unreachable while clearing MFA counter")
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(True)
 
         password_input.on("keydown.enter", _confirm)
@@ -338,7 +341,10 @@ async def _begin_hosted(user_id: int, email: str) -> HostedEnrolment | None:
             except RATE_LIMITER_BACKEND_ERRORS:
                 # Cleanup after a correct credential, not a gate: a backend that
                 # is down now must not undo a step that already passed.
-                logger.warning("Rate limiter backend unreachable while clearing MFA counter")
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(enrolment)
 
         password_input.on("keydown.enter", _confirm)
@@ -450,7 +456,10 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
             except RATE_LIMITER_BACKEND_ERRORS:
                 # Cleanup after a correct credential, not a gate: a backend that
                 # is down now must not undo a step that already passed.
-                logger.warning("Rate limiter backend unreachable while clearing MFA counter")
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(codes)
 
         code_input.on("keydown.enter", _confirm)
@@ -622,7 +631,10 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
             except RATE_LIMITER_BACKEND_ERRORS:
                 # Cleanup after a correct credential, not a gate: a backend that
                 # is down now must not undo a step that already passed.
-                logger.warning("Rate limiter backend unreachable while clearing MFA counter")
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             dialog.submit(True)
 
         password_input.on("keydown.enter", _confirm)

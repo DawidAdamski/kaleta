@@ -162,7 +162,10 @@ def register() -> None:
                     # The password was right; clearing the counter is cleanup,
                     # not a gate. A backend that is down now is no reason to
                     # refuse a sign-in that already succeeded.
-                    logger.warning("Rate limiter backend unreachable while clearing login counter")
+                    logger.warning(
+                        "Rate limiter backend unreachable while clearing login counter",
+                        exc_info=True,
+                    )
                 if isinstance(result, MfaRequired):
                     # The session stays unauthenticated until the code lands:
                     # a half-finished login must not open a single data page.

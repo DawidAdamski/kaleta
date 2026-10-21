@@ -184,7 +184,10 @@ async def _prompt(pending: MfaRequired, target: str) -> None:
                 # The code was right; clearing the counter is cleanup, not a
                 # gate, so a backend that is down now must not block a sign-in
                 # that already succeeded.
-                logger.warning("Rate limiter backend unreachable while clearing MFA counter")
+                logger.warning(
+                    "Rate limiter backend unreachable while clearing MFA counter",
+                    exc_info=True,
+                )
             clear_mfa_challenge()
             finish_login(
                 user_id=signed_in.user_id,
