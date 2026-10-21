@@ -529,10 +529,14 @@ class BudgetService:
             .options(selectinload(Budget.category))
             .order_by(Budget.year.desc(), Budget.month.desc())
         )
+        # A month filter is meaningless without a year, so default to the
+        # current one — the documented "month requires year" contract.
+        if month is not None and year is None:
+            year = datetime.date.today().year
+        if year is not None:
+            stmt = stmt.where(Budget.year == year)
         if month is not None:
-            stmt = stmt.where(
-                Budget.month == month, Budget.year == (year or datetime.date.today().year)
-            )
+            stmt = stmt.where(Budget.month == month)
         result = await self.session.execute(stmt)
         return builtins.list(result.scalars().all())
 

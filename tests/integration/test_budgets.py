@@ -30,6 +30,25 @@ class TestListBudgets:
         resp = await api_client.get("/api/v1/budgets/?month=13")
         assert resp.status_code == 422
 
+    async def test_list_filter_by_year_only(self, api_client: AsyncClient):
+        """Covers: KAL-API-007 — ?year= filters on its own, without a month."""
+        category = await create_category(api_client)
+        await api_client.post(
+            "/api/v1/budgets/", json=budget_payload(category["id"], year=2025, month=1)
+        )
+        await api_client.post(
+            "/api/v1/budgets/", json=budget_payload(category["id"], year=2026, month=1)
+        )
+        await api_client.post(
+            "/api/v1/budgets/", json=budget_payload(category["id"], year=2026, month=2)
+        )
+        resp = await api_client.get("/api/v1/budgets/?year=2026")
+        assert resp.status_code == 200
+        items = resp.json()
+        assert len(items) == 2
+        assert all(item["year"] == 2026 for item in items)
+        assert {item["month"] for item in items} == {1, 2}
+
 
 class TestCreateBudget:
     async def test_create_returns_201_with_schema_fields(self, api_client: AsyncClient):
