@@ -2,7 +2,6 @@
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from importlib.metadata import version as _pkg_version
 from typing import Any
 
 from nicegui import app, ui
@@ -10,6 +9,7 @@ from nicegui import app, ui
 from kaleta.auth.admin import ADMIN_PATH, session_is_admin
 from kaleta.config import settings
 from kaleta.i18n import t
+from kaleta.observability import app_version
 from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
     AVATAR,
@@ -44,10 +44,10 @@ from kaleta.views.theme import (
     theme_css,
 )
 
-try:
-    _APP_VERSION = f"v{_pkg_version('kaleta')}"
-except Exception:
-    _APP_VERSION = "v0.1.0"
+# The drawer foot carries the app version, `v`-prefixed. The version
+# itself comes from the one resolver (``kaleta.observability.app_version``,
+# which reads ``kaleta.__version__``); only the `v` prefix lives here.
+_APP_VERSION = f"v{app_version()}"
 
 # Drawer geometry from artboards `1c` (236px, the dashboard) and `2a` (64px
 # mini, the working screens).
