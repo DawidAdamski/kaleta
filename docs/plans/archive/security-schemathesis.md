@@ -3,8 +3,9 @@ plan_id: security-schemathesis
 title: schemathesis API-fuzzing runner for the security assessment (Slice 2b)
 area: security (dynamic scanners)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # schemathesis API-fuzzing runner for the security assessment (Slice 2b)
@@ -102,3 +103,32 @@ handler/validation logic, and `status_code_conformance` would just flag the
   seeded/staging instance; documented, not automated.
 - **Tooling-only slice.** Like Trivy/ZAP, no new `KAL-SEC-*` scenario (a scanner
   script is not user-facing app behaviour); short verify gate (no `src/` change).
+
+## Implementation
+
+Landed on 2026-10-21 (PR #313).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `35d8dd1` | Dawid Adamski | 2026-10-21 | Merge pull request #313 from DawidAdamski/feat/security-schemathesis |
+
+**Files changed:**
+- .gitignore
+- docs/plans/security-assessment.md
+- docs/plans/security-schemathesis.md
+- docs/security/assessment-2026-10-12.md
+- docs/security/README.md
+- pyproject.toml
+- scripts/security/scan_schemathesis.sh
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `./scripts/security/scan_schemathesis.sh` | 0 |
+| `./scripts/verify.sh` | 0 |
+
+Note: `plan_archive.sh` mis-parsed the prose bullet starting with `docs/security/README.md` as a command (exit 126), so it was run with --fast and the two real commands above were run by hand against a live instance.
+
+**Notes:** Feature commit is 91f74d5 ("feat(security): add a schemathesis API-fuzzing runner (Slice 2b)"), merged by 35d8dd1; the changed files match the plan's Touchpoints.
