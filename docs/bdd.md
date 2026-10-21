@@ -4746,6 +4746,36 @@ Feature: Currency rates — NBP Table A
     And the rate list marks the NBP rows as the instance's, which no family can delete
 ```
 
+## Feature: Housekeeping — Duplicate transactions
+
+Two bank exports of the same month, or a re-import, leave the ledger with
+duplicate transactions. Housekeeping detects them and lets the user merge a
+group down to one keeper. The keeper must not lose a link a duplicate carried.
+
+```gherkin
+Feature: Housekeeping — Duplicate transactions
+  As a user
+  I want merging duplicate transactions to keep their links
+  So that a merge never drops a fund payment or a planned-occurrence posting
+
+  KAL-DUP-001 @automated
+  Scenario: Merging duplicate transactions keeps a duplicate's fund and plan links
+    Given two duplicate transactions for the same expense
+    And the keeper has no irregular-fund item and no planned occurrence
+    And the other is booked against an irregular-fund item and a planned occurrence
+    When I merge them keeping the one without those links
+    Then the kept transaction is booked against that irregular-fund item
+    And the kept transaction posts that planned occurrence
+    And the duplicate is removed
+
+  KAL-DUP-002 @automated
+  Scenario: A merge never overwrites a link the keeper already has
+    Given two duplicate transactions each booked against a different irregular-fund item
+    When I merge them
+    Then the kept transaction keeps its own irregular-fund item
+    And the duplicate is removed
+```
+
 ## Feature: Housekeeping — Integrity
 
 ```gherkin
