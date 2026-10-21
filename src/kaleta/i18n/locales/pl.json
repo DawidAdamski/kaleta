@@ -1055,6 +1055,7 @@
     "vs_actual": "Budżet vs Wykonanie",
     "tab_overview": "Przegląd",
     "tab_realization": "Realizacja",
+    "tab_plan": "Plan",
     "realization": {
       "title": "Realizacja",
       "subtitle": "Jak każda kategoria z budżetem wygląda w tym miesiącu.",

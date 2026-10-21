@@ -1055,6 +1055,7 @@
     "vs_actual": "Budget vs Actual",
     "tab_overview": "Overview",
     "tab_realization": "Realization",
+    "tab_plan": "Plan",
     "realization": {
       "title": "Realization",
       "subtitle": "How each budgeted category is tracking this month.",

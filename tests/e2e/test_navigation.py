@@ -36,7 +36,6 @@ GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
     (
         "Plans & funds",
         [
-            ("Annual Plan", "/budget-plan"),
             ("Safety Funds", "/wizard/safety-funds"),
             ("Personal Loans", "/wizard/personal-loans"),
         ],

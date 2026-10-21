@@ -95,7 +95,6 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
     (
         "nav.group_plans",
         [
-            ("edit_note", "/budget-plan", "nav.budget_plan"),
             ("savings", "/wizard/safety-funds", "nav.safety_funds"),
             ("redeem", "/wizard/gifts", "nav.gifts"),
             ("handshake", "/wizard/personal-loans", "nav.personal_loans"),
