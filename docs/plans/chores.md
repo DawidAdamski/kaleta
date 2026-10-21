@@ -20,6 +20,13 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] `tests/e2e/_ports.py` `pick_free_port()` is called ~10 times back to back
+      at import; two calls could in theory return the same OS-ephemeral port
+      before either binds. Odds are negligible and a collision is self-announcing
+      (bind fails, `_wait_for_server` errors loudly), but to remove it entirely:
+      keep a module-level set of issued ports and retry on a repeat. (reviewer
+      nit on `e2e-parallel-isolation` / PR #325.)
+
 - [ ] The `nav.budget_plan` i18n key (en/pl) is now unreferenced since the
       sidebar entry was dropped in `budgets-unification-slice-1` (the planning
       grid is a Budgets tab now). Remove the key when slice 2 removes the
