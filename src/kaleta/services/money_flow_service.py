@@ -9,13 +9,13 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from kaleta.models.account import Account
 from kaleta.models.category import Category
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.services.categorised_flows import categorised_flows_selectable
 from kaleta.services.loan_links import loan_linked_transaction_ids
 
@@ -433,11 +433,31 @@ class MoneyFlowService:
         ]
 
     async def _net_transfers(self, start: datetime.date, end: datetime.date) -> list[_TransferEdge]:
-        """Net paired internal transfers into an acyclic account→account edge list."""
+        """Net paired internal transfers into an acyclic account→account edge list.
+
+        Each pair joins both ways on ``linked_transaction_id``; we keep exactly
+        one row per pair and take its ``src`` leg as the account the money left.
+        The source is the ``OUT`` leg (destination the ``IN`` leg), read from
+        ``transfer_direction`` — not inferred from id order, which draws the
+        ribbon backwards whenever the pair was formed after the fact (e.g.
+        ``pair_as_transfer`` / import "accept") with the incoming leg older.
+        Legacy rows with no direction on *either* leg fall back to the old
+        id-order rule so such a pair is still drawn, never dropped (the
+        ``ck_transactions_transfer_direction`` constraint makes this impossible
+        for a valid transfer row, so the fallback is defensive only).
+        """
         src = aliased(Transaction)
         dst = aliased(Transaction)
         src_acc = aliased(Account)
         dst_acc = aliased(Account)
+        source_is_out = or_(
+            src.transfer_direction == TransferDirection.OUT,
+            and_(
+                src.transfer_direction.is_(None),
+                dst.transfer_direction.is_(None),
+                src.id < dst.id,
+            ),
+        )
         stmt = (
             select(
                 src.account_id.label("from_id"),
@@ -454,7 +474,7 @@ class MoneyFlowService:
                 src.is_internal_transfer == True,  # noqa: E712
                 src.type == TransactionType.TRANSFER,
                 src.linked_transaction_id.is_not(None),
-                src.id < dst.id,
+                source_is_out,
                 src.account_id != dst.account_id,
                 and_(src.date >= start, src.date < end),
             )

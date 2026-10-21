@@ -267,6 +267,53 @@ class TestMoneyFlowBuild:
         assert by_edge[(f"in:{salary}", f"acc:{checking}")] == Decimal("3000")
         assert by_edge[(f"acc:{checking}", f"out:{food}")] == Decimal("200")
 
+    async def test_transfer_ribbon_follows_stored_direction_not_id_order(
+        self, svc: MoneyFlowService, session: AsyncSession
+    ) -> None:
+        """Covers: KAL-FLW-005
+
+        A pair formed after the fact (``pair_as_transfer``) can have the
+        incoming leg with the lower id. The source→destination ribbon must
+        follow ``transfer_direction`` (OUT = source), not id order.
+        """
+        from kaleta.schemas.transaction import TransactionCreate
+
+        source = await _make_account(session, "MF Dir Source")
+        destination = await _make_account(session, "MF Dir Destination")
+        in_cat = await _make_category(session, "MF Dir In", CategoryType.INCOME)
+        out_cat = await _make_category(session, "MF Dir Out", CategoryType.EXPENSE)
+        d = datetime.date(2025, 8, 15)
+        tx_svc = TransactionService(session)
+        # Arriving row recorded first → lower id; id-order would call it source.
+        arriving = await tx_svc.create(
+            TransactionCreate(
+                account_id=destination,
+                category_id=in_cat,
+                amount=Decimal("300"),
+                type=TransactionType.INCOME,
+                date=d,
+                description="arrived",
+            )
+        )
+        leaving = await tx_svc.create(
+            TransactionCreate(
+                account_id=source,
+                category_id=out_cat,
+                amount=Decimal("300"),
+                type=TransactionType.EXPENSE,
+                date=d,
+                description="left",
+            )
+        )
+        assert arriving.id < leaving.id
+        await tx_svc.pair_as_transfer(expense_id=leaving.id, income_id=arriving.id)
+
+        flow = await svc.build(*month_bounds(2025, 8), mode="accounts")
+        assert flow.total_transfers == Decimal("300")
+        by_edge = {(lnk.source, lnk.target): lnk.amount for lnk in flow.links}
+        assert by_edge[(f"acc:{source}", f"acc:{destination}")] == Decimal("300")
+        assert (f"acc:{destination}", f"acc:{source}") not in by_edge
+
     async def test_budget_mode_hides_transfers(
         self, svc: MoneyFlowService, session: AsyncSession
     ) -> None:

@@ -3297,6 +3297,14 @@ Feature: Money Flow
     Then income flows into the account and expenses leave it
     And the transfer appears as a ribbon between the two account nodes
     And income and expense totals ignore the transfer amounts
+
+  KAL-FLW-005 @automated
+  Scenario: Transfer ribbon follows the stored direction, not row order
+    Given two imported rows are paired as a transfer of 300.00 from "Source" to "Destination"
+    And the arriving row was recorded before the leaving row
+    When I open the Money Flow report in Accounts view
+    Then the ribbon runs from "Source" to "Destination"
+    And no ribbon runs from "Destination" to "Source"
 ```
 
 ---
