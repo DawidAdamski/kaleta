@@ -3,8 +3,9 @@ plan_id: security-assessment
 title: Security assessment of Kaleta — a Kali toolbox walk against our own instance
 area: security
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Security assessment of Kaleta — a Kali toolbox walk against our own instance
@@ -153,3 +154,45 @@ This is a `large` plan; it ships in single-purpose PRs rather than one diff:
   smaller — with Kali named as the reference checklist, not a runtime dependency.
 - How to handle a finding in a dependency we cannot upgrade yet? Default: record severity,
   pin a mitigation, and track it; do not silence the advisory.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5f9444b` | Dawid (Ani) | 2026-10-12 | feat(security): assessment recon + static pass (Slice 1) |
+| `37b3d00` | Dawid (Ani) | 2026-10-20 | feat(security): add an OWASP ZAP baseline runner (Slice 2a) |
+| `91f74d5` | Dawid (Ani) | 2026-10-21 | feat(security): add a schemathesis API-fuzzing runner (Slice 2b) |
+| `ef15bc1` | Dawid (Ani) | 2026-10-20 | feat(security): add Trivy scanner (fs/config/secret/image) to the toolbox |
+| `a39b390` | Dawid (Ani) | 2026-10-21 | feat(security): run the server-less security checks nightly in CI |
+
+**Files changed:**
+- .github/workflows/security-nightly.yml
+- .gitignore
+- docs/plans/chores.md
+- docs/plans/security-assessment.md
+- docs/plans/security-nightly-ci.md
+- docs/plans/security-schemathesis.md
+- docs/plans/security-trivy-scan.md
+- docs/plans/security-zap-baseline.md
+- docs/review-checklist.md
+- docs/security/assessment-2026-10-12.md
+- docs/security/README.md
+- pyproject.toml
+- scripts/security/audit_deps.sh
+- scripts/security/scan_schemathesis.sh
+- scripts/security/scan_trivy.sh
+- scripts/security/scan_zap.sh
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `docs/security/assessment-<date>.md` exists (manual: assessment-2026-10-12.md present) | verified manually |
+| `scripts/security/` runners + `docs/security/README.md` (manual: present) | verified manually |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `scripts/security/audit_deps.sh` (dependency advisory check) | 0 |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

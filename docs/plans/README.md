@@ -234,7 +234,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 
 | Plan | Issue | Effort | Status | Depends on |
 |---|---|---|---|---|
-| [transactions-search-render-race](transactions-search-render-race.md) | dogfooding | small | in-progress | — |
+| [transactions-search-render-race](archive/transactions-search-render-race.md) | archived | small | in-progress | — |
 | [transactions-display-defaults](archive/transactions-display-defaults.md) | dogfooding | small | archived | — |
 | [transfers-manual-pairing](archive/transfers-manual-pairing.md) | archived | medium | draft | — |
 | [payees-merge-suggestions-gaps](archive/payees-merge-suggestions-gaps.md) | archived | small | draft | — |
@@ -362,7 +362,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [category-templates](archive/category-templates.md) | archived | Setup — category templates per persona |
-| [security-assessment](security-assessment.md) | draft | Security — pre-launch assessment |
+| [security-assessment](archive/security-assessment.md) | archived | Security — pre-launch assessment |
 | [deploy-k3s](deploy-k3s.md) | draft | Deploy — self-hosted k3s (do last) |
 | [accounts-ledger-balances](archive/accounts-ledger-balances.md) | archived | Accounts — balances follow the ledger (blocks funds-savings-goals, funds-irregular-items) |
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |

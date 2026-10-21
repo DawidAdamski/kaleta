@@ -3,8 +3,9 @@ plan_id: lint-hardening-part-2
 title: Lint hardening Part 2 — more ruff families, stricter mypy, money-type guard
 area: ci
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Lint hardening Part 2
@@ -93,3 +94,60 @@ access, perf, `dict()` literals) and one `# noqa: TID251` in
   so `ignore-without-code` is satisfied). These were masked on `main` only by a
   stale `.mypy_cache`. Logged to chores so the maintainer can decide whether to
   type these returns properly.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1082235` | Dawid (Ani) | 2026-10-13 | ci: lint hardening part 2 — more ruff families, mypy codes, money-type guard |
+| `5718fd8` | Dawid (Ani) | 2026-10-13 | ci: widen money guard + plan touchups (review nits) |
+
+**Files changed:**
+- docs/plans/chores.md
+- docs/plans/lint-hardening-part-2.md
+- pyproject.toml
+- scripts/benchmark_forecast_fallback.py
+- scripts/check_doc_links.py
+- src/kaleta/api/errors.py
+- src/kaleta/api/v1/budgets.py
+- src/kaleta/api/v1/categories.py
+- src/kaleta/api/v1/institutions.py
+- src/kaleta/api/v1/payees.py
+- src/kaleta/api/v1/transactions.py
+- src/kaleta/auth/session.py
+- src/kaleta/db/audit.py
+- src/kaleta/debug_info.py
+- src/kaleta/models/payee_merge.py
+- src/kaleta/seeders/__init__.py
+- src/kaleta/seeders/budgets.py
+- src/kaleta/services/budget_service.py
+- src/kaleta/services/category_service.py
+- src/kaleta/services/currency_rate_service.py
+- src/kaleta/services/data_encryption_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/reserve_fund_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/reports_canned/cash_flow.py
+- src/kaleta/views/reports_canned/income_statement.py
+- src/kaleta/views/reports_canned/scaffold.py
+- src/kaleta/views/transactions/edit_dialog.py
+- tests/unit/schemas/test_budget_schema.py
+- tests/unit/schemas/test_transaction_schema.py
+- tests/unit/services/test_planned_transaction_service.py
+- tests/unit/services/test_reserve_fund_service.py
+- tests/unit/services/test_transaction_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `grep -q '"ASYNC"' pyproject.toml` | 0 |
+| `grep -q 'banned-api' pyproject.toml` | 0 |
+| `grep -q 'ignore-without-code' pyproject.toml` | 0 |
+| `uv run ruff check .` | 0 |
+| `uv run mypy src/` | 0 |
+| `./scripts/verify.sh` | skipped (--fast; green at implementation time) |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

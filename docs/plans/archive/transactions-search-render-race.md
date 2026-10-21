@@ -3,8 +3,9 @@ plan_id: transactions-search-render-race
 title: Transactions search renders a second table (async-refresh race)
 area: views (transactions)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Transactions search renders a second table (async-refresh race)
@@ -76,3 +77,30 @@ BDD scenario, and this plan.
   of clicks makes into one re-run, and only genuinely separate input events
   (keystrokes) overlap. So the honest, directly-tested fix is the token alone;
   a search debounce can be revisited as a query-load chore.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ca9e23a` | Dawid (Ani) | 2026-10-14 | fix(transactions): stop the ledger search painting a second table |
+| `63e02b3` | Dawid (Ani) | 2026-10-14 | fix(transactions): drop debounce, keep the render-token guard as the fix |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/README.md
+- docs/plans/transactions-search-render-race.md
+- src/kaleta/views/components/filter_bar.py
+- src/kaleta/views/transactions/page.py
+- tests/e2e/test_transactions_search_race.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `./scripts/verify.sh --e2e` | skipped (--fast; green at implementation time) |
+| `uv run python scripts/spec_coverage.py` | 0 |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

@@ -3,8 +3,9 @@ plan_id: ci-release-image-and-retention
 title: Release image dispatch resilience + registry tag retention
 area: ci
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Release image dispatch resilience + registry tag retention
@@ -64,7 +65,7 @@ Does NOT cover:
 ## Acceptance criteria
 - `test -f .github/workflows/image-retention.yml`
 - `grep -q "always()" .github/workflows/release-please.yml`
-- `grep -q "release_created == 'true'" .github/workflows/release-please.yml`
+- `grep -q 'gh release view' .github/workflows/release-please.yml`
 - `grep -q 'secrets.DOCKER_USERNAME' .github/workflows/image-retention.yml`
 - `! grep -riq 'anihilat' .github/workflows/`
 - `python -c "import yaml,sys; [yaml.safe_load(open(f)) for f in ['.github/workflows/release-please.yml','.github/workflows/image-retention.yml']]"`
@@ -91,6 +92,14 @@ Does NOT cover:
   a repo setting / external app, out of scope for a workflow PR. The
   `always()` guard makes the image build independent of it, which is the
   durable fix either way.
+- **Follow-on hardening (post-plan).** The `release_created == 'true'` guard
+  was later found to still skip when release-please returns empty outputs
+  (observed for v0.4.0). It was replaced with HEAD-tag detection: the dispatch
+  step now runs under plain `if: ${{ always() }}` and resolves the tag via
+  `gh release view`. The goal (image builds despite the cosmetic locked-comment
+  failure) is unchanged and now more robust; the acceptance criterion above was
+  updated from the old `release_created == 'true'` grep to `gh release view` to
+  match what shipped.
 - **Retention — only `sha-*`, never semver/main.** Docker Hub prune selects
   strictly `^sha-` tags, sorts by `last_updated` desc, keeps `KEEP_SHA=10`,
   deletes the tail. `main`/`latest`/semver are unreachable by the selector.
@@ -110,3 +119,28 @@ Does NOT cover:
   yields a JWT; API calls use `Authorization: JWT <token>`. The PAT needs
   **delete** scope, or the `DELETE /tags/<name>/` call returns 401/403 —
   `DOCKER_TOKEN` may need widening from the push-only scope docker.yml uses.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ba114fd` | Dawid (Ani) | 2026-10-13 | ci: make release image dispatch resilient + add tag retention |
+| `20654cb` | Dawid (Ani) | 2026-10-13 | ci: drop unsafe GHCR untagged prune, add concurrency (review) |
+
+**Files changed:**
+- .github/workflows/image-retention.yml
+- .github/workflows/release-please.yml
+- docs/plans/ci-release-image-and-retention.md
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `test -f .github/workflows/image-retention.yml` | 0 |
+| `grep -q "always()" .github/workflows/release-please.yml` | 0 |
+| `grep -q 'gh release view' .github/workflows/release-please.yml` | 0 |
+| `grep -q 'secrets.DOCKER_USERNAME' .github/workflows/image-retention.yml` | 0 |
+| `! grep -riq 'anihilat' .github/workflows/` | 0 |
+| yaml parse of both workflows (via `uv run python`) | 0 |
