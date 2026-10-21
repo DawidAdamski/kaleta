@@ -3644,6 +3644,21 @@ Feature: Two-factor authentication
     Then a login from that address on the second replica is refused for 15 minutes
     And failures split between the replicas add up to the same lock
 
+  # @manual for the visible toast: the limiter fails closed by raising a Redis
+  # error (the integration test pins that the view layer catches exactly that
+  # error — KAL-AUTH-041). Driving it to the toast in a browser is not
+  # reproducible in the e2e harness, because the only trigger (KALETA_REDIS_URL
+  # set and Redis unreachable) also backs NiceGUI's session storage, so the
+  # login page 500s before the submit handler runs.
+  KAL-AUTH-041 @manual
+  Scenario: A login attempt says so when the rate limiter's backend is down
+    Given Kaleta runs with KALETA_REDIS_URL pointing at a Redis that is unreachable
+    And I am on the login page
+    When I submit my e-mail and password
+    Then I am not signed in
+    And I see a message that the sign-in service is temporarily unavailable
+    And the same is true of the second-factor prompt and the Security settings dialogs
+
   # Hosted (KALETA_AUTH_BACKEND=supabase): Supabase Auth holds the factor and
   # checks the codes; Kaleta keeps the recovery codes.
 

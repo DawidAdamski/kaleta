@@ -14,13 +14,14 @@ hint says before anyone spends one.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
-from kaleta.auth.login_rate_limit import mfa_rate_limiter
+from kaleta.auth.login_rate_limit import RATE_LIMITER_BACKEND_ERRORS, mfa_rate_limiter
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
     clear_mfa_challenge,
@@ -43,6 +44,18 @@ from kaleta.views.theme import AUTH_SUBTITLE
 
 if TYPE_CHECKING:
     from kaleta.schemas.identity import MfaRequired
+
+logger = logging.getLogger(__name__)
+
+
+def _rate_limiter_unavailable() -> None:
+    """Toast shown when the rate limiter's backend (Redis) cannot be reached.
+
+    The limiter fails closed on purpose, so the code is not accepted — but a
+    dead click with nothing said is worse than a sentence asking the user to
+    try again once the backend is back.
+    """
+    ui.notify(t("common.rate_limit_unavailable"), type="warning")
 
 
 def _back_to_login(reason: str, target: str) -> str:
@@ -111,9 +124,15 @@ async def _prompt(pending: MfaRequired, target: str) -> None:
             if hosted_mfa_pending() != pending:
                 ui.navigate.to(_back_to_login("mfa_expired", target))
                 return
-            if mfa_rate_limiter.is_locked(rate_key):
-                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                _say(t("auth.mfa_rate_limited", seconds=secs))
+            try:
+                if mfa_rate_limiter.is_locked(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    _say(t("auth.mfa_rate_limited", seconds=secs))
+                    return
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # Can't reach the counter to know whether this user is locked,
+                # so fail closed: do not check the code, say so.
+                _rate_limiter_unavailable()
                 return
 
             using_recovery = recovery_block.visible
@@ -147,16 +166,25 @@ async def _prompt(pending: MfaRequired, target: str) -> None:
                 _say(exc.message)
                 return
             if signed_in is None:
-                if mfa_rate_limiter.record_failure(rate_key):
-                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
-                    _say(t("auth.mfa_rate_limited", seconds=secs))
-                else:
-                    _say(t("auth.mfa_failed"))
+                try:
+                    if mfa_rate_limiter.record_failure(rate_key):
+                        secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                        _say(t("auth.mfa_rate_limited", seconds=secs))
+                    else:
+                        _say(t("auth.mfa_failed"))
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    _rate_limiter_unavailable()
                 code.value = ""
                 recovery.value = ""
                 return
 
-            mfa_rate_limiter.clear(rate_key)
+            try:
+                mfa_rate_limiter.clear(rate_key)
+            except RATE_LIMITER_BACKEND_ERRORS:
+                # The code was right; clearing the counter is cleanup, not a
+                # gate, so a backend that is down now must not block a sign-in
+                # that already succeeded.
+                logger.warning("Rate limiter backend unreachable while clearing MFA counter")
             clear_mfa_challenge()
             finish_login(
                 user_id=signed_in.user_id,

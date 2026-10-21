@@ -322,12 +322,19 @@ check it still reproduces before acting on it.
       `~/.kaleta/nicegui` — so e2e session files land there, not under the
       temp `HOME`. Drop the variable from the child env, as the restart test
       does. Found by `plan/auth-session-hosted-readiness`.
-- [ ] With `KALETA_REDIS_URL` set and Redis unreachable, the rate limiter
+- [x] With `KALETA_REDIS_URL` set and Redis unreachable, the rate limiter
       raises inside the login/MFA click handlers (fail closed, by design);
       the views do not catch it, so the user gets no message. Wrap the
       limiter calls in `views/login.py`, `views/login_mfa.py` and
       `views/settings/security_tab.py` and show a "try again shortly" toast.
       Found by `plan/auth-session-hosted-readiness`.
+      (Fixed: plan/rate-limiter-login-toast, KAL-AUTH-041): limiter calls in
+      all three views now catch `RATE_LIMITER_BACKEND_ERRORS` (the redis error
+      the limiter raises when the backend is down) and show a warning toast
+      (`common.rate_limit_unavailable`); the gate/record_failure fail closed
+      (action does not proceed), while the success-path `clear()` is
+      best-effort so a correct credential is not blocked by a cleanup that
+      cannot reach Redis.
 - [ ] `MoneyFlowService` reads a transfer's direction as "lower id is the
       source leg" (`src.id < dst.id`). Rows paired after the fact
       (`TransactionService.pair_as_transfer`, import "accept") can have the
