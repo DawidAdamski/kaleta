@@ -14,6 +14,7 @@ from collections.abc import Generator
 import pytest
 from playwright.sync_api import Page
 
+from tests.e2e._ports import pick_free_port
 from tests.e2e.conftest import (
     E2E_APP_ENV,
     PROJECT_ROOT,
@@ -25,7 +26,7 @@ from tests.e2e.conftest import (
 )
 from tests.suite_database import fresh_database_url
 
-DEMO_PORT = 8082
+DEMO_PORT = pick_free_port()
 DEMO_BASE = f"http://127.0.0.1:{DEMO_PORT}"
 
 
@@ -45,6 +46,7 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     env["KALETA_DEMO"] = "true"
     env["KALETA_DB_URL"] = db_url
     env["NICEGUI_SCREEN_TEST_PORT"] = str(DEMO_PORT)
+    env.pop("NICEGUI_STORAGE_PATH", None)
 
     proc = subprocess.Popen(
         ["uv", "run", "kaleta"],

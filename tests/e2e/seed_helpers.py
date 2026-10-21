@@ -14,10 +14,12 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from tests.e2e._ports import E2E_PORT
+
 if TYPE_CHECKING:
     from kaleta.db.tenant_context import TenantContext
 
-API_BASE = "http://127.0.0.1:8081/api/v1"
+API_BASE = f"http://127.0.0.1:{E2E_PORT}/api/v1"
 _client = httpx.Client(timeout=10.0)
 #: The e2e database, for the helpers that go through the service layer.
 _db_url: str | None = None

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E: the data passphrase, on an app of its own with encryption on (the default).
 
-One app of its own (port 8083), one user, and the scenarios in the order a
+One app of its own (its own free port), one user, and the scenarios in the order a
 person meets them: choose the passphrase at the first sign-in, unlock after
 the next one, get it wrong, lock, recover with the code, change it, read the
 privacy statement. Later tests build on the state earlier ones leave
@@ -22,6 +22,7 @@ from collections.abc import Generator
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._ports import pick_free_port
 from tests.e2e.conftest import (
     E2E_APP_ENV,
     PROJECT_ROOT,
@@ -33,7 +34,7 @@ from tests.e2e.conftest import (
 )
 from tests.suite_database import fresh_database_url
 
-ENC_PORT = 8083
+ENC_PORT = pick_free_port()
 ENC_BASE = f"http://127.0.0.1:{ENC_PORT}"
 
 # Literals from the KAL-ENC scenarios.
@@ -63,6 +64,7 @@ def encrypted_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]
     env["KALETA_DB_URL"] = db_url
     env["KALETA_ENCRYPTION"] = "passphrase"
     env["NICEGUI_SCREEN_TEST_PORT"] = str(ENC_PORT)
+    env.pop("NICEGUI_STORAGE_PATH", None)
 
     proc = subprocess.Popen(
         ["uv", "run", "kaleta"],

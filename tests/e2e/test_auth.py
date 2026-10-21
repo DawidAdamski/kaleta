@@ -19,6 +19,7 @@ import httpx
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._ports import pick_free_port
 from tests.e2e.conftest import (
     E2E_APP_ENV,
     E2E_EMAIL,
@@ -33,11 +34,12 @@ from tests.e2e.conftest import (
 )
 from tests.suite_database import fresh_database_url
 
-# Its own port: 8081 is the shared e2e server, 8082 the demo-banner one.
-SECURE_COOKIE_PORT = 8083
+# Each server gets its own free port, chosen per pytest process so parallel
+# e2e runs never collide (see tests/e2e/_ports.py).
+SECURE_COOKIE_PORT = pick_free_port()
 SECURE_COOKIE_BASE = f"http://127.0.0.1:{SECURE_COOKIE_PORT}"
-# Restarted mid-test, so it cannot be the shared server either.
-RESTART_PORT = 8084
+# Restarted mid-test, so the port is picked once and reused across restarts.
+RESTART_PORT = pick_free_port()
 RESTART_BASE = f"http://127.0.0.1:{RESTART_PORT}"
 
 
@@ -244,6 +246,8 @@ def secure_cookie_server(
     env["KALETA_SESSION_COOKIE_SECURE"] = "true"
     env["KALETA_SESSION_TTL_HOURS"] = "72"
     env["NICEGUI_SCREEN_TEST_PORT"] = str(SECURE_COOKIE_PORT)
+    # Keep this server's session store under its own temp HOME, not the dev's.
+    env.pop("NICEGUI_STORAGE_PATH", None)
 
     proc = subprocess.Popen(
         ["uv", "run", "kaleta"],
