@@ -700,3 +700,13 @@ check it still reproduces before acting on it.
       the server-less ones (`scan_trivy.sh` fs/config/secret, `audit_deps.sh`)
       so advisories/misconfig are caught without touching PR latency
       (`security-assessment.md` Slice 2, open question 1).
+- [ ] `scripts/plan_archive.sh` acceptance-criterion extraction is too greedy:
+      it treats the first backticked token of *any* `- ` bullet under
+      `## Acceptance criteria` as a shell command (`bash -c`), so a prose
+      bullet that opens with a backticked **file path** (e.g.
+      `` - `docs/security/README.md` lists … ``) is run as a command and
+      aborts the archive (exit 126/127). Hit while archiving the Slice-2
+      security plans, worked around with `--fast`. Skip bullets whose
+      backticked text looks like a path (has a `/` or a known file
+      extension, no leading `./scripts` / `uv ` / shell builtin), or require
+      an explicit marker for runnable criteria.

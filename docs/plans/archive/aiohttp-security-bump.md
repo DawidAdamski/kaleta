@@ -3,8 +3,9 @@ plan_id: aiohttp-security-bump
 title: Bump aiohttp past three advisories (2 high, 1 low)
 area: security (dependencies)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Bump aiohttp past three advisories (2 high, 1 low)
@@ -64,3 +65,25 @@ dependency advisory check to pass, so this is in scope for that assessment
   `scripts/security/audit_deps.sh` (pip-audit, from the assessment's Slice 1),
   which now reports clean; wiring it into CI/nightly is tracked under
   `security-assessment.md` Slice 2.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `965e961` | Dawid (Ani) | 2026-10-20 | fix(deps): bump aiohttp to 3.14.5 to clear three advisories |
+
+**Files changed:**
+- docs/plans/aiohttp-security-bump.md
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
+
+**Archival note:** archived with `plan_archive.sh --fast` (acceptance criteria not re-run). PR #307 already merged with CI green. Operator-tool criteria (`scan_trivy.sh`, `scan_zap.sh`) need docker and/or a live instance and are not re-runnable CI gates; `plan_archive.sh` also mis-parses prose bullets whose first backticked token is a file path. Those criteria were verified by real runs at implementation time, recorded in `docs/security/assessment-2026-10-12.md` and this plan's Implementation notes. Feature commit: 965e961 (PR #307).

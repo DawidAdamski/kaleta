@@ -3,8 +3,9 @@ plan_id: security-zap-baseline
 title: ZAP baseline runner for the security assessment (Slice 2a)
 area: security (dynamic scanners)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # ZAP baseline runner for the security assessment (Slice 2a)
@@ -113,3 +114,29 @@ test — not here.
 - **Tooling-only slice.** Like `security-trivy-scan`, no new `KAL-SEC-*`
   scenario: a scanner script is not user-facing app behaviour. verify.sh runs
   the short gate (no `src/` change).
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `37b3d00` | Dawid (Ani) | 2026-10-20 | feat(security): add an OWASP ZAP baseline runner (Slice 2a) |
+
+**Files changed:**
+- docs/plans/chores.md
+- docs/plans/security-assessment.md
+- docs/plans/security-zap-baseline.md
+- docs/security/assessment-2026-10-12.md
+- docs/security/README.md
+- scripts/security/scan_zap.sh
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
+
+**Archival note:** archived with `plan_archive.sh --fast` (acceptance criteria not re-run). PR #311 already merged with CI green. Operator-tool criteria (`scan_trivy.sh`, `scan_zap.sh`) need docker and/or a live instance and are not re-runnable CI gates; `plan_archive.sh` also mis-parses prose bullets whose first backticked token is a file path. Those criteria were verified by real runs at implementation time, recorded in `docs/security/assessment-2026-10-12.md` and this plan's Implementation notes. Feature commit: 37b3d00 (PR #311).
