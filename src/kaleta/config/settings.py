@@ -4,8 +4,11 @@ import os
 from pathlib import Path
 from typing import Literal
 
+from pydantic import ValidationError as PydanticValidationError
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from kaleta.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -320,4 +323,42 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()
+def _format_settings_error(exc: PydanticValidationError) -> str:
+    """Summarise a settings ``ValidationError`` without echoing any value.
+
+    pydantic records each offending field's raw ``input`` on the error (and
+    ``hide_input_in_errors`` only masks ``str(exc)``, not ``exc.errors()``).
+    For settings those inputs come from the environment / ``.env``, so the raw
+    error can carry the start of ``KALETA_SECRET_KEY`` or another secret. We
+    build the message from ``loc``, ``msg``, and ``type`` only — never
+    ``input`` or ``ctx`` — so no secret reaches stderr or the logs.
+    """
+    parts: list[str] = []
+    for err in exc.errors(include_url=False):
+        loc = ".".join(str(segment) for segment in err["loc"]) or "(settings)"
+        parts.append(f"{loc}: {err['msg']} [{err['type']}]")
+    count = len(parts)
+    noun = "error" if count == 1 else "errors"
+    return f"Invalid Kaleta settings ({count} {noun}): {'; '.join(parts)}"
+
+
+def load_settings() -> Settings:
+    """Build :class:`Settings`, reporting a validation failure by message only.
+
+    Matches the previous fail-at-import behaviour (an invalid configuration
+    still stops startup here) but raises a sanitised
+    :class:`kaleta.exceptions.ValidationError` instead of the bare pydantic
+    error. The sanitised message is captured inside the ``except`` block and
+    raised *after* leaving it, so the pydantic exception — which still holds
+    the raw ``input`` values on its ``errors()`` — is not attached to our error
+    at all (neither ``__cause__`` nor ``__context__``), rather than merely
+    hidden from traceback rendering by ``from None``.
+    """
+    try:
+        return Settings()
+    except PydanticValidationError as exc:
+        message = _format_settings_error(exc)
+    raise ValidationError(message)
+
+
+settings = load_settings()
