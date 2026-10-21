@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate
@@ -236,3 +236,54 @@ async def test_recognised_transfer_is_out_of_month_totals_and_neutral(
         row = TransactionService.build_table_row(leg, None, "none")
         assert row["type"] == "transfer"
         assert amount_class(row["type"]) == AMOUNT_NEUTRAL
+
+
+@pytest.mark.asyncio
+async def test_transfer_leg_is_signed_by_its_direction_in_the_ledger(
+    session: AsyncSession,
+) -> None:
+    """A transfer's incoming leg reads positive on the account it arrived on.
+
+    The outgoing leg left "mBank" (money out, negative); the incoming leg
+    arrived on "PKO BP" (money in, positive) — not both negative as when the
+    sign came from the type alone.
+
+    Covers: KAL-TRF-005
+    """
+    today = datetime.date.today()
+    mbank = await _account(session, "mBank")
+    pko = await _account(session, "PKO BP")
+    spend = await _category(session, "Groceries", CategoryType.EXPENSE)
+    earn = await _category(session, "Salary", CategoryType.INCOME)
+    expense_id = await _row(
+        session,
+        account_id=mbank,
+        category_id=spend,
+        tx_type=TransactionType.EXPENSE,
+        amount="500.00",
+        day=today,
+        description="Przelew własny",
+    )
+    income_id = await _row(
+        session,
+        account_id=pko,
+        category_id=earn,
+        tx_type=TransactionType.INCOME,
+        amount="500.00",
+        day=today,
+        description="Przelew własny",
+    )
+
+    out_leg, in_leg = await TransactionService(session).pair_as_transfer(expense_id, income_id)
+
+    assert out_leg.account_id == mbank
+    assert out_leg.transfer_direction is TransferDirection.OUT
+    out_row = TransactionService.build_table_row(out_leg, None, "none")
+    assert out_row["amount_value"] == "-500.00"
+    assert out_row["amount"] == "-500.00"
+
+    assert in_leg.account_id == pko
+    assert in_leg.transfer_direction is TransferDirection.IN
+    in_row = TransactionService.build_table_row(in_leg, None, "none")
+    assert in_row["amount_value"] == "500.00"
+    assert in_row["amount"] == "+500.00"

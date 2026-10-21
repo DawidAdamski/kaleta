@@ -341,12 +341,18 @@ check it still reproduces before acting on it.
       history (`NetWorthService._monthly_history`) skips every transfer row,
       so it does not see that lone leg either, while the current balance
       does. Found by `plan/accounts-ledger-balances`.
-- [ ] The ledger shows every transfer leg as money out
+- [x] The ledger shows every transfer leg as money out
       (`TransactionService.signed_amount` signs by type only), so the
       incoming leg of a goal contribution reads "-500.00" on the account
       it arrived on. Sign it by `transfer_direction`, which rows now
       carry. Found by `plan/funds-savings-goals`.
-- [ ] e2e tests still click options straight from an open `.q-menu`
+      (Fixed: `plan/ledger-transfer-leg-sign`, KAL-TRF-005.)
+- [ ] Dashboard "recent transactions" (`views/components/recent_transactions.py`
+      ~:70,148,150) still builds rows with the 2-arg `signed_amount`/`format_signed_amount`,
+      so a transfer's incoming leg shows negative there — it now disagrees with the
+      ledger after `ledger-transfer-leg-sign`. Thread `transfer_direction` through as
+      the ledger's `build_table_row` does. Planned/forecast rows are fine (occurrences
+      carry no direction). Found reviewing `plan/ledger-transfer-leg-sign`.
       (`page.locator(".q-menu").get_by_text(...).click()`) instead of
       `tests/e2e/ledger.pick_open_menu_option`, so they break once the shared
       instance holds enough rows to push their option out of the rendered

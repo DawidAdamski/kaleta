@@ -695,20 +695,37 @@ class TransactionService:
         return day.strftime("%d.%m")
 
     @staticmethod
-    def signed_amount(amount: Decimal, tx_type: TransactionType) -> Decimal:
-        """Money in as positive, everything else as negative.
+    def signed_amount(
+        amount: Decimal,
+        tx_type: TransactionType,
+        transfer_direction: TransferDirection | None = None,
+    ) -> Decimal:
+        """Money in as positive, money out as negative.
 
         The one place the ledger's sign convention lives, so a total under a
-        column of figures cannot disagree with the figures themselves.
+        column of figures cannot disagree with the figures themselves. Income
+        is money in; expense is money out. A transfer leg goes either way
+        according to ``transfer_direction`` — the incoming leg arrived on its
+        account (positive), the outgoing leg left it (negative) — matching how
+        ``AccountService.signed_ledger_amount`` moves the balance. A transfer
+        with no direction given falls back to money out, the old behaviour.
         """
         if tx_type == TransactionType.INCOME:
+            return abs(amount)
+        if tx_type == TransactionType.TRANSFER and transfer_direction == TransferDirection.IN:
             return abs(amount)
         return -abs(amount)
 
     @staticmethod
-    def format_signed_amount(amount: Decimal, tx_type: TransactionType) -> str:
+    def format_signed_amount(
+        amount: Decimal,
+        tx_type: TransactionType,
+        transfer_direction: TransferDirection | None = None,
+    ) -> str:
         """The row's figure, signed — except zero, which has no direction."""
-        return TransactionService.format_net(TransactionService.signed_amount(amount, tx_type))
+        return TransactionService.format_net(
+            TransactionService.signed_amount(amount, tx_type, transfer_direction)
+        )
 
     @staticmethod
     def format_net(net: Decimal) -> str:
@@ -758,11 +775,15 @@ class TransactionService:
             "split_count": split_count,
             "split_tooltip": split_tooltip,
             "type": transaction.type.value,
-            "amount": TransactionService.format_signed_amount(transaction.amount, transaction.type),
+            "amount": TransactionService.format_signed_amount(
+                transaction.amount, transaction.type, transaction.transfer_direction
+            ),
             # Kept beside the formatted string so a selection total can be summed
             # without parsing it back out of the display.
             "amount_value": str(
-                TransactionService.signed_amount(transaction.amount, transaction.type)
+                TransactionService.signed_amount(
+                    transaction.amount, transaction.type, transaction.transfer_direction
+                )
             ),
             "tags": "",
             "tags_data": [
@@ -860,16 +881,15 @@ class TransactionService:
     def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:
         """What a set of ledger rows did to the user's money.
 
-        Transfers are left out of it entirely. Both legs of an internal
-        transfer are stored the same way — type ``transfer``, a positive
-        amount, no direction — so the ledger cannot say whether a leg it is
-        holding sent the money or received it, and paints both as outflows.
-        Counting a lone leg would therefore be right for half of them and
-        wrong for the other half; counting both would show money leaving
-        twice when it only moved between the user's own accounts. A net that
-        says nothing about a transfer is honest, and the rule is the same
-        wherever it is read, so the group separator and the selection bar
-        cannot disagree.
+        Transfers are left out of it entirely. The money only moved between
+        the user's own accounts, so it neither entered nor left: counting both
+        legs would show money leaving once and arriving once (or, on a single
+        selected account, leaving twice), and counting a lone leg would claim
+        a direction the net has no business claiming. A net that says nothing
+        about a transfer is honest, and the rule is the same wherever it is
+        read, so the group separator and the selection bar cannot disagree.
+        (Each leg's own figure is signed by its ``transfer_direction`` for the
+        column — see ``signed_amount`` — but that sign never reaches here.)
 
         An upcoming planned row is left out for the same reason: the money has
         not moved yet, and a net that mixed a forecast into a record of the

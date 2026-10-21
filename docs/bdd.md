@@ -1697,6 +1697,13 @@ Feature: Transfer Recognition
     When I double-click "Accept" on that pair before it finishes
     Then the pair is linked exactly once
     And no error notification is shown for the second click
+
+  KAL-TRF-005 @automated
+  Scenario: Each transfer leg is signed by its direction in the ledger
+    Given a recognised transfer of 500.00 from "mBank" to "PKO BP"
+    When I view each leg in the ledger
+    Then the leg on "mBank" reads -500.00, money leaving the account
+    And the leg on "PKO BP" reads +500.00, money arriving on the account
 ```
 
 ## Feature: Auto-categorisation Rules
