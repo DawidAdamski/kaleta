@@ -269,3 +269,89 @@ async def test_reports_money_flow_shows_internal_transfers(api_client, db_engine
     assert f"acc:{savings_id}" in node_ids
     by_edge = {(lnk["source"], lnk["target"]): Decimal(lnk["amount"]) for lnk in body["links"]}
     assert by_edge[(f"acc:{checking_id}", f"acc:{savings_id}")] == Decimal("250.00")
+
+
+@pytest.mark.asyncio
+async def test_reports_money_flow_transfer_ribbon_follows_stored_direction(
+    api_client, db_engine
+) -> None:
+    """Covers: KAL-FLW-005
+
+    A transfer pair formed after the fact (``pair_as_transfer`` / import
+    "accept") can have the *incoming* leg with the lower id. The ribbon must
+    follow the stored ``transfer_direction`` (OUT = source), not id order,
+    which would draw it backwards.
+    """
+    from kaleta.models.account import AccountType
+    from kaleta.models.category import CategoryType
+    from kaleta.models.transaction import TransactionType
+    from kaleta.schemas.account import AccountCreate
+    from kaleta.schemas.category import CategoryCreate
+    from kaleta.schemas.transaction import TransactionCreate
+    from kaleta.services import AccountService, CategoryService, TransactionService
+    from tests.conftest import make_session_factory
+
+    today = date.today()
+    start = today.replace(day=1)
+    end = date(today.year + 1, 1, 1) if today.month == 12 else date(today.year, today.month + 1, 1)
+
+    factory = make_session_factory(db_engine)
+    async with factory() as session:
+        source = await AccountService(session).create(
+            AccountCreate(name="MF Pair Source", type=AccountType.CHECKING, balance=Decimal("0"))
+        )
+        destination = await AccountService(session).create(
+            AccountCreate(
+                name="MF Pair Destination", type=AccountType.SAVINGS, balance=Decimal("0")
+            )
+        )
+        in_cat = await CategoryService(session).create(
+            CategoryCreate(name="MF Pair In", type=CategoryType.INCOME)
+        )
+        out_cat = await CategoryService(session).create(
+            CategoryCreate(name="MF Pair Out", type=CategoryType.EXPENSE)
+        )
+        tx_svc = TransactionService(session)
+        # The ARRIVING row is recorded first → it gets the LOWER id. Old
+        # id-order inference would pick it as the source and draw the ribbon
+        # backwards.
+        arriving = await tx_svc.create(
+            TransactionCreate(
+                account_id=destination.id,
+                category_id=in_cat.id,
+                amount=Decimal("300.00"),
+                type=TransactionType.INCOME,
+                date=today,
+                description="arrived from source",
+            )
+        )
+        leaving = await tx_svc.create(
+            TransactionCreate(
+                account_id=source.id,
+                category_id=out_cat.id,
+                amount=Decimal("300.00"),
+                type=TransactionType.EXPENSE,
+                date=today,
+                description="left to destination",
+            )
+        )
+        assert arriving.id < leaving.id
+        # expense_id is the leg the money left (OUT), income_id where it arrived (IN).
+        await tx_svc.pair_as_transfer(expense_id=leaving.id, income_id=arriving.id)
+        source_id, destination_id = source.id, destination.id
+
+    resp = await api_client.get(
+        "/api/v1/reports/money-flow",
+        params={
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "mode": "accounts",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert Decimal(body["total_transfers"]) == Decimal("300.00")
+    by_edge = {(lnk["source"], lnk["target"]): Decimal(lnk["amount"]) for lnk in body["links"]}
+    # Money leaves the source and arrives on the destination — not backwards.
+    assert by_edge[(f"acc:{source_id}", f"acc:{destination_id}")] == Decimal("300.00")
+    assert (f"acc:{destination_id}", f"acc:{source_id}") not in by_edge
