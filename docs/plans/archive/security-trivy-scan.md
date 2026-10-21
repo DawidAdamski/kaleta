@@ -3,8 +3,9 @@ plan_id: security-trivy-scan
 title: Add Trivy as a headless scanner — image CVEs, IaC misconfig, secrets
 area: security (tooling)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Add Trivy as a headless scanner — image CVEs, IaC misconfig, secrets
@@ -96,3 +97,29 @@ Four scan modes, all requested:
     `--helm-set`.
   - `image python:3.13-slim` → **F-7 (High, upstream)**: 44 High Debian OS
     CVEs; tracked (rebuild-on-latest mitigation), mostly no upstream fix.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ef15bc1` | Dawid (Ani) | 2026-10-20 | feat(security): add Trivy scanner (fs/config/secret/image) to the toolbox |
+
+**Files changed:**
+- docs/plans/chores.md
+- docs/plans/security-assessment.md
+- docs/plans/security-trivy-scan.md
+- docs/security/assessment-2026-10-12.md
+- docs/security/README.md
+- scripts/security/scan_trivy.sh
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
+
+**Archival note:** archived with `plan_archive.sh --fast` (acceptance criteria not re-run). PR #308 already merged with CI green. Operator-tool criteria (`scan_trivy.sh`, `scan_zap.sh`) need docker and/or a live instance and are not re-runnable CI gates; `plan_archive.sh` also mis-parses prose bullets whose first backticked token is a file path. Those criteria were verified by real runs at implementation time, recorded in `docs/security/assessment-2026-10-12.md` and this plan's Implementation notes. Feature commit: ef15bc1 (PR #308).
