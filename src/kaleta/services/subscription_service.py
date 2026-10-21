@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import builtins
 import datetime
-import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
@@ -34,6 +33,7 @@ from kaleta.schemas.subscription import (
 )
 from kaleta.seeders.catalog import SUBSCRIPTION_CHILDREN as _PURPOSE_NAMES_PL
 from kaleta.services.category_service import SUBSCRIPTION_PURPOSE_CHILDREN as _PURPOSE_NAMES_EN
+from kaleta.services.merchant_key import merchant_key_from_description
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.text_order import by_name
 
@@ -831,26 +831,6 @@ def _amount_bucket(amount: Decimal) -> str:
     """Rough bucket for grouping amounts. Tight buckets → merged later."""
     # Round to the nearest 1 PLN; the ±5 % tolerance absorbs fine-grain drift.
     return str(round(float(amount)))
-
-
-# Strip a trailing location/detail suffix so rows for the same service cluster.
-# Tuned from live mBank data: "APPLE.COM/BILL /APPLE.COM/", "HBO Europe S.R.O
-# /Prague", "Disney Plus /Hoofddorp", "GOOGLE *YouTube Vid/g.co/helpp".
-_MERCHANT_KEY_MAX_LEN = 40
-
-
-def merchant_key_from_description(desc: str | None) -> str:
-    """Normalise a transaction description to a stable merchant-key.
-
-    Keeps the first ``/``-delimited segment (service name before location),
-    uppercases, collapses whitespace, and caps length. Returns ``""`` when
-    nothing usable remains.
-    """
-    if not desc:
-        return ""
-    first = desc.split("/", 1)[0]
-    first = re.sub(r"\s+", " ", first).strip().upper()
-    return first[:_MERCHANT_KEY_MAX_LEN]
 
 
 # Purpose-child index, aligned between ``SUBSCRIPTION_PURPOSE_CHILDREN`` (EN)

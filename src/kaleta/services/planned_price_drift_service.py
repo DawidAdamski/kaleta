@@ -22,7 +22,7 @@ from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedPriceDrift
-from kaleta.services.subscription_service import merchant_key_from_description
+from kaleta.services.merchant_key import merchant_key_from_description
 from kaleta.services.text_order import text_key
 
 logger = logging.getLogger(__name__)

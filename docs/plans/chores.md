@@ -296,11 +296,13 @@ check it still reproduces before acting on it.
       `ix_import_runs_created_at` exist in migrations but not in the models
       (or vice versa). Reconcile with one migration or `index=True`. Found by
       `plan/debts-ledger-link`.
-- [ ] Move `merchant_key_from_description` out of `subscription_service` into
+- [x] Move `merchant_key_from_description` out of `subscription_service` into
       a shared helper module. The radar and `PlannedPriceDriftService` import
       it from there, and `subscription_service` now imports
       `PlannedTransactionService`. Nothing is circular yet, but the services
       are coupled. Found by `plan/recurring-to-planned`.
+      (Fixed: `plan/extract-merchant-key-helper` — moved to
+      `kaleta/services/merchant_key.py`, all three importers updated.)
 - [x] `setup_service._sync_url` rewrites drivers with a whole-string
       `str.replace`. A password containing `+asyncpg` gets corrupted, and
       asyncpg's `?ssl=require` is not psycopg2's `sslmode=require`. Rebuild the
