@@ -22,6 +22,7 @@ import httpx
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._ports import pick_free_port
 from tests.e2e.conftest import (
     PROJECT_ROOT,
     _pump_stdout_to_log,
@@ -31,10 +32,11 @@ from tests.e2e.conftest import (
 from tests.fake_gotrue import SERVICE_ROLE_KEY, FakeGoTrueServer
 from tests.suite_database import fresh_database_url, query
 
-# Their own ports: 8081–8084 are taken by the other e2e servers.
-HOSTED_PORT = 8085
+# A free port per pytest process (the app and the fake GoTrue server), so
+# parallel e2e runs never collide (tests/e2e/_ports.py).
+HOSTED_PORT = pick_free_port()
 HOSTED_BASE = f"http://127.0.0.1:{HOSTED_PORT}"
-GOTRUE_PORT = 8086
+GOTRUE_PORT = pick_free_port()
 
 #: Any /login URL, query string or not: the page starts on one with a query.
 _ON_LOGIN = re.compile(r"/login(\?|$)")
@@ -84,6 +86,7 @@ def hosted(tmp_path_factory: pytest.TempPathFactory) -> Generator[HostedInstance
                 "NICEGUI_SCREEN_TEST_PORT": str(HOSTED_PORT),
             }
         )
+        env.pop("NICEGUI_STORAGE_PATH", None)
         proc = subprocess.Popen(
             ["uv", "run", "kaleta"],
             cwd=PROJECT_ROOT,

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Playwright e2e test configuration.
 
-Default: pytest launches an isolated Kaleta instance on port 8081, in a fresh
+Default: pytest launches an isolated Kaleta instance on a free port, in a fresh
 database ``<suite database>_e2e`` on the suite's PostgreSQL server. Like every
 instance (ADR-38) it keeps a registry and one schema per family: the e2e login
 is the instance's administrator, a local login in the registry, and owns the one
@@ -39,10 +39,10 @@ from playwright.sync_api import Browser, BrowserContext
 from kaleta.config import settings
 from kaleta.db.tenant_context import TenantContext
 from tests.e2e import seed_helpers
+from tests.e2e._ports import E2E_PORT
 from tests.suite_database import fresh_database_url
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-E2E_PORT = 8081
 DEFAULT_E2E_BASE = f"http://127.0.0.1:{E2E_PORT}"
 E2E_EMAIL = "e2e@example.com"
 E2E_PASSWORD = "e2e-test-password"
@@ -266,6 +266,10 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     env["KALETA_DB_URL"] = db_url
     # NiceGUI detects pytest and reads NICEGUI_SCREEN_TEST_PORT instead of KALETA_PORT.
     env["NICEGUI_SCREEN_TEST_PORT"] = str(E2E_PORT)
+    # Importing kaleta in this process pinned the storage path to the developer's
+    # ~/.kaleta; the app under test keeps its own, under the temp HOME. Dropping
+    # it also keeps parallel runs from sharing one session dir.
+    env.pop("NICEGUI_STORAGE_PATH", None)
 
     proc = subprocess.Popen(
         ["uv", "run", "kaleta"],

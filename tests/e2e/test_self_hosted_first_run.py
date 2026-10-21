@@ -20,6 +20,7 @@ from collections.abc import Generator
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
+from tests.e2e._ports import pick_free_port
 from tests.e2e.conftest import (
     PROJECT_ROOT,
     _pump_stdout_to_log,
@@ -28,8 +29,8 @@ from tests.e2e.conftest import (
 )
 from tests.suite_database import fresh_database_url, query
 
-# Its own port: 8081–8086 are taken by the other e2e servers.
-SELF_HOSTED_PORT = 8087
+# A free port per pytest process (tests/e2e/_ports.py).
+SELF_HOSTED_PORT = pick_free_port()
 SELF_HOSTED_BASE = f"http://127.0.0.1:{SELF_HOSTED_PORT}"
 
 ADMIN = "admin@example.com"
@@ -73,6 +74,7 @@ def instance(tmp_path_factory: pytest.TempPathFactory) -> Generator[SelfHostedIn
             "NICEGUI_SCREEN_TEST_PORT": str(SELF_HOSTED_PORT),
         }
     )
+    env.pop("NICEGUI_STORAGE_PATH", None)
     proc = subprocess.Popen(
         ["uv", "run", "kaleta"],
         cwd=PROJECT_ROOT,
