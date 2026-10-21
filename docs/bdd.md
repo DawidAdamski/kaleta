@@ -2554,6 +2554,14 @@ Feature: Pay Yourself a Salary
     When I open the Pay yourself a salary panel
     Then no salary is proposed
     And the panel explains that at least 3 complete months of income are needed
+
+  KAL-SAL-006 @automated
+  Scenario: Posting the salary transfer moves money between both accounts
+    Given a salary plan of 4,000.00 from my business account to my personal account
+    When the salary transfer is posted for a month
+    Then the business account balance falls by 4,000.00
+    And the personal account balance rises by 4,000.00
+    And net worth is unchanged because the money stayed in my own accounts
 ```
 
 ## Feature: Irregular Expenses Fund

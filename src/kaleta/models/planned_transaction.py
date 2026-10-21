@@ -43,6 +43,15 @@ class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # The account the money arrives on, for a planned transfer that moves money
+    # between two of the user's own accounts (the "pay yourself a salary"
+    # self-transfer). ``account_id`` is the source the money leaves; this is the
+    # destination. Set only for structured transfers — ``NULL`` for everything
+    # else, in which case the occurrence posts a single leg (the old behaviour).
+    # ``SET NULL`` so deleting the target account does not drop the whole plan.
+    target_account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
@@ -65,8 +74,9 @@ class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Relationships
-    account: Mapped[Account] = relationship("Account")
+    # Relationships. Two FKs point at ``accounts.id`` (source and target), so
+    # the source relationship must name its own column.
+    account: Mapped[Account] = relationship("Account", foreign_keys=[account_id])
     category: Mapped[Category | None] = relationship("Category")
     payee: Mapped[Payee | None] = relationship("Payee")
 

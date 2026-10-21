@@ -73,6 +73,7 @@ async def _make_transaction(
     tx_type: TransactionType,
     date: datetime.date = TODAY,
     is_internal_transfer: bool = False,
+    direction: TransferDirection = TransferDirection.OUT,
 ) -> None:
     svc = TransactionService(session)
     tx_type_arg = tx_type
@@ -84,13 +85,45 @@ async def _make_transaction(
             category_id=None if is_internal_transfer else category_id,
             amount=amount,
             type=tx_type_arg,
-            transfer_direction=TransferDirection.OUT
-            if tx_type_arg == TransactionType.TRANSFER
-            else None,
+            transfer_direction=direction if tx_type_arg == TransactionType.TRANSFER else None,
             date=date,
             description="",
             is_internal_transfer=is_internal_transfer,
         )
+    )
+
+
+async def _make_internal_transfer(
+    session: AsyncSession,
+    source_id: int,
+    target_id: int,
+    amount: Decimal,
+    date: datetime.date = TODAY,
+) -> None:
+    """Both legs of a transfer between two of the user's own accounts.
+
+    Outgoing on ``source_id``, incoming on ``target_id`` — the shape account
+    balances are built from, so history can roll them back consistently.
+    """
+    await _make_transaction(
+        session,
+        source_id,
+        0,
+        amount,
+        TransactionType.TRANSFER,
+        date=date,
+        is_internal_transfer=True,
+        direction=TransferDirection.OUT,
+    )
+    await _make_transaction(
+        session,
+        target_id,
+        0,
+        amount,
+        TransactionType.TRANSFER,
+        date=date,
+        is_internal_transfer=True,
+        direction=TransferDirection.IN,
     )
 
 
@@ -638,51 +671,43 @@ class TestGetSummaryWithTransactions:
         assert summary.monthly_change == Decimal("200.00")
 
 
-# ── Internal transfers excluded ───────────────────────────────────────────────
+# ── Internal transfers net to zero across accounts ────────────────────────────
 
 
-class TestInternalTransfersExcluded:
-    async def test_internal_transfer_does_not_affect_history(
+class TestInternalTransfersNetToZero:
+    """A transfer between two of the user's own accounts moves no net worth.
+
+    History now rolls transfer legs back the same way the current balance adds
+    them forward (``signed_ledger_amount``), so both legs are reflected and
+    cancel — rather than the legs being skipped, which left a lone leg sitting
+    in the current balance but not the history.
+    """
+
+    async def test_internal_transfer_does_not_affect_net_worth_history(
         self, svc: NetWorthService, session: AsyncSession
     ):
-        acc_id = await _make_account(session, name="Checking", balance=Decimal("1000.00"))
-        cat_id = await _make_category(session, name="Salary", cat_type=CategoryType.INCOME)
-        # Create an internal transfer — should not affect monthly_net calculation
-        await _make_transaction(
-            session,
-            acc_id,
-            cat_id,
-            Decimal("500.00"),
-            TransactionType.TRANSFER,
-            date=TODAY,
-            is_internal_transfer=True,
-        )
-        await _settle_balance(session, acc_id, Decimal("1000.00"))
+        source_id = await _make_account(session, name="Checking", balance=Decimal("1000.00"))
+        target_id = await _make_account(session, name="Savings", balance=Decimal("1000.00"))
+        # 500 moved between the two accounts this month: -500 on source, +500 on
+        # target. Net worth is 2000 before and after, in every history month.
+        await _make_internal_transfer(session, source_id, target_id, Decimal("500.00"), date=TODAY)
         summary = await svc.get_summary(history_months=2)
-        # No net change from transfers — both months should equal current net worth
-        assert summary.history[-1].net_worth == Decimal("1000.00")
-        assert summary.history[-2].net_worth == Decimal("1000.00")
+        assert summary.history[-1].net_worth == Decimal("2000.00")
+        assert summary.history[-2].net_worth == Decimal("2000.00")
         assert summary.monthly_change == Decimal("0")
 
     async def test_internal_transfer_mixed_with_real_income(
         self, svc: NetWorthService, session: AsyncSession
     ):
-        acc_id = await _make_account(session, name="Checking", balance=Decimal("1300.00"))
+        source_id = await _make_account(session, name="Checking", balance=Decimal("1300.00"))
+        target_id = await _make_account(session, name="Savings", balance=Decimal("0.00"))
         inc_cat_id = await _make_category(session, name="Salary", cat_type=CategoryType.INCOME)
-        # Real income of 300 this month
+        # Real income of 300 this month lifts net worth; the paired transfer of
+        # 500 between the accounts does not.
         await _make_transaction(
-            session, acc_id, inc_cat_id, Decimal("300.00"), TransactionType.INCOME, date=TODAY
+            session, source_id, inc_cat_id, Decimal("300.00"), TransactionType.INCOME, date=TODAY
         )
-        # Internal transfer — should not contribute
-        await _make_transaction(
-            session,
-            acc_id,
-            inc_cat_id,
-            Decimal("500.00"),
-            TransactionType.TRANSFER,
-            date=TODAY,
-            is_internal_transfer=True,
-        )
+        await _make_internal_transfer(session, source_id, target_id, Decimal("500.00"), date=TODAY)
         summary = await svc.get_summary(history_months=2)
         # Only the 300 income should be counted
         assert summary.monthly_change == Decimal("300.00")
