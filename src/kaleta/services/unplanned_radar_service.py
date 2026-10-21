@@ -38,8 +38,8 @@ from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.unplanned_radar import RadarCandidate, RadarPlannedRow
+from kaleta.services.merchant_key import merchant_key_from_description
 from kaleta.services.planned_transaction_service import PlannedTransactionService
-from kaleta.services.subscription_service import merchant_key_from_description
 from kaleta.services.text_order import text_key
 
 logger = logging.getLogger(__name__)
