@@ -938,3 +938,75 @@ class TestCredentialChangesRevokeSessions:
         assert await mfa.disable_all() == 1
         stamp = await self.watermark(session, user.id)
         assert stamp is not None and stamp >= before
+
+
+class TestArgon2RunsOffTheEventLoop:
+    """The deliberately slow argon2 work no longer blocks the single event loop.
+
+    The behaviour of these three methods is pinned by the suites above; these
+    tests pin only that each routes its argon2 through ``asyncio.to_thread`` —
+    so the one-process app keeps serving while it runs — and that the hashes
+    the worker produces still verify.
+    """
+
+    @pytest.fixture
+    def thread_spy(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        """Record which callables are dispatched to a worker thread, still
+        running them for real so results are unchanged."""
+        import asyncio
+
+        from kaleta.services import mfa_service as mfa_module
+
+        real_to_thread = asyncio.to_thread
+        seen: list[str] = []
+
+        async def _spy(func: object, /, *args: object, **kwargs: object) -> object:
+            seen.append(getattr(func, "__name__", repr(func)))
+            return await real_to_thread(func, *args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(mfa_module.asyncio, "to_thread", _spy)
+        return seen
+
+    @pytest.mark.asyncio
+    async def test_confirm_enrolment_hashes_off_the_loop(
+        self, mfa: MfaService, user, thread_spy: list[str]
+    ) -> None:
+        enrolment = await mfa.begin_enrolment(user.id)
+        codes = await mfa.confirm_enrolment(user.id, code_for(enrolment.secret))
+        assert "_hash_recovery_codes" in thread_spy
+        # The codes the worker produced are the ones that work.
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+
+    @pytest.mark.asyncio
+    async def test_regenerate_hashes_off_the_loop(
+        self, mfa: MfaService, user, thread_spy: list[str]
+    ) -> None:
+        await enrol(mfa, user.id)
+        thread_spy.clear()
+        fresh = await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=datetime.now(UTC))
+        assert thread_spy.count("_hash_recovery_codes") == 1
+        assert await mfa.consume_recovery_code(user.id, fresh[0]) is True
+
+    @pytest.mark.asyncio
+    async def test_disable_verifies_the_recovery_code_off_the_loop(
+        self, mfa: MfaService, user, thread_spy: list[str]
+    ) -> None:
+        _secret, codes = await enrol(mfa, user.id)
+        thread_spy.clear()
+        await mfa.disable(user.id, password=PASSWORD, code=codes[2])
+        assert "_match_recovery_hash" in thread_spy
+        assert await mfa.is_enabled(user.id) is False
+
+    @pytest.mark.asyncio
+    async def test_a_mismatch_in_the_worker_is_still_the_same_typed_error(
+        self, mfa: MfaService, user, thread_spy: list[str]
+    ) -> None:
+        """argon2 verify raises on mismatch; ``_verify_hash`` swallows it inside
+        the worker exactly as before, so ``disable`` still answers with the one
+        ``ValidationError`` and never a raw argon2 exception off the awaiter."""
+        await enrol(mfa, user.id)
+        thread_spy.clear()
+        with pytest.raises(ValidationError):
+            await mfa.disable(user.id, password=PASSWORD, code="ZZZZZZZZZZ")
+        assert "_match_recovery_hash" in thread_spy
+        assert await mfa.is_enabled(user.id) is True

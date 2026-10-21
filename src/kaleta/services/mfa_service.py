@@ -17,6 +17,7 @@ Two rules this module exists to keep:
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -273,8 +274,9 @@ class MfaService:
             raise ValidationError(msg)
         codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
         # `recovery`, not `code`: this method's `code` parameter is the TOTP
-        # code, and the two are not the same secret.
-        hashed = json.dumps([self._hasher.hash(recovery) for recovery in codes])
+        # code, and the two are not the same secret. Ten argon2 hashes are
+        # roughly a second of CPU, so they run off the single event loop.
+        hashed = await asyncio.to_thread(self._hash_recovery_codes, codes)
         # Claimed, not assigned: two tabs confirming the same pending
         # enrolment would both succeed, and the second would overwrite the ten
         # codes the first had already shown its user.
@@ -380,7 +382,32 @@ class MfaService:
         candidate = normalise_code(code)
         if not candidate:
             return None
-        for index, stored in enumerate(self._hashes(row)):
+        return self._match_recovery_hash(self._hashes(row), candidate)
+
+    async def _find_recovery_code_off_thread(self, row: UserMfa, code: str) -> int | None:
+        """`_find_recovery_code` with the up-to-ten argon2 verifies off the loop.
+
+        `disable()` runs this whatever the TOTP check said, so the dialog can
+        cost up to ten verifies — roughly a second — on the success path. The
+        ORM attribute (``recovery_codes_hash``) is read here, on the event
+        loop; only the pure hash comparisons move to the worker thread, so no
+        session IO is ever attempted outside the loop's greenlet. A mismatch is
+        swallowed by ``_verify_hash`` inside the worker exactly as before, so
+        nothing new is raised to the awaiter.
+        """
+        candidate = normalise_code(code)
+        if not candidate:
+            return None
+        hashes = self._hashes(row)
+        return await asyncio.to_thread(self._match_recovery_hash, hashes, candidate)
+
+    def _match_recovery_hash(self, hashes: list[str], candidate: str) -> int | None:
+        """The index of the stored hash ``candidate`` verifies against, or None.
+
+        Pure CPU over plain strings — no session, no ORM access — so it is the
+        unit the ``disable`` path hands to ``asyncio.to_thread``.
+        """
+        for index, stored in enumerate(hashes):
             if self._verify_hash(stored, candidate):
                 return index
         return None
@@ -467,15 +494,15 @@ class MfaService:
             msg = "Confirm with a two-factor code before reissuing recovery codes."
             raise ValidationError(msg)
         codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
+        # Ten argon2 hashes, roughly a second of CPU, kept off the event loop.
+        hashed = await asyncio.to_thread(self._hash_recovery_codes, codes)
         result = await self.session.execute(
             update(UserMfa)
             # Claimed against the set that was read, like every other write
             # here: two tabs reissuing at once would otherwise each show their
             # user ten codes, and only the last writer's would work.
             .where(UserMfa.id == row.id, UserMfa.recovery_codes_hash == row.recovery_codes_hash)
-            .values(
-                recovery_codes_hash=json.dumps([self._hasher.hash(recovery) for recovery in codes])
-            )
+            .values(recovery_codes_hash=hashed)
         )
         claimed = self._claimed(result)
         if claimed:
@@ -536,7 +563,7 @@ class MfaService:
         # recovery code carries about fifty bits, the dialog is throttled to
         # five tries a quarter of an hour, and buying it off would mean ten
         # argon2 verifies on every attempt including the ones that succeed.
-        recovery_index = self._find_recovery_code(row, code)
+        recovery_index = await self._find_recovery_code_off_thread(row, code)
         if not password_ok or (counter is None and recovery_index is None):
             await self._record_failure(user_id, event="mfa_disable_failure")
             raise ValidationError(wrong)
@@ -709,6 +736,15 @@ class MfaService:
 
     def _new_recovery_code(self) -> str:
         return "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_CODE_LENGTH))
+
+    def _hash_recovery_codes(self, codes: list[str]) -> str:
+        """The stored JSON list of argon2 hashes for ``codes``.
+
+        Pure CPU (no session, no ORM access), so the enrolment and reissue
+        paths hand it to ``asyncio.to_thread`` to keep the deliberate argon2
+        cost off the single event loop.
+        """
+        return json.dumps([self._hasher.hash(code) for code in codes])
 
     def _verify_hash(self, stored: str, candidate: str) -> bool:
         try:
