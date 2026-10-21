@@ -456,6 +456,23 @@ check it still reproduces before acting on it.
       the file *alone* failed in 15 s, so it reproduces without the suite —
       on `main` too (a674bc0: 1 of 4 alone), and twice running in full
       `verify.sh --e2e` on that branch at line ~178.
+      **Cause found (2026-10-21).** The password step parks the MFA challenge
+      reference in `app.storage.user` (`begin_hosted_mfa_challenge`) and then
+      `ui.navigate.to("/login/mfa")`. `app.storage.user` (a NiceGUI
+      `FilePersistentDict`) persists via a *deferred* background task; the
+      navigation drops the login websocket, NiceGUI's `prune_user_storage` timer
+      can evict that session's storage, and the `/login/mfa` request then
+      re-reads it from the file. If the deferred write has not landed yet the
+      reference is missing and `login_mfa.py` bounces to `/login`. Load starves
+      the background task, so it flakes under the full suite / parallel runs and
+      passes alone (isolated: 4/4). It is a real, if rare, production race.
+      Mitigated for CI in `flaky-test-mfa-rerun` (the bounce signature is on the
+      e2e `only_rerun` allowlist, so a retry rescues it; a real regression still
+      fails all three). **Real fix still owed:** hand the challenge over without
+      the `app.storage.user` round-trip — e.g. prompt for the code on `/login`
+      itself (no cross-page navigation), or persist the reference durably before
+      navigating. That is a login-flow change (URL contract, KAL scenarios,
+      deep links) and wants its own slice.
 - [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
       press it, and each press is one request to api.nbp.pl for the whole
       instance (idempotent, public data). Seen in the review of `postgres-only`
