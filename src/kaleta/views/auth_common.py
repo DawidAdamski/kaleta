@@ -11,13 +11,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _pkg_version
 from typing import Any
 
 from nicegui import ui
 
 from kaleta.i18n import t
+from kaleta.observability import app_version as _app_version
 from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
     ACCENT_TEXT,
@@ -50,11 +49,12 @@ LICENCE = "AGPL-3.0"
 
 
 def app_version() -> str:
-    """``v0.1.0`` — the same string the drawer's foot carries."""
-    try:
-        return f"v{_pkg_version('kaleta')}"
-    except PackageNotFoundError:  # a source checkout has no metadata
-        return "v0.1.0"
+    """The `v`-prefixed app version — the same string the drawer's foot carries.
+
+    Defers to the one resolver (``kaleta.observability.app_version``); only
+    the `v` prefix is added here, at the view call site.
+    """
+    return f"v{_app_version()}"
 
 
 def auth_field(
