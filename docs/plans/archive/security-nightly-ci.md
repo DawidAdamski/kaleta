@@ -3,8 +3,9 @@ plan_id: security-nightly-ci
 title: Wire the server-less security checks into a nightly CI job
 area: security (CI)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Wire the server-less security checks into a nightly CI job
@@ -111,3 +112,34 @@ carries a nightly `schedule`; this slice does not change it.
   falls back to the pinned `aquasec/trivy` container when no local binary
   exists, so no `setup-trivy`/marketplace action is needed. The vuln DB is
   cached under `~/.cache/trivy` via `actions/cache`.
+
+## Implementation
+
+Landed on 2026-10-21 (PR #318).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `a39b390` | Dawid (Ani) | 2026-10-21 | feat(security): run the server-less security checks nightly in CI |
+| `46c7c1e` | Dawid Adamski | 2026-10-21 | Merge pull request #318 from DawidAdamski/feat/security-nightly-ci (merge commit) |
+
+**Files changed:**
+- .github/workflows/security-nightly.yml
+- docs/plans/chores.md
+- docs/plans/security-assessment.md
+- docs/plans/security-nightly-ci.md
+- docs/security/README.md
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `test -f .github/workflows/security-nightly.yml` | 0 |
+| `uv run python -c "import yaml; yaml.safe_load(open('.github/workflows/security-nightly.yml'))"` | 0 |
+| `grep -q 'audit_deps.sh' .github/workflows/security-nightly.yml` | 0 |
+| `grep -q 'scan_trivy.sh all' .github/workflows/security-nightly.yml` | 0 |
+| `grep -q 'schedule:' .github/workflows/security-nightly.yml` | 0 |
+| `grep -q 'workflow_dispatch:' .github/workflows/security-nightly.yml` | 0 |
+| `grep -q 'nightly' docs/security/README.md` | 0 |
+| `./scripts/verify.sh` | 0 |
+
+**Notes:** The `[manual]` criterion (the two scanner runs) was skipped by the gate; it was verified by a real run recorded in Implementation notes, and the nightly workflow runs it. The plan has no row in the docs/plans/README.md index, so none was updated.
