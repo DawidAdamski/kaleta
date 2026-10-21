@@ -59,11 +59,17 @@ def _sync_url(db_url: str) -> str:
     The TLS option is spelled differently by the two drivers: asyncpg takes
     ``?ssl=require`` (what ``docs/deployment.md`` tells hosted installs to
     use), psycopg2 only ``?sslmode=require`` and refuses the URL otherwise.
+
+    The driver is swapped structurally via :meth:`URL.set`, never a string
+    replace: a password that happens to contain ``+asyncpg`` must survive the
+    rewrite untouched.
     """
-    sync = db_url.replace("+asyncpg", "+psycopg2")
-    url = make_url(sync)
-    if url.get_backend_name() != "postgresql" or "ssl" not in url.query:
-        return sync
+    url = make_url(db_url)
+    if url.get_backend_name() != "postgresql":
+        return db_url
+    url = url.set(drivername="postgresql+psycopg2")
+    if "ssl" not in url.query:
+        return url.render_as_string(hide_password=False)
     ssl = url.query["ssl"]
     mode = ssl if isinstance(ssl, str) else ssl[-1]
     # asyncpg also accepts booleans for `ssl`.
