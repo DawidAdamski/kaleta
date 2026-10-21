@@ -1238,9 +1238,22 @@ class TestTransactionDisplayHelpers:
         assert TransactionService.signed_amount(
             Decimal("128.74"), TransactionType.EXPENSE
         ) == Decimal("-128.74")
+        # A transfer with no direction given falls back to money out.
         assert TransactionService.signed_amount(
             Decimal("1500.00"), TransactionType.TRANSFER
         ) == Decimal("-1500.00")
+
+    def test_signed_amount_follows_a_transfer_leg_direction(self):
+        """The incoming leg arrives (positive); the outgoing leg leaves (negative).
+
+        Covers: KAL-TRF-005
+        """
+        assert TransactionService.signed_amount(
+            Decimal("500.00"), TransactionType.TRANSFER, TransferDirection.IN
+        ) == Decimal("500.00")
+        assert TransactionService.signed_amount(
+            Decimal("500.00"), TransactionType.TRANSFER, TransferDirection.OUT
+        ) == Decimal("-500.00")
 
     def test_signed_amount_ignores_a_sign_already_on_the_figure(self):
         # The column and any total under it must agree, whichever way the
