@@ -3,8 +3,9 @@ plan_id: security-response-headers
 title: Set security response headers on the web app (F-8)
 area: security (http hardening)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Set security response headers on the web app (F-8)
@@ -132,3 +133,31 @@ middleware that stamps a sensible, NiceGUI-safe set on every web response.
   `src/kaleta/views/`) is not hit — the middleware is a top-level module — but
   it rewrites every view's response headers, so `./scripts/verify.sh --e2e` is
   run to confirm the CSP does not break the UI (Playwright loads real pages).
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `011ff89` | Dawid (Ani) | 2026-10-21 | feat(security): set security response headers on the web app (F-8) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/security-response-headers.md
+- docs/security/assessment-2026-10-12.md
+- src/kaleta/config/settings.py
+- src/kaleta/main.py
+- src/kaleta/security_headers.py
+- tests/integration/test_security_headers.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
+
+**Archival note:** archived with `plan_archive.sh --fast` (acceptance criteria not re-run). PR #312 already merged with CI green. Operator-tool criteria (`scan_trivy.sh`, `scan_zap.sh`) need docker and/or a live instance and are not re-runnable CI gates; `plan_archive.sh` also mis-parses prose bullets whose first backticked token is a file path. Those criteria were verified by real runs at implementation time, recorded in `docs/security/assessment-2026-10-12.md` and this plan's Implementation notes. Feature commit: 011ff89 (PR #312).
