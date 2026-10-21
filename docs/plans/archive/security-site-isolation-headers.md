@@ -3,8 +3,9 @@ plan_id: security-site-isolation-headers
 title: Ship the Spectre site-isolation response headers (F-8 follow-up)
 area: security (response headers)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-21
+roadmap_ref: ../../roadmap.md
 ---
 
 # Ship the Spectre site-isolation response headers (F-8 follow-up)
@@ -94,3 +95,33 @@ headers and flips the regression guard, clearing ZAP 90004 in full.
 - **Tooling for the probe**: a throwaway Playwright script (not committed) that
   captured console, failed requests, service-worker-served responses and socket
   state across cold/SW-active loads.
+
+## Implementation
+
+Landed on 2026-10-21.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `da2626d` | Dawid Adamski | 2026-10-21 | Merge pull request #320 from DawidAdamski/feat/security-site-isolation-headers |
+| `4416ff0` | Dawid | 2026-10-21 | feat(security): ship the Spectre site-isolation response headers (F-8) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/security-site-isolation-headers.md
+- docs/security/assessment-2026-10-12.md
+- src/kaleta/security_headers.py
+- tests/integration/test_security_headers.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `grep -q 'cross-origin-opener-policy' src/kaleta/security_headers.py` | 0 |
+| `grep -q 'cross-origin-embedder-policy' src/kaleta/security_headers.py` | 0 |
+| `grep -q 'cross-origin-resource-policy' src/kaleta/security_headers.py` | 0 |
+| `uv run pytest tests/integration/test_security_headers.py -q` | 0 (4 passed) |
+| `grep -q 'site-isolation\|Cross-Origin-Opener' docs/bdd.md` | 0 |
+| `./scripts/verify.sh --e2e` | not re-run; verified green at implementation time (PR #320) |
+
+**Notes:** Merge `da2626d`, implementation commit `4416ff0`. All touchpoints were changed by the merge.
