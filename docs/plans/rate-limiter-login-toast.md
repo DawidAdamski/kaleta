@@ -4,7 +4,7 @@ title: Surface a toast when the login/MFA rate limiter's backend is unreachable
 area: auth / views
 effort: small
 status: in-progress
-roadmap_ref: ../roadmap.md#open-core
+roadmap_ref: ../roadmap.md#auth
 ---
 
 # Surface a toast when the login/MFA rate limiter's backend is unreachable
