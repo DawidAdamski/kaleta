@@ -41,7 +41,9 @@ class _Entry:
 _Key = tuple[int | None, int]
 
 
-def _key(user_id: int) -> _Key:
+def _key(user_id: int, tenant_id: int | None = None) -> _Key:
+    if tenant_id is not None:
+        return (tenant_id, user_id)
     ctx = current_tenant()
     return (ctx.tenant_id if ctx is not None else None, user_id)
 
@@ -68,9 +70,14 @@ class RevocationCache:
         self._entries[key] = _Entry(valid_from, now)
         return valid_from
 
-    def forget(self, user_id: int) -> None:
-        """Drop the entry, so the next check reads the database."""
-        self._entries.pop(_key(user_id), None)
+    def forget(self, user_id: int, *, tenant_id: int | None = None) -> None:
+        """Drop the entry, so the next check reads the database.
+
+        The entry keyed by the *current* tenant by default. Pass ``tenant_id``
+        to forget another family's member — the admin flow disables a login
+        from outside that member's tenant, so the current one is the wrong key.
+        """
+        self._entries.pop(_key(user_id, tenant_id), None)
 
     def clear(self) -> None:
         self._entries.clear()

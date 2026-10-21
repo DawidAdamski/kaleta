@@ -4077,6 +4077,14 @@ Feature: Instance administration
     Given the administrator sets registration to "closed" on the administrator's page
     When someone opens the sign-in page
     Then there is no link to sign up
+
+  KAL-ADM-011 @automated
+  Scenario: Disabling a member of another family clears that family's cached watermark
+    Given the administrator and "jan@example.com" each belong to their own family
+    And this process has cached a revocation watermark for each family's member
+    When the administrator disables "jan@example.com" from the panel
+    Then the watermark forgotten is "jan@example.com"'s own family's, not the administrator's
+    And "jan@example.com"'s next page load reads the raised watermark and is signed out
 ```
 
 ## Feature: Household sharing

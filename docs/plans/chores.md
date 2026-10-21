@@ -526,12 +526,13 @@ check it still reproduces before acting on it.
       reading it yet; a provider call per member on every render). Fix: the
       column on `tenants` or the family's settings, and an MFA status cached
       at sign-in.
-- [ ] **Disabling a login from `/admin` forgets the wrong revocation-cache
+- [x] **Disabling a login from `/admin` forgets the wrong revocation-cache
       entry.** `forget_revoked_member` calls `revocation_cache.forget(user_id)`,
       which keys by the *current* tenant — the administrator's family, not the
       disabled member's — so another family's member keeps a cached watermark
       for up to `TTL_SECONDS` (60 s). Seen while wiring household removal (same
       family there, so not affected). Fix: `forget(user_id, tenant_id=…)`.
+      (Fixed: plan/revocation-cache-wrong-tenant)
 - [ ] **The stale-write guard covers only the transaction dialog.** Part C of
       `hosted-household-sharing` refuses a save over a newer version of a
       transaction (`TransactionUpdate.expected_updated_at`). Accounts, budgets,

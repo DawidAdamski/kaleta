@@ -2,7 +2,7 @@
 """InstanceAdminService — what the instance administrator may do (ADR-38 §5).
 
 Covers: KAL-ADM-001, KAL-ADM-002, KAL-ADM-003, KAL-ADM-004, KAL-ADM-005, KAL-ADM-006,
-KAL-ADM-008
+KAL-ADM-008, KAL-ADM-011
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from sqlalchemy import select, text
 from kaleta.auth.admin import verify_admin_credentials
 from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import RegistryAuthProvider, set_auth_provider
+from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.auth.sign_in import SignedIn, SignInFlow
 from kaleta.cli import tenant_admin
 from kaleta.crypto import DataKey
@@ -293,6 +294,53 @@ async def test_the_last_administrator_stays_one(instance: str) -> None:
         with pytest.raises(ValidationError, match="last administrator"):
             await service.set_disabled(jan.identity_id, True)
         assert [r.email for r in await service.logins() if r.is_admin] == [JAN]
+
+
+async def test_disabling_a_member_of_another_family_forgets_their_own_watermark(
+    instance: str,
+) -> None:
+    """Disabling a login from the panel runs in the administrator's family, but
+    must forget the *disabled* member's cached revocation watermark — keyed by
+    their own family, not the administrator's. Every family numbers its users
+    from 1, so the user id alone names several people.
+
+    Covers: KAL-ADM-011
+    """
+    admin = await _admin_subject(instance)
+    jan_tenant_id, password = await _create_family(instance, admin, "Kowalscy", JAN)
+    signed_in = await _sign_in(instance, JAN, password)
+    jan_user_id = signed_in.user_id
+
+    async with AsyncSessionFactory.public() as public:
+        service = _service(public, instance, admin)
+        jan = await service.login_by_email(JAN)
+        tenants = TenantService(public)
+        admin_membership = await tenants.get_member_by_subject(admin)
+        jan_membership = await tenants.get_member_by_subject(f"local:{jan.identity_id}")
+    assert admin_membership is not None
+    assert jan_membership is not None
+    admin_tenant_id = admin_membership.tenant.id
+    assert admin_tenant_id != jan_tenant_id  # two separate families
+
+    revocation_cache.clear()
+    # Prime both families' caches for Jan's user id: his own family's entry (the
+    # one that must be dropped) and a decoy under the administrator's family (the
+    # one the bug drops instead — they share the numeric user id).
+    with use_tenant(jan_membership.context()):
+        assert await revocation_cache.valid_from(jan_user_id) is None
+    with use_tenant(admin_membership.context()):
+        await revocation_cache.valid_from(jan_user_id)
+
+    # Disabling runs with the administrator's family as the current tenant.
+    with use_tenant(admin_membership.context()):
+        await set_login_disabled(jan.identity_id, True, actor=admin)
+
+    # The administrator's own entry is left alone...
+    assert (admin_tenant_id, jan_user_id) in revocation_cache._entries
+    # ...and Jan's own family's entry was dropped, so his next guard reads the
+    # raised watermark and his session is revoked at once.
+    with use_tenant(jan_membership.context()):
+        assert await revocation_cache.valid_from(jan_user_id) is not None
 
 
 async def test_every_action_leaves_an_audit_row_without_the_targets_address(
