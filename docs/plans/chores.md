@@ -570,10 +570,22 @@ check it still reproduces before acting on it.
       (Fixed: PR #327, KAL-API-007 — `BudgetService.list` now applies
       `Budget.year == year` whenever `year` is given, and only defaults the year
       when `month` is passed without one; covered by the `?year=` filter test.)
-- [ ] **The budget builder's Apply stacks handlers.** `views/budget_builder.py` calls
+- [x] **The budget builder's Apply stacks handlers.** `views/budget_builder.py` calls
       `diff_apply_btn.on_click(_confirm)` on every opening of the diff dialog, so the
       n-th confirmation runs `apply` n times (idempotent upserts, but n commits). Seen
       while reusing its dialog for the annual review, which builds its own once.
+      (Fixed: plan/budget-builder-apply-handler-stack, KAL-BBD-001 — `_confirm` is
+      now defined and wired once at dialog-build time; `_on_apply` only sets the
+      pending payload and opens the dialog. Confirmed in NiceGUI 3.18 that
+      `on_click` accumulates listeners, so pre-fix a single Confirm made 2 apply
+      round-trips; the e2e asserts exactly 1 post-fix.)
+- [ ] **`YearlyPlanService.apply` / `BudgetService.bulk_upsert` is not
+      concurrency-idempotent for a brand-new plan.** Two simultaneous applies both
+      INSERT the same `(category, period)` and the second hits
+      `uq_budget_category_period` (`UniqueViolationError`). The handler fix above
+      removed the trigger (a double Confirm), but the service itself still races if
+      two applies ever overlap. Harden `bulk_upsert` (ON CONFLICT DO UPDATE, or a
+      per-plan lock). Found by plan/budget-builder-apply-handler-stack.
 - [ ] **The plan archiver writes "archived" into the wrong column** of the gap-closing
       table in `docs/plans/README.md` (`| Plan | Issue | Effort | Status | … |`): the
       Issue column (losing e.g. `#10 IRR`) while Status keeps `draft`. Every archived row
