@@ -216,9 +216,10 @@ check it still reproduces before acting on it.
       sheet and the grid can drift apart again. — *done on
       `plan/restyle-fidelity-screens` as `services/day_totals.py::DayTotals`,
       pending that PR.*
-- [ ] `views/payment_calendar.py::_load_grid` returns `tuple[MonthGrid, Any]`,
+- [x] `views/payment_calendar.py::_load_grid` returns `tuple[MonthGrid, Any]`,
       so the wizard projection sources it hands back are untyped. Name the
-      type rather than leaving `Any` in a signature.
+      type rather than leaving `Any` in a signature. — *fixed on
+      `fix/payment-calendar-load-grid-type` (type is `PaymentCalendarProjection`).*
 - [ ] The desktop "Needs attention" banner's rows
       (`dashboard_widgets/wizard_actions.py::_render_row`) are `div`s with a
       click handler and no `role`, `tabindex` or key handler, so each item is
