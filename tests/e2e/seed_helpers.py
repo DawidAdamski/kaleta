@@ -296,6 +296,36 @@ def list_budgets(year: int, month: int) -> list[dict[str, Any]]:
     return list(resp.json())
 
 
+def seed_yearly_plan_variable(year: int, category_id: int, name: str, yearly_amount: float) -> None:
+    """Store a Budget Builder yearly plan with a single variable line.
+
+    Lets a test open ``/wizard/budget-builder`` with the line already in the
+    form, so clicking Apply yields a non-empty diff without driving the inputs.
+    Runs in a worker thread (pytest-playwright's loop is already running).
+    """
+    from decimal import Decimal
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.schemas.yearly_plan import VariableLine, YearlyPlanPayload
+    from kaleta.services import YearlyPlanService
+
+    async def _create() -> None:
+        async with AsyncSessionFactory() as session:
+            payload = YearlyPlanPayload(
+                year=year,
+                variable_lines=[
+                    VariableLine(
+                        name=name,
+                        amount=Decimal(str(yearly_amount)),
+                        category_id=category_id,
+                    )
+                ],
+            )
+            await YearlyPlanService(session).upsert(payload)
+
+    _run_async_worker(_create)
+
+
 def seed_many_transactions(
     account_id: int,
     category_id: int,

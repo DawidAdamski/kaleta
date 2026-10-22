@@ -404,6 +404,13 @@ def register() -> None:
                     ui.label(t("budget_builder.reserves_empty")).classes(f"{BODY_MUTED} mt-2")
 
             # ── Apply flow with diff dialog ──────────────────────────────
+            # The payload the open diff was computed from. The dialog is modal,
+            # so this is exactly what Confirm applies. Holding it here lets the
+            # confirm handler be wired exactly ONCE at build time (below) rather
+            # than re-registered on every open — NiceGUI stacks repeat handlers,
+            # so a per-open registration would apply the plan once per reopen.
+            pending_payload: dict[str, YearlyPlanPayload | None] = {"payload": None}
+
             with ui.dialog() as diff_dialog, ui.card().classes("w-[560px] gap-2"):
                 diff_title = ui.label("").classes("text-lg font-bold")
                 diff_summary = ui.label("").classes(BODY_MUTED)
@@ -413,6 +420,20 @@ def register() -> None:
                     diff_apply_btn = ui.button(
                         t("budget_builder.apply_confirm"), icon="check"
                     ).props("color=primary unelevated")
+
+            async def _confirm() -> None:
+                payload_to_apply = pending_payload["payload"]
+                if payload_to_apply is None:
+                    return
+
+                async def _apply(session: Any) -> None:
+                    await YearlyPlanService(session).apply(payload_to_apply)
+
+                await with_session(_apply)
+                diff_dialog.close()
+                ui.notify(t("budget_builder.applied"), type="positive")
+
+            diff_apply_btn.on_click(_confirm)
 
             async def _on_apply() -> None:
                 payload_now = _current_payload()
@@ -460,15 +481,7 @@ def register() -> None:
                                 f"→ {_fmt(e.current or Decimal(0))} ⇒ {_fmt(e.proposed)}"
                             ).classes("text-sm")
 
-                async def _confirm() -> None:
-                    async def _apply(session: Any) -> None:
-                        await YearlyPlanService(session).apply(payload_now)
-
-                    await with_session(_apply)
-                    diff_dialog.close()
-                    ui.notify(t("budget_builder.applied"), type="positive")
-
-                diff_apply_btn.on_click(_confirm)
+                pending_payload["payload"] = payload_now
                 diff_dialog.open()
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
