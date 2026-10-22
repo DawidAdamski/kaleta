@@ -50,13 +50,13 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 #: (table, column) pairs whose timestamps move from naive to tz-aware.
-_TO_TIMESTAMPTZ: tuple[tuple[str, str, bool], ...] = (
-    ("currency_rates", "created_at", False),
-    ("currency_rates", "updated_at", False),
-    ("saved_reports", "created_at", False),
-    ("saved_reports", "updated_at", False),
-    ("tags", "created_at", False),
-    ("tags", "updated_at", False),
+_TO_TIMESTAMPTZ: tuple[tuple[str, str], ...] = (
+    ("currency_rates", "created_at"),
+    ("currency_rates", "updated_at"),
+    ("saved_reports", "created_at"),
+    ("saved_reports", "updated_at"),
+    ("tags", "created_at"),
+    ("tags", "updated_at"),
 )
 
 
@@ -74,7 +74,7 @@ def upgrade() -> None:
     )
 
     # created_at/updated_at: naive ``timestamp`` → ``timestamptz`` (values are UTC).
-    for table, column, _ in _TO_TIMESTAMPTZ:
+    for table, column in _TO_TIMESTAMPTZ:
         op.alter_column(
             table,
             column,
@@ -111,7 +111,7 @@ def downgrade() -> None:
         postgresql_using="archived_at AT TIME ZONE 'UTC'",
     )
 
-    for table, column, _ in _TO_TIMESTAMPTZ:
+    for table, column in _TO_TIMESTAMPTZ:
         op.alter_column(
             table,
             column,
