@@ -388,8 +388,16 @@ def currency_mismatch_warning(
     file_currency: str,
     account_currency: str,
 ) -> bool:
-    """Return True when mBank file currency differs from the target account."""
-    return file_currency.upper() != account_currency.upper()
+    """Return True when mBank file currency differs from the target account.
+
+    Mirrors ``validate_import_readiness``: an unknown (falsy) file or account
+    currency is not a mismatch, so no warning is shown.
+    """
+    return (
+        bool(file_currency)
+        and bool(account_currency)
+        and file_currency.upper() != account_currency.upper()
+    )
 
 
 # ── mBank preprocessor ───────────────────────────────────────────────────────

@@ -1655,6 +1655,18 @@ Feature: mBank CSV Import
     Given an import run produced transfer-pair suggestions
     Then the suggestion list is capped and scrolls within its own box
     And the accept-all control stays in the card footer, not below the list
+
+  KAL-CSV-038 @automated
+  Scenario: An unknown file currency shows no mismatch warning
+    When a file carries no currency, the import settings must not warn that the
+    empty file currency differs from the account currency. This mirrors the
+    import-readiness guard, which already skips the mismatch block on a falsy
+    currency. A warning is shown only when both currencies are known and differ.
+
+    Given a file whose currency is unknown
+    And a target account denominated in "PLN"
+    Then no currency-mismatch warning is shown
+    But a file denominated in "EUR" against that account does warn
 ```
 
 ## Feature: Transfer Recognition
