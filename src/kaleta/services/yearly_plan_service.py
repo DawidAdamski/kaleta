@@ -105,7 +105,13 @@ class YearlyPlanService:
                 "updated_at": func.now(),
             },
         )
-        result = await self.session.execute(stmt.returning(YearlyPlan))
+        # ``populate_existing`` overwrites any stale copy of this year's row a
+        # caller's session may already hold (e.g. from an earlier ``get()`` /
+        # ``diff()``), so the returned entity reflects what was just written.
+        result = await self.session.execute(
+            stmt.returning(YearlyPlan),
+            execution_options={"populate_existing": True},
+        )
         plan = result.scalar_one()
         await self.session.commit()
         return plan

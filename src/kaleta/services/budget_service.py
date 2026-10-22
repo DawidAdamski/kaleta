@@ -609,9 +609,15 @@ class BudgetService:
         # UPDATE path touched — ``amount`` explicitly and ``updated_at`` via its
         # ``onupdate`` — and nothing else. A Core statement carries the family's
         # schema through ``schema_translate_map``; raw ``text()`` SQL would not.
+        #
+        # Rows are emitted in a stable key order so two overlapping multi-row
+        # upserts of the same keys take their row locks in the same order and
+        # cannot deadlock. (The asyncpg 32767 bind-parameter cap — four columns a
+        # row — allows ~8000 rows, i.e. ~680 categories across twelve months; a
+        # plan never approaches that, so no chunking is added.)
         rows = [
             {"category_id": cat_id, "amount": amount, "month": month, "year": yr}
-            for (cat_id, month, yr), amount in merged.items()
+            for (cat_id, month, yr), amount in sorted(merged.items())
         ]
         stmt = pg_insert(Budget).values(rows)
         stmt = stmt.on_conflict_do_update(
