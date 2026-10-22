@@ -2011,6 +2011,14 @@ Feature: Budget Builder
     When I open the apply diff, dismiss it, open it again, and confirm once
     Then the plan is applied exactly once, not once per time the diff was opened
     And the category's monthly budget rows are written
+
+  KAL-BBD-002 @automated
+  Scenario: Applying the same brand-new plan twice at once writes each row once
+    Given a brand-new year with no budget rows for an expense category
+    And a plan that budgets 100.00 for that category every month
+    When the plan is applied twice concurrently
+    Then neither apply fails with a duplicate-row error
+    And the category has exactly one budget row per month, each of 100.00
 ```
 
 ## Feature: Budget Planning Comparisons
