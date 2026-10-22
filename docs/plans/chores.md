@@ -163,10 +163,12 @@ check it still reproduces before acting on it.
       both.
 - [ ] e2e round-trip for KAL-API-001 (create via API → visible in the
       Transactions UI).
-- [ ] `SettingsSection._update_currency_warning` (import view): warns
+- [x] `SettingsSection._update_currency_warning` (import view): warns
       `File currency () differs from account currency (PLN)` when the file's
       currency is unknown — `validate_import_readiness` already skips on a
       falsy currency, and the warning path should too.
+      (Fixed in `currency_mismatch_warning`; see
+      `docs/plans/import-currency-warning-empty.md`.)
 - [ ] `tests/e2e/test_navigation.py::test_every_nav_entry_routes` is flaky:
       failed once in three consecutive `verify.sh --e2e` runs on an
       otherwise green tree, passes in isolation. It clicks every nav entry
