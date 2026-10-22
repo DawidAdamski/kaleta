@@ -4873,6 +4873,15 @@ Feature: Housekeeping — Duplicate transactions
     When I merge them
     Then the kept transaction keeps its own irregular-fund item
     And the duplicate is removed
+
+  KAL-DUP-003 @automated
+  Scenario: Merging duplicate transactions keeps a duplicate's gift link
+    Given two duplicate transactions for the same expense
+    And the keeper settles no gift
+    And the other settles a gift
+    When I merge them keeping the one without a gift link
+    Then the kept transaction settles that gift
+    And the duplicate is removed
 ```
 
 ## Feature: Housekeeping — Integrity

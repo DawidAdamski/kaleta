@@ -580,7 +580,7 @@ check it still reproduces before acting on it.
       keeper inherits `irregular_item_id` / `planned_transaction_id` from the
       lowest-id duplicate when it has none of its own; deletes flush before the
       keeper UPDATE to clear `uq_transactions_planned_occurrence`.)
-- [ ] **Duplicate-merge still drops `gift_id`.** The `dedupe-merge-keeps-links`
+- [x] **Duplicate-merge still drops `gift_id`.** The `dedupe-merge-keeps-links`
       fix carries `irregular_item_id` and `planned_transaction_id` to the keeper
       but not `gift_id` (`Transaction.gift_id`, FK `gifts.id` ON DELETE SET
       NULL) — structurally the same kind of link: the gift a transaction
@@ -588,6 +588,9 @@ check it still reproduces before acting on it.
       of scope for the original fix (which named only the first two); carry it
       the same way, with a KAL scenario + integration test. Found reviewing the
       Wave-10 dedupe lane.
+      (Fixed: `fix/dedupe-merge-keeps-gift-id`, KAL-DUP-003 — the keeper
+      inherits `gift_id` from the lowest-id duplicate when it has none of its
+      own, carried identically to the other two links.)
 - [x] **`GET /api/v1/budgets/?year=` ignores the year without `month`.** The route
       documents "Use `year` to filter by year", but `BudgetService.list` only filters
       when `month` is given, so every year's budgets come back. Seen writing the
