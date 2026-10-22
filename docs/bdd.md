@@ -1979,6 +1979,28 @@ Feature: Annual Budget Planning
     Then I land on the Budgets page with the Plan tab already open
 ```
 
+## Feature: Budget Builder
+
+The Budget Builder wizard turns a yearly plan — income, fixed bills and
+variable spending — into monthly budget rows. Applying opens a diff dialog
+that must be confirmed; confirming applies the plan exactly once, however
+many times the dialog was opened and dismissed first.
+
+```gherkin
+Feature: Budget Builder
+  As a user
+  I want to apply my yearly plan to monthly budgets from one place
+  So that a confirmed plan is applied exactly once
+
+  KAL-BBD-001 @automated
+  Scenario: Confirming applies the plan once even after reopening the diff
+    Given a yearly plan with a variable line for an expense category
+    And I am on the Budget Builder
+    When I open the apply diff, dismiss it, open it again, and confirm once
+    Then the plan is applied exactly once, not once per time the diff was opened
+    And the category's monthly budget rows are written
+```
+
 ## Feature: Budget Planning Comparisons
 
 Planning next month should lean on evidence: last month's actuals and
