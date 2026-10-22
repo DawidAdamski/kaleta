@@ -4,7 +4,8 @@ from __future__ import annotations
 import json
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.category import Category
@@ -70,29 +71,49 @@ class YearlyPlanService:
         )
 
     async def upsert(self, payload: YearlyPlanPayload) -> YearlyPlan:
-        existing = await self.get(payload.year)
         income_json = json.dumps([_line_dict(x) for x in payload.income_lines])
         fixed_json = json.dumps([_line_dict(x) for x in payload.fixed_lines])
         variable_json = json.dumps([_line_dict(x) for x in payload.variable_lines])
         reserves_json = json.dumps([_line_dict(x) for x in payload.reserves_lines])
-        if existing:
-            existing.income_lines = income_json
-            existing.fixed_lines = fixed_json
-            existing.variable_lines = variable_json
-            existing.reserves_lines = reserves_json
-            await self.session.commit()
-            await self.session.refresh(existing)
-            return existing
-        plan = YearlyPlan(
+
+        # Atomic create-or-update of the one row per year. The former
+        # select-then-insert-or-update shape raced two concurrent applies of a
+        # brand-new plan: both read no ``yearly_plans`` row for the year and both
+        # INSERTed it, so the second hit ``uq_yearly_plans_year`` before the apply
+        # ever reached the budget rows. ``INSERT … ON CONFLICT DO UPDATE`` (ADR-38
+        # is PostgreSQL-only, so no dialect branch) makes it one statement the
+        # database serialises. On conflict it writes the four line columns the old
+        # UPDATE path set — and ``updated_at`` via its ``onupdate`` — and nothing
+        # else. A Core statement carries the family schema through
+        # ``schema_translate_map``; raw ``text()`` SQL would not. ``RETURNING`` the
+        # ORM entity keeps the method's contract (the written row) without a
+        # second round-trip.
+        stmt = pg_insert(YearlyPlan).values(
             year=payload.year,
             income_lines=income_json,
             fixed_lines=fixed_json,
             variable_lines=variable_json,
             reserves_lines=reserves_json,
         )
-        self.session.add(plan)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_yearly_plans_year",
+            set_={
+                "income_lines": stmt.excluded.income_lines,
+                "fixed_lines": stmt.excluded.fixed_lines,
+                "variable_lines": stmt.excluded.variable_lines,
+                "reserves_lines": stmt.excluded.reserves_lines,
+                "updated_at": func.now(),
+            },
+        )
+        # ``populate_existing`` overwrites any stale copy of this year's row a
+        # caller's session may already hold (e.g. from an earlier ``get()`` /
+        # ``diff()``), so the returned entity reflects what was just written.
+        result = await self.session.execute(
+            stmt.returning(YearlyPlan),
+            execution_options={"populate_existing": True},
+        )
+        plan = result.scalar_one()
         await self.session.commit()
-        await self.session.refresh(plan)
         return plan
 
     def derive(self, payload: YearlyPlanPayload) -> dict[tuple[int, int], Decimal]:

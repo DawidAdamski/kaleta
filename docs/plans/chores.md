@@ -588,13 +588,21 @@ check it still reproduces before acting on it.
       pending payload and opens the dialog. Confirmed in NiceGUI 3.18 that
       `on_click` accumulates listeners, so pre-fix a single Confirm made 2 apply
       round-trips; the e2e asserts exactly 1 post-fix.)
-- [ ] **`YearlyPlanService.apply` / `BudgetService.bulk_upsert` is not
+- [x] **`YearlyPlanService.apply` / `BudgetService.bulk_upsert` is not
       concurrency-idempotent for a brand-new plan.** Two simultaneous applies both
       INSERT the same `(category, period)` and the second hits
       `uq_budget_category_period` (`UniqueViolationError`). The handler fix above
       removed the trigger (a double Confirm), but the service itself still races if
       two applies ever overlap. Harden `bulk_upsert` (ON CONFLICT DO UPDATE, or a
       per-plan lock). Found by plan/budget-builder-apply-handler-stack.
+      (Fixed: plan/budget-bulk-upsert-concurrency, KAL-BBD-002 — both writes in
+      `apply()` are now atomic `INSERT … ON CONFLICT DO UPDATE` statements:
+      `YearlyPlanService.upsert` on `uq_yearly_plans_year` and
+      `BudgetService.bulk_upsert` on `uq_budget_category_period`. The integration
+      test drives two overlapping `apply()` calls on independent connections
+      (barrier-aligned), reproduces the pre-fix `UniqueViolationError` on
+      `uq_yearly_plans_year`, and passes after — the whole apply path is now
+      concurrency-idempotent.)
 - [ ] **The plan archiver writes "archived" into the wrong column** of the gap-closing
       table in `docs/plans/README.md` (`| Plan | Issue | Effort | Status | … |`): the
       Issue column (losing e.g. `#10 IRR`) while Status keeps `draft`. Every archived row

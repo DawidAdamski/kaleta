@@ -10,6 +10,7 @@ from decimal import Decimal
 from enum import Enum
 
 from sqlalchemy import extract, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -598,19 +599,32 @@ class BudgetService:
             k = (e.category_id, e.month, e.year)
             merged[k] = merged.get(k, Decimal("0")) + e.amount
 
-        year = next(iter(merged))[2]
-        existing_rows = await self.session.execute(select(Budget).where(Budget.year == year))
-        existing_map: dict[tuple[int, int, int], Budget] = {
-            (b.category_id, b.month, b.year): b for b in existing_rows.scalars().all()
-        }
-
-        for key, amount in merged.items():
-            row = existing_map.get(key)
-            if row is not None:
-                row.amount = amount
-            else:
-                cat_id, month, yr = key
-                self.session.add(Budget(category_id=cat_id, amount=amount, month=month, year=yr))
+        # Atomic create-or-update in one statement. The former select-then-
+        # insert-or-update shape raced two concurrent applies of a brand-new
+        # plan: both read no existing row for a (category, month, year) and both
+        # INSERTed it, so the second hit ``uq_budget_category_period``. PostgreSQL
+        # ``INSERT … ON CONFLICT DO UPDATE`` (ADR-38 is PostgreSQL-only, so no
+        # dialect branch) collapses the two paths into one statement the database
+        # serialises itself. On conflict it writes the same columns the old ORM
+        # UPDATE path touched — ``amount`` explicitly and ``updated_at`` via its
+        # ``onupdate`` — and nothing else. A Core statement carries the family's
+        # schema through ``schema_translate_map``; raw ``text()`` SQL would not.
+        #
+        # Rows are emitted in a stable key order so two overlapping multi-row
+        # upserts of the same keys take their row locks in the same order and
+        # cannot deadlock. (The asyncpg 32767 bind-parameter cap — four columns a
+        # row — allows ~8000 rows, i.e. ~680 categories across twelve months; a
+        # plan never approaches that, so no chunking is added.)
+        rows = [
+            {"category_id": cat_id, "amount": amount, "month": month, "year": yr}
+            for (cat_id, month, yr), amount in sorted(merged.items())
+        ]
+        stmt = pg_insert(Budget).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_budget_category_period",
+            set_={"amount": stmt.excluded.amount, "updated_at": func.now()},
+        )
+        await self.session.execute(stmt)
         await self.session.commit()
         return len(merged)
 
