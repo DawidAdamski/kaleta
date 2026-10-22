@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from kaleta.schemas.transaction import TransactionType
+from kaleta.schemas.transaction import TransactionType, TransferDirection
 from kaleta.services import TransactionService
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, amount_class
 
@@ -21,18 +21,37 @@ def spaced_thousands(text: str) -> str:
     return text.replace(",", " ")
 
 
-def format_signed_amount(amount: Decimal | float, tx_type: TransactionType) -> str:
+def format_signed_amount(
+    amount: Decimal | float,
+    tx_type: TransactionType,
+    transfer_direction: TransferDirection | None = None,
+) -> str:
     """Format an amount with its sign, for views holding a plain number.
 
     The convention itself lives in ``TransactionService`` — the dashboard and
     the ledger must not disagree about what a minus sign means, or about
-    whether a zero carries one.
+    whether a zero carries one. A transfer leg's sign follows its
+    ``transfer_direction`` (the arriving leg is money in); without one — as for
+    income, expense, and the planned-occurrence cards — the sign is unchanged.
     """
-    return TransactionService.format_signed_amount(Decimal(str(amount)), tx_type)
+    return TransactionService.format_signed_amount(
+        Decimal(str(amount)), tx_type, transfer_direction
+    )
 
 
-def signed_amount_class(amount: Decimal | float, tx_type: TransactionType) -> str:
-    """The tone for one row's figure — zero moved nothing, so it is neither."""
+def signed_amount_class(
+    amount: Decimal | float,
+    tx_type: TransactionType,
+    transfer_direction: TransferDirection | None = None,
+) -> str:
+    """The tone for one row's figure — zero moved nothing, so it is neither.
+
+    Colour follows the raw type: income green, expense red, a transfer leg
+    neutral whichever way its money went (the ledger table paints it the same;
+    ``KAL-TXN-006``). Direction decides only the *sign* of the
+    figure — ``format_signed_amount`` — never its colour, so it is accepted
+    here for a signature that matches but does not change the tone.
+    """
     return AMOUNT_NEUTRAL if Decimal(str(amount)) == 0 else amount_class(tx_type.value)
 
 

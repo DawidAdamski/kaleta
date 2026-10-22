@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from kaleta.schemas.transaction import TransactionType
+from kaleta.schemas.transaction import TransactionType, TransferDirection
 from kaleta.views.components.amount_label import (
     format_signed_amount,
     net_tone,
@@ -35,6 +35,44 @@ class TestFormatSignedAmount:
         """Covers: KAL-TXN-017"""
         assert format_signed_amount(Decimal("0"), TransactionType.EXPENSE) == "0.00"
         assert format_signed_amount(Decimal("0"), TransactionType.INCOME) == "0.00"
+
+
+class TestTransferDirectionSigns:
+    """A transfer leg's sign follows its direction, as the ledger's does.
+
+    Covers: KAL-DSH-011 — the dashboard reads the same money as the ledger, so
+    the arriving leg of a transfer must read positive here too (KAL-TRF-005).
+    Without a direction — income, expense, the planned-occurrence cards — the
+    sign is unchanged.
+    """
+
+    def test_an_arriving_leg_reads_positive(self) -> None:
+        assert (
+            format_signed_amount(Decimal("500.00"), TransactionType.TRANSFER, TransferDirection.IN)
+            == "+500.00"
+        )
+
+    def test_a_leaving_leg_reads_negative(self) -> None:
+        assert (
+            format_signed_amount(Decimal("500.00"), TransactionType.TRANSFER, TransferDirection.OUT)
+            == "-500.00"
+        )
+
+    def test_a_transfer_without_a_direction_keeps_the_old_money_out_sign(self) -> None:
+        # The default reproduces today's behaviour for callers that pass no
+        # direction (e.g. the planned-occurrence cards).
+        assert format_signed_amount(Decimal("500.00"), TransactionType.TRANSFER) == "-500.00"
+
+    def test_a_transfer_leg_is_neutral_in_colour_whichever_way_it_goes(self) -> None:
+        """Covers: KAL-TXN-006 — colour follows the raw type; a transfer is neutral."""
+        assert (
+            signed_amount_class(Decimal("500.00"), TransactionType.TRANSFER, TransferDirection.IN)
+            == AMOUNT_NEUTRAL
+        )
+        assert (
+            signed_amount_class(Decimal("500.00"), TransactionType.TRANSFER, TransferDirection.OUT)
+            == AMOUNT_NEUTRAL
+        )
 
 
 class TestTone:
