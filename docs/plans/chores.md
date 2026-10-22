@@ -319,11 +319,14 @@ check it still reproduces before acting on it.
       (Fixed: `plan/setup-sync-url-rebuild` — structural rebuild; the SSL
       translation was already present, the password corruption was the live
       defect.)
-- [ ] Report builder: on a one-dimensional month/year report with a
+- [x] Report builder: on a one-dimensional month/year report with a
       change or moving-average column on, `top_n` is not applied (a trend
       needs every period), but the sentence still reads "top 10". Grey the
       top-N slot out or say "all periods" there. Found by
       `plan/reports-trend-columns`.
+      (Fixed: `plan/reports-topn-label-with-trend` — `top_n_suppressed`
+      helper mirrors `SavedReportService._limit`; sentence reads "all
+      periods" and the picker slot goes inert. KAL-RPT-011.)
 - [ ] e2e servers spawned by `tests/e2e/conftest.py` (and the secure-cookie
       one in `test_auth.py`) inherit `NICEGUI_STORAGE_PATH` from the pytest
       process, which importing `kaleta` pinned to the developer's real

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from kaleta.i18n import t
+from kaleta.services.saved_report_service import TREND_COLUMNS
 from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.reports.constants import (
     COLUMNS,
@@ -104,8 +105,30 @@ def period_label(state: dict[str, Any]) -> str:
     return _label(DATE_PRESETS, "custom")
 
 
+def top_n_suppressed(state: dict[str, Any]) -> bool:
+    """True when the engine ignores ``top_n`` because the report is a trend.
+
+    A one-dimensional month or year report with a change or a moving average
+    on it is drawn for every period — a sequence cut to its ten biggest months
+    is no longer a sequence — so ``SavedReportService._limit`` returns no limit
+    (``saved_report_service.py``). Both the sentence and the top-N picker read
+    this, so neither can promise a cut the engine will not make. A pivot is
+    exempt: its ``top_n`` is applied in ``_cut_rows``, hence the series guard.
+    """
+    if state["series"]:
+        return False
+    return any(column in TREND_COLUMNS for column in active_columns(state))
+
+
 def top_n_label(state: dict[str, Any]) -> str:
-    """``top_n`` of 0 means no limit, which "top 0" would read as the opposite."""
+    """``top_n`` of 0 means no limit, which "top 0" would read as the opposite.
+
+    On a trend report the engine draws every period and ignores the limit
+    (`top_n_suppressed`), so the sentence says so rather than naming a cut-off
+    the result will not have.
+    """
+    if top_n_suppressed(state):
+        return t("reports.sentence_all_periods")
     top_n = int(state["top_n"] or 0)
     return str(top_n) if top_n > 0 else t("reports.sentence_no_limit")
 

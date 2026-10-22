@@ -1564,6 +1564,7 @@
     "sentence_top": "· limit:",
     "sentence_types_all": "wszystkich typów",
     "sentence_no_limit": "bez limitu",
+    "sentence_all_periods": "wszystkie okresy",
     "sentence_from_date": "od {date}",
     "sentence_to_date": "do {date}",
     "chart_title": "{types} — {dimension} · {period}",

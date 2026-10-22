@@ -25,6 +25,7 @@ from kaleta.views.reports.sentence import (
     share_percents,
     slot_labels,
     top_n_label,
+    top_n_suppressed,
     types_label,
 )
 
@@ -106,6 +107,48 @@ class TestTopNLabel:
         # `report_config_from_builder_state` turns 0 into None, which means
         # "every row" — so "top 0" would say the exact opposite.
         assert top_n_label(_state(top_n=0)) == "no limit"
+
+    def test_a_trend_on_a_monthly_report_reads_as_every_period(self) -> None:
+        """Covers: KAL-RPT-011
+
+        The engine ignores the limit on a one-dimensional trend report
+        (`SavedReportService._limit`), so naming "10" there would promise a
+        cut the result will not have.
+        """
+        state = _state(dimension="month", columns=["moving_avg"], top_n=10)
+        assert top_n_label(state) == "all periods"
+
+
+class TestTopNSuppressed:
+    def test_a_month_report_with_a_trend_column_suppresses_the_limit(self) -> None:
+        """Covers: KAL-RPT-011"""
+        assert top_n_suppressed(_state(dimension="month", columns=["change"])) is True
+        assert top_n_suppressed(_state(dimension="year", columns=["moving_avg"])) is True
+
+    def test_a_plain_column_on_a_month_report_leaves_the_limit_alone(self) -> None:
+        """Covers: KAL-RPT-011
+
+        Share and rank are cut like any other column — only a change or a
+        moving average needs every period.
+        """
+        assert top_n_suppressed(_state(dimension="month", columns=["share", "rank"])) is False
+
+    def test_a_trend_column_on_a_category_report_cannot_run_so_is_not_suppressing(self) -> None:
+        """Covers: KAL-RPT-011
+
+        A moving average needs a time axis; on Category it is dropped by
+        `active_columns`, so the limit is live as usual.
+        """
+        assert top_n_suppressed(_state(dimension="category", columns=["moving_avg"])) is False
+
+    def test_a_pivot_applies_its_limit_even_with_a_trend(self) -> None:
+        """Covers: KAL-RPT-011
+
+        Category by Month cuts rows by their total in `_rows_to_pivot`, so the
+        trend running along the months does not spare the limit.
+        """
+        state = _state(dimension="category", series="month", columns=["change"])
+        assert top_n_suppressed(state) is False
 
 
 class TestResultTotal:

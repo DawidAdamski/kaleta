@@ -30,7 +30,12 @@ from kaleta.views.reports.constants import (
     chart_unavailable_reason,
     column_unavailable_reason,
 )
-from kaleta.views.reports.sentence import active_columns, column_label, slot_labels
+from kaleta.views.reports.sentence import (
+    active_columns,
+    column_label,
+    slot_labels,
+    top_n_suppressed,
+)
 from kaleta.views.theme import (
     CHART_PICK,
     CHART_PICK_ON,
@@ -42,6 +47,7 @@ from kaleta.views.theme import (
     SELECTION_DIVIDER,
     SENTENCE_FOOT,
     SENTENCE_SLOT,
+    SENTENCE_SLOT_DISABLED,
     SENTENCE_SLOT_EMPTY,
     SENTENCE_SLOT_TARGET,
 )
@@ -83,14 +89,17 @@ def build_config_zone(
             *,
             drop: Callable[[], None] | None = None,
             empty: bool = False,
+            disabled: bool = False,
         ) -> Any:
             classes = f"{SENTENCE_SLOT} {_SENTENCE}"
-            if drop is not None:
+            if drop is not None and not disabled:
                 classes += f" {SENTENCE_SLOT_TARGET}"
             if empty:
                 classes += f" {SENTENCE_SLOT_EMPTY}"
+            if disabled:
+                classes += f" {SENTENCE_SLOT_DISABLED}"
             with ui.element("span").classes(classes) as slot:
-                if drop is not None:
+                if drop is not None and not disabled:
                     # Without preventDefault on dragover the browser refuses
                     # the drop and the slot never hears about it.
                     slot.props('ondragover="event.preventDefault()"')
@@ -100,7 +109,9 @@ def build_config_zone(
                 if empty:
                     ui.icon("add", size="15px")
                 ui.label(text)
-                if not empty:
+                # A disabled slot opens no menu, so it wears no chevron that
+                # would say it does.
+                if not empty and not disabled:
                     ui.icon("expand_more", size="15px")
             return slot
 
@@ -161,35 +172,41 @@ def build_config_zone(
                 _pick("date_preset", list(DATE_PRESETS))
 
             _word(t("reports.sentence_top"))
-            with _slot(labels.top_n), ui.menu() as top_menu:
-                for count in (5, 10, 20, 50, 0):
-                    ui.menu_item(
-                        str(count) if count else t("reports.sentence_no_limit"),
-                        on_click=lambda c=count: on_set("top_n", c),
-                    ).props("dense")
-                ui.separator()
-                # The quick values are the common ones, not the only ones:
-                # the control they replace took any number from 0 to 100, and
-                # 15 or 100 must stay reachable.
-                with ui.row().classes("items-center gap-2 px-3 py-2 no-wrap"):
-                    ui.label(t("reports.top_n")).classes(f"{MUTED} text-xs")
-                    top_input = (
-                        ui.number(value=int(state["top_n"] or 0), min=0, max=100, step=1)
-                        .props("dense outlined")
-                        .classes("w-20")
-                    )
-                    # Applied on Enter or on leaving the field, not on every
-                    # keystroke: setting the state repaints the sentence, and
-                    # a repaint mid-number would take the field away after the
-                    # first digit.
-                    top_input.on("keydown.enter", lambda: _set_top_n(top_input.value))
-                    top_input.on("blur", lambda: _set_top_n(top_input.value))
+            # A trend report draws every period, so the engine ignores any
+            # limit set here (`top_n_suppressed`). The slot is shown greyed
+            # and inert rather than offering a cut the result will not have.
+            if top_n_suppressed(state):
+                _slot(labels.top_n, disabled=True)
+            else:
+                with _slot(labels.top_n), ui.menu() as top_menu:
+                    for count in (5, 10, 20, 50, 0):
+                        ui.menu_item(
+                            str(count) if count else t("reports.sentence_no_limit"),
+                            on_click=lambda c=count: on_set("top_n", c),
+                        ).props("dense")
+                    ui.separator()
+                    # The quick values are the common ones, not the only ones:
+                    # the control they replace took any number from 0 to 100,
+                    # and 15 or 100 must stay reachable.
+                    with ui.row().classes("items-center gap-2 px-3 py-2 no-wrap"):
+                        ui.label(t("reports.top_n")).classes(f"{MUTED} text-xs")
+                        top_input = (
+                            ui.number(value=int(state["top_n"] or 0), min=0, max=100, step=1)
+                            .props("dense outlined")
+                            .classes("w-20")
+                        )
+                        # Applied on Enter or on leaving the field, not on every
+                        # keystroke: setting the state repaints the sentence,
+                        # and a repaint mid-number would take the field away
+                        # after the first digit.
+                        top_input.on("keydown.enter", lambda: _set_top_n(top_input.value))
+                        top_input.on("blur", lambda: _set_top_n(top_input.value))
 
-            def _set_top_n(raw: float | None) -> None:
-                value = max(0, min(100, int(raw or 0)))
-                top_menu.close()
-                if value != int(state["top_n"] or 0):
-                    on_set("top_n", value)
+                def _set_top_n(raw: float | None) -> None:
+                    value = max(0, min(100, int(raw or 0)))
+                    top_menu.close()
+                    if value != int(state["top_n"] or 0):
+                        on_set("top_n", value)
 
             # The derived columns. Optional, like the second dimension, and
             # read as an invitation until one is picked.
