@@ -1,17 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Wizard Action Items.
 
-Covers: KAL-WAC-002, KAL-WAC-003, KAL-WAC-004, KAL-DSH-008
+Covers: KAL-WAC-002, KAL-WAC-003, KAL-WAC-004, KAL-DSH-008, KAL-DSH-012
 
 Seeds one item per severity band and checks the dashboard widget renders
-them ranked, with working row links.
+them ranked, with working row links, and that a banner item is a control
+reachable and activated from the keyboard.
 """
 
 from __future__ import annotations
 
 import datetime
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.seed_helpers import seed_personal_loan, seed_subscription
 
@@ -67,3 +68,61 @@ def test_widget_ranks_items_and_links_rows(page: Page, base_url: str) -> None:
     expect(sub_row).to_have_attribute("data-severity", "info")
     sub_row.click()
     page.wait_for_url(f"**/wizard/subscriptions?focus={sub_id}", timeout=10000)
+
+
+def test_desktop_banner_item_is_keyboard_reachable_and_activated(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-012
+
+    A desktop "Needs attention" banner item is a real control, not a
+    pointer-only row: it is in the tab order, announced as a button, and
+    Enter and Space each navigate to the exact page a click opens — the fix
+    ``_row_element`` (commit ab2cac0) already carries for the phone rows.
+
+    Asserts on an overdue personal loan (danger), which always ranks first
+    and so stays within the banner's 12 visible rows even when the shared
+    session has saturated it — unlike an info-severity renewal, which sits
+    in the tail. Defined after ``test_widget_ranks_items_and_links_rows`` so
+    the seed added here cannot perturb that sibling's view of the banner.
+    """
+    counterparty = "Overdue DSH012 E2E"
+    loan_id = seed_personal_loan(
+        counterparty, 700.0, due_at=datetime.date.today() - datetime.timedelta(days=1)
+    )
+    href = f"/wizard/personal-loans?focus={loan_id}"
+
+    page.set_viewport_size({"width": 1360, "height": 900})
+    page.goto(f"{base_url}/")
+
+    widget = page.locator(_WIDGET)
+    expect(widget).to_be_visible(timeout=10000)
+    # The wide rendering is the accent banner, not the phone's paper rows.
+    expect(widget.locator(".k-banner")).to_have_count(1)
+
+    # Scope to this loan's own row: the ranks test seeds another overdue loan
+    # into the same shared session, so the kind alone is not unique — the
+    # title carries the counterparty name, which is.
+    def _row() -> Locator:
+        return widget.locator('.k-banner-item[data-action-kind="loan_overdue"]').filter(
+            has_text=counterparty
+        )
+
+    row = _row()
+    expect(row).to_be_visible(timeout=10000)
+
+    # It is a control: announced as a button and in the tab order.
+    expect(row).to_have_attribute("role", "button")
+    expect(row).to_have_attribute("tabindex", "0")
+
+    # Enter activates it, going to the same focused page a click would.
+    row.focus()
+    page.keyboard.press("Enter")
+    page.wait_for_url(f"**{href}", timeout=10000)
+
+    # Space activates it too — the second key a role="button" promises.
+    page.goto(f"{base_url}/")
+    expect(widget).to_be_visible(timeout=10000)
+    row = _row()
+    expect(row).to_be_visible(timeout=10000)
+    row.focus()
+    page.keyboard.press(" ")
+    page.wait_for_url(f"**{href}", timeout=10000)

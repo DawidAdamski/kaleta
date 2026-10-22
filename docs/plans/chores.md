@@ -813,3 +813,13 @@ check it still reproduces before acting on it.
       backticked text looks like a path (has a `/` or a known file
       extension, no leading `./scripts` / `uv ` / shell builtin), or require
       an explicit marker for runnable criteria.
+- [ ] `tests/e2e/test_wizard_actions_widget.py::test_widget_ranks_items_and_links_rows`
+      asserts a renewal-due subscription row is *visible* in the 12-capped
+      ("+N more") "Needs attention" banner. That only holds while the
+      shared-session banner is still under `MAX_ROWS` at that point: the
+      subscription is info-severity (lowest rank) and sits in the tail, so
+      any test seeding a competing banner item before it can push that row
+      into overflow and fail the assertion deterministically. Exposed while
+      adding KAL-DSH-012; worked around by asserting a11y on a top-ranked
+      danger loan instead. (Lead, not a fix — the ranks test could seed on a
+      cleaned slate or assert via "+N more"-aware lookup.)

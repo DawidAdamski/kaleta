@@ -5250,6 +5250,14 @@ Feature: Dashboard Customization
     And the incoming leg on "PKO BP" reads +500.00 in the recent-transactions card
     And the card agrees with the ledger, where each leg is signed by its
       direction (KAL-TRF-005) rather than by its type alone
+
+  KAL-DSH-012 @automated
+  Scenario: A desktop "Needs attention" banner item is reachable and activated by the keyboard
+    Given a subscription past its expected renewal is among my wizard items
+    When I open the dashboard on a 1360 pixel wide viewport
+    Then that "Needs attention" banner item carries role "button" and is in the tab order
+    And pressing Enter on it opens the same focused page a click opens
+    And Space opens it too, because the row promises both keys a button does
 ```
 
 ## Feature: Wizard Action Items
