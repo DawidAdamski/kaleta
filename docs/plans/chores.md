@@ -348,7 +348,7 @@ check it still reproduces before acting on it.
       (action does not proceed), while the success-path `clear()` is
       best-effort so a correct credential is not blocked by a cleanup that
       cannot reach Redis.
-- [ ] `MoneyFlowService` reads a transfer's direction as "lower id is the
+- [x] `MoneyFlowService` reads a transfer's direction as "lower id is the
       source leg" (`src.id < dst.id`). Rows paired after the fact
       (`TransactionService.pair_as_transfer`, import "accept") can have the
       incoming leg older than the outgoing one, so the flow is drawn
@@ -357,6 +357,10 @@ check it still reproduces before acting on it.
       `plan/transfers-manual-pairing`. The direction is stored now
       (`Transaction.transfer_direction`, `plan/accounts-ledger-balances`):
       join on the `out` leg instead of the id order.
+      (Fixed: `moneyflow-transfer-direction` / `c631f37`, KAL-FLW-005 —
+      `_net_transfers` selects the source leg by `transfer_direction == OUT`
+      with a both-legs-NULL id-order fallback. Covered by an integration case
+      that forces the incoming leg to the lower id.)
 - [x] A planned transfer (`SalaryService.create_salary_plan`, "Pay
       yourself a salary") posts only its outgoing leg on the source
       account. The target account is named only in the description, so
@@ -568,10 +572,22 @@ check it still reproduces before acting on it.
       które wycofałeś". Gender-neutral: "Wycofane fundusze. Możesz je przywrócić w
       każdej chwili." Seen by the i18n check of `funds-irregular-items`.
       Rewritten to the gender-neutral wording in `i18n-hygiene-orphans-and-gender`.
-- [ ] **Merging duplicate transactions drops their links.** `DedupeService.merge_transactions`
+- [x] **Merging duplicate transactions drops their links.** `DedupeService.merge_transactions`
       deletes the non-keepers; a duplicate's `irregular_item_id` (and, as before,
       `planned_transaction_id`) is not moved to the keeper. Seen in the review of
       `funds-irregular-items` Part B.
+      (Fixed: `dedupe-merge-keeps-links` / `c566d24`, KAL-DUP-001/002 — the
+      keeper inherits `irregular_item_id` / `planned_transaction_id` from the
+      lowest-id duplicate when it has none of its own; deletes flush before the
+      keeper UPDATE to clear `uq_transactions_planned_occurrence`.)
+- [ ] **Duplicate-merge still drops `gift_id`.** The `dedupe-merge-keeps-links`
+      fix carries `irregular_item_id` and `planned_transaction_id` to the keeper
+      but not `gift_id` (`Transaction.gift_id`, FK `gifts.id` ON DELETE SET
+      NULL) — structurally the same kind of link: the gift a transaction
+      settles. Deleting a duplicate that carries `gift_id` loses that link. Out
+      of scope for the original fix (which named only the first two); carry it
+      the same way, with a KAL scenario + integration test. Found reviewing the
+      Wave-10 dedupe lane.
 - [x] **`GET /api/v1/budgets/?year=` ignores the year without `month`.** The route
       documents "Use `year` to filter by year", but `BudgetService.list` only filters
       when `month` is given, so every year's budgets come back. Seen writing the
