@@ -493,11 +493,13 @@ def test_a_trend_on_a_monthly_report_draws_every_period_not_a_top_n(
     page.goto(f"{base_url}{BUILDER}")
     expect(_slots(page).first).to_be_visible(timeout=10000)
     _pick(page, 1, "Month")
-    assert _slot_text(page, TOP_N_SLOT) == "10"
+    expect(_slots(page).nth(TOP_N_SLOT)).to_contain_text("10")
     expect(_slots(page).nth(TOP_N_SLOT)).not_to_have_class(re.compile(r"k-slot--disabled"))
 
     _toggle_column(page, "3-month average")
-    assert _slot_text(page, TOP_N_SLOT) == "all periods"
+    # The slot repaints on a NiceGUI round-trip after the toggle, so wait for
+    # the text rather than reading it the instant the click returns.
+    expect(_slots(page).nth(TOP_N_SLOT)).to_contain_text("all periods")
     limit_slot = _slots(page).nth(TOP_N_SLOT)
     expect(limit_slot).to_have_class(re.compile(r"k-slot--disabled"))
     # Inert: clicking the greyed slot opens no menu.
@@ -505,7 +507,7 @@ def test_a_trend_on_a_monthly_report_draws_every_period_not_a_top_n(
     expect(page.locator(".q-menu:visible")).to_have_count(0, timeout=3000)
 
     _toggle_column(page, "3-month average")
-    assert _slot_text(page, TOP_N_SLOT) == "10"
+    expect(_slots(page).nth(TOP_N_SLOT)).to_contain_text("10")
     expect(_slots(page).nth(TOP_N_SLOT)).not_to_have_class(re.compile(r"k-slot--disabled"))
     _slots(page).nth(TOP_N_SLOT).click()
     expect(page.locator(".q-menu:visible")).to_be_visible(timeout=5000)
