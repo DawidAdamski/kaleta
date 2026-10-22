@@ -90,7 +90,7 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       Pre-existing; `plan/reports-second-dimension-pivot` localized the pivot
       grid's own row header off the sentence and left the rest alone.
 
-- [ ] `scripts/seed.py` aborts on any alembic-created schema:
+- [x] `scripts/seed.py` aborts on any alembic-created schema:
       `TransactionsSeeder` raises `KeyError: 'Żywność'` because
       `categories_by_name` (top-level only) comes back without the catalog's
       expense categories. Repro: fresh `HOME` + empty SQLite, `uv run alembic
@@ -102,6 +102,10 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       reports are stale and `check all` is red on `main`. Found from
       `plan/reports-second-dimension-pivot`, whose artboard `3e` criteria
       could not be made executable because of it.
+      (Already fixed on `main`: `7310c34` makes `TaxonomySeeder.count()` count
+      only its own categories, so a migration-built schema seeds the full
+      catalog; `b80b5f4` handles the canonical-tag collision. The SQLite repro
+      predates ADR-38 postgres-only. Verified: no crash, `Żywność` present.)
 
 - [ ] `tests/integration/test_reset_password_cli.py::global_db_restored`
       restores the shared `AsyncSessionFactory` only under postgres; on the
@@ -391,7 +395,7 @@ check it still reproduces before acting on it.
       `ValidationError` is reported by message only. Found by
       `plan/hosted-tenancy-foundation`. (Fixed: plan/settings-error-no-secret-leak)
 
-- [ ] "Seed example data" fails with `KeyError: 'Żywność'`
+- [x] "Seed example data" fails with `KeyError: 'Żywność'`
       (`seeders/transactions.py`) on any database built by the migrations —
       self-hosted and hosted alike, also on `main`. The migrations seed the
       Subscriptions category tree, so `TaxonomySeeder.count()` (all
@@ -401,6 +405,9 @@ check it still reproduces before acting on it.
       rows. Count only the seeder's own categories (or check for
       "Żywność"), and add a test on a migrated database. Found in the manual
       run of `hosted-tenancy-foundation`.
+      (Already fixed on `main` by `7310c34` + `b80b5f4`; this entry predates the
+      fix. Covered in the slow tier by
+      `test_example_data.py::test_cli_and_registry_produce_the_same_dataset`.)
 - [ ] **Flaky e2e `test_a_late_upload_does_not_take_the_step_you_chose`
       (KAL-CSV-028).** Failed once in a full `verify.sh --e2e` run (1 of 219)
       and passed 3/3 when rerun on its own. Under load, step panel 2 stays
