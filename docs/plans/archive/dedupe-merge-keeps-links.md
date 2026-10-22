@@ -3,8 +3,9 @@ plan_id: dedupe-merge-keeps-links
 title: Merging duplicate transactions keeps their fund/plan links
 area: services (dedupe)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-22
+roadmap_ref: ../../roadmap.md
 ---
 
 # Merging duplicate transactions keeps their fund/plan links
@@ -49,3 +50,12 @@ a merge never drops a fund payment or a planned-occurrence posting.
   the existing flush-before-rename pattern in `merge_payees`.
 - Tie-break: duplicates are iterated in ascending `id` order and the first
   non-null link wins; the keeper's own link always takes precedence.
+
+## Implementation
+- `c566d24` — fix(dedupe): carry fund/plan links to keeper when merging
+  duplicate transactions. `merge_transactions` reassigns `irregular_item_id`
+  and `planned_transaction_id` to the keeper (only when the keeper has none),
+  flushing deletes before the keeper UPDATE to stay clear of
+  `uq_transactions_planned_occurrence`; adds BDD scenarios KAL-DUP-001 /
+  KAL-DUP-002 @automated and `tests/integration/test_dedupe_merge_links.py`.
+  `gift_id` was deliberately left out (see follow-up chore).

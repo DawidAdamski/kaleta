@@ -3,8 +3,9 @@ plan_id: moneyflow-transfer-direction
 title: Money Flow transfer direction from transfer_direction, not id order
 area: reports (money flow)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-22
+roadmap_ref: ../../roadmap.md
 ---
 
 # Money Flow transfer direction from transfer_direction, not id order
@@ -64,3 +65,12 @@ direction is now stored on the row (`Transaction.transfer_direction`,
   behaviour rather than dropping the pair from the flow. The fallback guards
   on *both* legs being NULL so an (impossible) mixed pair can never be
   double-counted or silently dropped.
+
+## Implementation
+- `c631f37` — fix(money-flow): draw transfer ribbons by transfer_direction,
+  not id order. `_net_transfers` now selects the source leg by
+  `transfer_direction == OUT` with the both-legs-NULL id-order fallback;
+  adds BDD scenario KAL-FLW-005 @automated, an integration case in
+  `tests/integration/test_analysis_api.py` (forces the incoming leg to the
+  lower id via `pair_as_transfer`) and a unit case in
+  `tests/unit/services/test_money_flow_service.py`.
