@@ -69,15 +69,25 @@ def _render_row(item: ActionItem) -> None:
     """One action as an inline banner item.
 
     Keeps ``data-action-kind`` / ``data-severity`` and the click-through so the
-    ranking and routing tests read the same DOM as before the restyle.
+    ranking and routing tests read the same DOM as before the restyle. The row
+    is the target, so it has to be one from the keyboard too: ``tabindex`` and
+    ``role="button"`` make it reachable and announced, and Enter and Space do
+    the same ``ui.navigate.to`` the click already does — the fix
+    ``_row_element`` (commit ab2cac0) carries for the phone rows. No
+    ``aria-label``: the row's own text is its accessible name.
     """
     params = _message_params(item)
-    with (
+    row = (
         ui.row()
         .classes("k-banner-item items-center gap-1.5 no-wrap cursor-pointer")
-        .props(f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"')
-        .on("click", lambda _e=None, href=item.href: ui.navigate.to(href))
-    ):
+        .props(
+            f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}" '
+            'tabindex="0" role="button"'
+        )
+    )
+    for event in ("click", "keydown.enter", "keydown.space.prevent"):
+        row.on(event, lambda _e=None, href=item.href: ui.navigate.to(href))
+    with row:
         ui.icon(_SEVERITY_ICON[item.severity], size="1rem").classes(f"{ON_ACCENT} shrink-0")
         ui.label(t(item.title_key, **params)).classes("text-[15px] font-medium")
 
