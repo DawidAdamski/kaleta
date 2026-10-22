@@ -5218,6 +5218,15 @@ Feature: Dashboard Customization
       its full width
     And no name reaches past the card's right edge
     And the full name is still available as the tile's tooltip
+
+  KAL-DSH-011 @automated
+  Scenario: The recent-transactions card signs a transfer leg like the ledger
+    Given a transfer of 500.00 from "mBank" to "PKO BP" among my recent transactions
+    When I open the dashboard on a wide viewport
+    Then the outgoing leg on "mBank" reads -500.00 in the recent-transactions card
+    And the incoming leg on "PKO BP" reads +500.00 in the recent-transactions card
+    And the card agrees with the ledger, where each leg is signed by its
+      direction (KAL-TRF-005) rather than by its type alone
 ```
 
 ## Feature: Wizard Action Items

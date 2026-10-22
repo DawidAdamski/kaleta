@@ -20,6 +20,7 @@ from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services import AccountService, CategoryService, ReportService, TransactionService
 from kaleta.services.import_service import ImportService
+from kaleta.views.components.amount_label import format_signed_amount, signed_amount_class
 from kaleta.views.theme import AMOUNT_NEUTRAL, amount_class
 
 
@@ -287,3 +288,70 @@ async def test_transfer_leg_is_signed_by_its_direction_in_the_ledger(
     in_row = TransactionService.build_table_row(in_leg, None, "none")
     assert in_row["amount_value"] == "500.00"
     assert in_row["amount"] == "+500.00"
+
+
+@pytest.mark.asyncio
+async def test_recent_transactions_card_signs_transfer_legs_by_direction(
+    session: AsyncSession,
+) -> None:
+    """The dashboard's recent-transactions card signs a transfer leg by direction.
+
+    The card reads ``ReportService.recent_transactions`` — real ``Transaction``
+    rows carrying ``transfer_direction`` — and formats each amount with the same
+    view helpers the widget uses. The arriving leg must read positive, matching
+    the ledger (KAL-TRF-005); from the type alone both legs would read negative.
+    A transfer stays neutral in colour whichever way it went.
+
+    Covers: KAL-DSH-011
+    """
+    today = datetime.date.today()
+    mbank = await _account(session, "mBank DSH11")
+    pko = await _account(session, "PKO BP DSH11")
+
+    svc = TransactionService(session)
+    # Non-internal transfer legs: a recognised internal pair is filtered out of
+    # the recent-transactions card, so the legs that reach it are these.
+    await svc.create(
+        TransactionCreate(
+            account_id=mbank,
+            amount=Decimal("500.00"),
+            type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.OUT,
+            date=today,
+            description="Przelew DSH11 out",
+        )
+    )
+    await svc.create(
+        TransactionCreate(
+            account_id=pko,
+            amount=Decimal("500.00"),
+            type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.IN,
+            date=today,
+            description="Przelew DSH11 in",
+        )
+    )
+
+    recent = await ReportService(session).recent_transactions(10)
+    by_desc = {tx.description: tx for tx in recent}
+    out_leg = by_desc["Przelew DSH11 out"]
+    in_leg = by_desc["Przelew DSH11 in"]
+
+    # The three widget sites: phone label + table amount, and the signed value
+    # the amount cell reads to paint a zero neutral.
+    assert (
+        format_signed_amount(out_leg.amount, out_leg.type, out_leg.transfer_direction) == "-500.00"
+    )
+    assert format_signed_amount(in_leg.amount, in_leg.type, in_leg.transfer_direction) == "+500.00"
+    assert (
+        str(TransactionService.signed_amount(in_leg.amount, in_leg.type, in_leg.transfer_direction))
+        == "500.00"
+    )
+    # Colour still follows the raw type: a transfer leg is neutral either way.
+    assert (
+        signed_amount_class(in_leg.amount, in_leg.type, in_leg.transfer_direction) == AMOUNT_NEUTRAL
+    )
+    assert (
+        signed_amount_class(out_leg.amount, out_leg.type, out_leg.transfer_direction)
+        == AMOUNT_NEUTRAL
+    )

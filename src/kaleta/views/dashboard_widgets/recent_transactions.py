@@ -67,8 +67,9 @@ def _render_phone_rows(recent: list[Transaction]) -> None:
             with ui.column().classes("gap-0 flex-1 min-w-0"):
                 ui.label(tx.description or "—").classes(f"{TX_PAYEE} truncate")
                 ui.label(_row_meta(tx)).classes(f"{TX_META} truncate")
-            ui.label(format_signed_amount(tx.amount, tx.type)).classes(
-                f"{TX_AMOUNT} {signed_amount_class(tx.amount, tx.type)} shrink-0"
+            ui.label(format_signed_amount(tx.amount, tx.type, tx.transfer_direction)).classes(
+                f"{TX_AMOUNT} "
+                f"{signed_amount_class(tx.amount, tx.type, tx.transfer_direction)} shrink-0"
             )
 
 
@@ -145,9 +146,11 @@ async def render_recent_transactions(session: AsyncSession, ctx: RenderContext) 
                 "desc": (tx.description or "—")[:45],
                 "category": tx.category.name if tx.category else "—",
                 "type": tx.type.value,
-                "amount": format_signed_amount(tx.amount, tx.type),
+                "amount": format_signed_amount(tx.amount, tx.type, tx.transfer_direction),
                 # The cell paints a zero neutral, and needs the figure to see it.
-                "amount_value": str(TransactionService.signed_amount(tx.amount, tx.type)),
+                "amount_value": str(
+                    TransactionService.signed_amount(tx.amount, tx.type, tx.transfer_direction)
+                ),
             }
             for tx in recent
         ]
