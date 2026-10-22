@@ -3284,6 +3284,17 @@ Feature: Report Builder
     Then "change" and "3-month average" are disabled
       And each says it needs a grouping that runs in time
       And "share" and "rank" can still be turned on
+
+  KAL-RPT-011 @automated
+  Scenario: A trend on a monthly report draws every period, not a top N
+    Given I am on the report builder
+      And the report is grouped by "Month" with no second dimension
+    When I turn on "3-month average" from the sentence's last clause
+    Then the sentence's limit clause reads "all periods" instead of "10"
+      And the limit slot is disabled, because a trend is drawn for every period
+    When I turn the trend column back off
+    Then the limit clause reads "10" again
+      And the limit slot can be opened
 ```
 
 ## Feature: Money Flow

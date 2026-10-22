@@ -154,6 +154,10 @@ SENTENCE_SLOT_TARGET = "k-slot--drop"
 #: A slot for an optional word the query has not used yet. Dashed and muted,
 #: like the unset filter chip beside it: an invitation, not a missing value.
 SENTENCE_SLOT_EMPTY = "k-slot--empty"
+#: A slot the query cannot act on — the top-N limit on a trend report, which
+#: the engine ignores. Greyed and inert: shown so the clause still reads, but
+#: without the pointer or the menu that would offer a cut it will not make.
+SENTENCE_SLOT_DISABLED = "k-slot--disabled"
 #: Set on ``body`` by the rail's own dragstart handler, cleared on dragend.
 DRAGGING_BODY = "k-dragging"
 SELECTION_BAR = "k-selection-bar"
@@ -2065,6 +2069,12 @@ body.k-dragging .k-slot--drop{
   font-weight:400;color:var(--k-muted)
 }
 .k-slot--empty .q-icon{color:var(--k-muted)}
+.k-slot--disabled{
+  cursor:default;color:var(--k-disabled);
+  border-style:dashed
+}
+.k-slot--disabled:hover{border-color:var(--k-field-border)}
+.k-slot--disabled .q-icon{color:var(--k-disabled)}
 
 /* ── Banners & chips ──────────────────────────────────────────────── */
 .k-accent-surface{background:var(--k-accent);color:var(--k-on-accent)}

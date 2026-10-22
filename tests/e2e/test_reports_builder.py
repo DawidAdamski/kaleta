@@ -366,6 +366,7 @@ def test_a_saved_report_without_a_second_dimension_loads_unchanged(
 # ---------------------------------------------------------------------------
 
 COLUMNS_SLOT = 6
+TOP_N_SLOT = 5
 
 
 def _open_columns(page: Page) -> Locator:
@@ -477,3 +478,36 @@ def test_columns_needing_a_time_axis_are_unavailable_on_a_category_report(
 
     menu.locator(".q-item", has_text="share").first.click()
     expect(_slots(page).nth(COLUMNS_SLOT)).to_contain_text("share", timeout=5000)
+
+
+def test_a_trend_on_a_monthly_report_draws_every_period_not_a_top_n(
+    page: Page, base_url: str
+) -> None:
+    """Covers: KAL-RPT-011
+
+    A change or a moving average on a one-dimensional month report is drawn
+    for every period, so the engine ignores the limit. The sentence says "all
+    periods" and the limit slot goes inert, rather than offering a cut the
+    result will not have — and both come back when the trend is turned off.
+    """
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+    _pick(page, 1, "Month")
+    expect(_slots(page).nth(TOP_N_SLOT)).to_contain_text("10")
+    expect(_slots(page).nth(TOP_N_SLOT)).not_to_have_class(re.compile(r"k-slot--disabled"))
+
+    _toggle_column(page, "3-month average")
+    # The slot repaints on a NiceGUI round-trip after the toggle, so wait for
+    # the text rather than reading it the instant the click returns.
+    expect(_slots(page).nth(TOP_N_SLOT)).to_contain_text("all periods")
+    limit_slot = _slots(page).nth(TOP_N_SLOT)
+    expect(limit_slot).to_have_class(re.compile(r"k-slot--disabled"))
+    # Inert: clicking the greyed slot opens no menu.
+    limit_slot.click()
+    expect(page.locator(".q-menu:visible")).to_have_count(0, timeout=3000)
+
+    _toggle_column(page, "3-month average")
+    expect(_slots(page).nth(TOP_N_SLOT)).to_contain_text("10")
+    expect(_slots(page).nth(TOP_N_SLOT)).not_to_have_class(re.compile(r"k-slot--disabled"))
+    _slots(page).nth(TOP_N_SLOT).click()
+    expect(page.locator(".q-menu:visible")).to_be_visible(timeout=5000)
