@@ -53,5 +53,5 @@ def forget_revoked_member(revoked: RevokedMember) -> int:
     The cached revocation watermark and their unlocked key; returns how many
     unlocked keys went.
     """
-    revocation_cache.forget(revoked.user_id)
+    revocation_cache.forget(revoked.user_id, tenant_id=revoked.tenant_id)
     return key_ring.lock_member(tenant_member_ref(revoked.tenant_id, revoked.user_id))
