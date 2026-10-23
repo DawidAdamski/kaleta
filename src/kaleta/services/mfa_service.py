@@ -187,7 +187,7 @@ class MfaService:
         user = await self.session.get(User, user_id)
         if user is None:
             msg = "User not found"
-            raise NotFoundError(msg)
+            raise NotFoundError(msg, message_key="errors.mfa.user_not_found")
         existing = (
             await self.session.execute(
                 select(UserMfa.id, UserMfa.enabled_at).where(UserMfa.user_id == user_id)
@@ -489,10 +489,10 @@ class MfaService:
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             msg = "Enable two-factor authentication before asking for recovery codes."
-            raise ValidationError(msg)
+            raise ValidationError(msg, message_key="errors.mfa.enable_before_recovery_codes")
         if not self.step_up_is_fresh(mfa_verified_at):
             msg = "Confirm with a two-factor code before reissuing recovery codes."
-            raise ValidationError(msg)
+            raise ValidationError(msg, message_key="errors.mfa.confirm_before_recovery_codes")
         codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
         # Ten argon2 hashes, roughly a second of CPU, kept off the event loop.
         hashed = await asyncio.to_thread(self._hash_recovery_codes, codes)
