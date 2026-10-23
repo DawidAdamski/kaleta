@@ -217,6 +217,38 @@
     },
     "account": {
       "ambiguous_external_number": "Więcej niż jedno konto pasuje do tego numeru konta."
+    },
+    "household": {
+      "member_no_key_to_seal": "Jeden z członków gospodarstwa nie ma ustawionego klucza, do którego można zapieczętować nowy.",
+      "household_rekeying_already": "To gospodarstwo jest już w trakcie zmiany kluczy. Spróbuj ponownie za chwilę.",
+      "key_not_current": "Odblokowany klucz nie jest aktualnym kluczem gospodarstwa. Zaloguj się ponownie.",
+      "not_a_member": "Nie jesteś członkiem żadnego gospodarstwa.",
+      "invite_email_required": "Podaj adres e-mail.",
+      "email_belongs_to_other_account": "Ten adres e-mail należy już do innego konta.",
+      "already_a_member": "Ta osoba jest już członkiem Twojego gospodarstwa.",
+      "household_full": "Gospodarstwo może mieć najwyżej {max_members} członków, wliczając zaproszenia.",
+      "only_pending_can_be_approved": "Zatwierdzić można tylko członka oczekującego na zatwierdzenie.",
+      "member_no_passphrase": "Ten członek nie ustawił jeszcze swojego hasła do danych.",
+      "member_key_changed": "Klucz tego członka zmienił się od czasu wyświetlenia listy. Odśwież i porównaj ponownie.",
+      "only_pending_can_be_declined": "Odrzucić można tylko członka oczekującego na zatwierdzenie.",
+      "hand_over_before_leaving": "Przekaż gospodarstwo innemu członkowi, zanim z niego wyjdziesz.",
+      "only_active_can_be_removed": "Usunąć można tylko aktywnego członka; oczekującego odrzuć.",
+      "already_the_owner": "Jesteś już właścicielem.",
+      "only_active_can_be_owner": "Właścicielem może zostać tylko aktywny członek.",
+      "reset_not_a_member": "Nie jesteś członkiem tego gospodarstwa.",
+      "owner_key_cannot_reset": "Klucza właściciela nie można zresetować: gospodarstwo utraciłoby swoje dane.",
+      "name_required": "Podaj nazwę.",
+      "name_too_long": "Nazwa nie może przekraczać {max_length} znaków.",
+      "account_being_set_up": "Twoje konto jest jeszcze konfigurowane.",
+      "member_no_account": "Ten członek nie ma jeszcze konta w gospodarstwie.",
+      "household_gone": "To gospodarstwo już nie istnieje.",
+      "member_not_found": "Nie ma takiego członka w Twoim gospodarstwie.",
+      "household_rekeying": "Twoje gospodarstwo jest w trakcie zmiany kluczy. Spróbuj ponownie za chwilę.",
+      "membership_pending": "Twoje członkostwo oczekuje na zatwierdzenie przez właściciela.",
+      "only_owner": "Tylko właściciel gospodarstwa może to zrobić.",
+      "unlock_first": "Najpierw odblokuj swoje dane za pomocą hasła.",
+      "email_has_login": "Ten adres e-mail ma już tutaj konto logowania. Zaloguj się nim, aby zaakceptować.",
+      "invitation_just_used": "To zaproszenie zostało właśnie wykorzystane. Zaloguj się zamiast tego."
     }
   },
   "dashboard": {

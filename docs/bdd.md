@@ -3437,6 +3437,14 @@ Feature: Localized error messages
     And a missing categorisation rule 7 reads in Polish "Nie znaleziono reguły kategoryzacji 7."
     And a rule, subscription, category, budget and account error each resolves its own key
     And every core-cohort error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-006 @automated
+  Scenario: A household-sharing error toast speaks the session's language
+    Given inviting with a blank e-mail carries the key "errors.household.invite_email_required"
+    Then the Polish message reads "Podaj adres e-mail."
+    And the English message reads "Enter an e-mail address."
+    And a full household of 10 reads in Polish "Gospodarstwo może mieć najwyżej 10 członków, wliczając zaproszenia."
+    And every household error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication
