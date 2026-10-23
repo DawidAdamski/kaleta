@@ -378,13 +378,24 @@ class TransactionService:
         the outgoing leg, nor an expense the incoming one.
         """
         if expense_id == income_id:
-            raise ValidationError("A transfer needs two different transactions.")
+            raise ValidationError(
+                "A transfer needs two different transactions.",
+                message_key="errors.transaction.transfer_needs_two_rows",
+            )
         outgoing = await self.get(expense_id)
         incoming = await self.get(income_id)
         if outgoing is None:
-            raise NotFoundError(f"Transaction {expense_id} not found.")
+            raise NotFoundError(
+                f"Transaction {expense_id} not found.",
+                message_key="errors.transaction.not_found_id",
+                params={"transaction_id": expense_id},
+            )
         if incoming is None:
-            raise NotFoundError(f"Transaction {income_id} not found.")
+            raise NotFoundError(
+                f"Transaction {income_id} not found.",
+                message_key="errors.transaction.not_found_id",
+                params={"transaction_id": income_id},
+            )
         # ``get`` eager-loads ``account``; the currency check below reads it.
         self._validate_transfer_pair(outgoing, incoming, amount_tolerance)
 
@@ -414,11 +425,15 @@ class TransactionService:
         first = await self.get(first_id)
         second = await self.get(second_id)
         if first is None or second is None:
-            raise NotFoundError("Transaction not found.")
+            raise NotFoundError(
+                "Transaction not found.",
+                message_key="errors.transaction.not_found",
+            )
         oriented = self.orient_transfer_legs(first, second)
         if oriented is None:
             raise ValidationError(
-                "A transfer needs money leaving one account and entering another."
+                "A transfer needs money leaving one account and entering another.",
+                message_key="errors.transaction.transfer_needs_both_directions",
             )
         outgoing, incoming = oriented
         await self.pair_as_transfer(outgoing.id, incoming.id)
@@ -437,20 +452,30 @@ class TransactionService:
             return 0
         category = await self.session.get(Category, category_id)
         if category is None:
-            raise NotFoundError(f"Category {category_id} not found.")
+            raise NotFoundError(
+                f"Category {category_id} not found.",
+                message_key="errors.transaction.category_not_found",
+                params={"category_id": category_id},
+            )
         if category.type not in (CategoryType.INCOME, CategoryType.EXPENSE):
-            raise ValidationError("Only income and expense categories can be assigned.")
+            raise ValidationError(
+                "Only income and expense categories can be assigned.",
+                message_key="errors.transaction.only_income_expense_categories",
+            )
         stmt = select(Transaction).where(Transaction.id.in_(transaction_ids))
         transactions = builtins.list((await self.session.execute(stmt)).scalars().all())
         wanted = TransactionType(category.type.value)
         for tx in transactions:
             if tx.is_split:
                 raise ValidationError(
-                    "A split transaction's category is set per line, not in bulk."
+                    "A split transaction's category is set per line, not in bulk.",
+                    message_key="errors.transaction.split_category_per_line",
                 )
             if tx.type != wanted:
                 raise ValidationError(
-                    f"A {category.type.value} category can only go on {category.type.value} rows."
+                    f"A {category.type.value} category can only go on {category.type.value} rows.",
+                    message_key="errors.transaction.category_type_mismatch",
+                    params={"category_type": category.type.value},
                 )
         for tx in transactions:
             tx.category_id = category_id
@@ -485,30 +510,57 @@ class TransactionService:
         outgoing: Transaction, incoming: Transaction, amount_tolerance: Decimal
     ) -> None:
         if outgoing.type == TransactionType.INCOME:
-            raise ValidationError("The outgoing leg of a transfer cannot be an income.")
+            raise ValidationError(
+                "The outgoing leg of a transfer cannot be an income.",
+                message_key="errors.transaction.outgoing_leg_not_income",
+            )
         if incoming.type == TransactionType.EXPENSE:
-            raise ValidationError("The incoming leg of a transfer cannot be an expense.")
+            raise ValidationError(
+                "The incoming leg of a transfer cannot be an expense.",
+                message_key="errors.transaction.incoming_leg_not_expense",
+            )
         if outgoing.account_id == incoming.account_id:
-            raise ValidationError("A transfer moves money between two different accounts.")
+            raise ValidationError(
+                "A transfer moves money between two different accounts.",
+                message_key="errors.transaction.transfer_different_accounts",
+            )
         if outgoing.account.currency != incoming.account.currency:
-            raise ValidationError("Pairing rows in different currencies is not supported.")
+            raise ValidationError(
+                "Pairing rows in different currencies is not supported.",
+                message_key="errors.transaction.transfer_currency_mismatch",
+            )
         if abs(abs(outgoing.amount) - abs(incoming.amount)) > amount_tolerance:
-            raise ValidationError("Both legs of a transfer must have the same amount.")
+            raise ValidationError(
+                "Both legs of a transfer must have the same amount.",
+                message_key="errors.transaction.transfer_amount_mismatch",
+            )
         for leg in (outgoing, incoming):
             if leg.linked_transaction_id is not None:
-                raise ConflictError(f"Transaction {leg.id} is already linked to another row.")
+                raise ConflictError(
+                    f"Transaction {leg.id} is already linked to another row.",
+                    message_key="errors.transaction.already_linked",
+                    params={"transaction_id": leg.id},
+                )
             if leg.is_split:
-                raise ValidationError("A split transaction cannot be part of a transfer.")
+                raise ValidationError(
+                    "A split transaction cannot be part of a transfer.",
+                    message_key="errors.transaction.split_cannot_be_transfer",
+                )
 
     @staticmethod
     def _validate_split_sum(amount: Decimal, splits: builtins.list[TransactionSplitCreate]) -> None:
         if not splits:
-            raise ValidationError("Split transactions must have at least one split.")
+            raise ValidationError(
+                "Split transactions must have at least one split.",
+                message_key="errors.transaction.split_needs_at_least_one",
+            )
         split_total = sum((s.amount for s in splits), start=Decimal("0"))
         if split_total != amount:
             remaining = amount - split_total
             raise ValidationError(
-                f"Split amounts must sum to {amount}; {remaining:+.2f} remaining."
+                f"Split amounts must sum to {amount}; {remaining:+.2f} remaining.",
+                message_key="errors.transaction.split_sum_mismatch",
+                params={"amount": amount, "remaining": remaining},
             )
 
     async def update(self, transaction_id: int, data: TransactionUpdate) -> Transaction | None:
@@ -537,7 +589,8 @@ class TransactionService:
             and splits is None
         ):
             raise ValidationError(
-                "Cannot change amount on a split transaction without updating splits."
+                "Cannot change amount on a split transaction without updating splits.",
+                message_key="errors.transaction.split_amount_needs_splits",
             )
 
         effective_type = (
@@ -550,7 +603,9 @@ class TransactionService:
             and ("category_id" not in fields_set or data.category_id is None)
         ):
             raise ValidationError(
-                f"{effective_type.value.capitalize()} transactions require a category."
+                f"{effective_type.value.capitalize()} transactions require a category.",
+                message_key="errors.transaction.type_requires_category",
+                params={"transaction_type": effective_type.value.capitalize()},
             )
 
         previous_type = transaction.type
@@ -601,12 +656,18 @@ class TransactionService:
         # Their own save in another tab is "elsewhere", not "by <themselves>".
         if user_id is not None and user_id != acting:
             changed_by = (await MemberNameService(self.session).names()).get(user_id)
-        msg = (
-            f"This transaction was changed by {changed_by} a moment ago."
-            if changed_by
-            else "This transaction was changed elsewhere a moment ago."
+        if changed_by:
+            raise StaleWriteError(
+                f"This transaction was changed by {changed_by} a moment ago.",
+                changed_by=changed_by,
+                message_key="errors.transaction.stale_write_by_member",
+                params={"changed_by": changed_by},
+            )
+        raise StaleWriteError(
+            "This transaction was changed elsewhere a moment ago.",
+            changed_by=changed_by,
+            message_key="errors.transaction.stale_write_elsewhere",
         )
-        raise StaleWriteError(msg, changed_by=changed_by)
 
     @staticmethod
     def _settle_transfer_direction(
@@ -629,7 +690,10 @@ class TransactionService:
         elif previous_type == TransactionType.EXPENSE:
             transaction.transfer_direction = TransferDirection.OUT
         else:
-            raise ValidationError("A transfer leg needs transfer_direction ('out' or 'in').")
+            raise ValidationError(
+                "A transfer leg needs transfer_direction ('out' or 'in').",
+                message_key="errors.transaction.transfer_leg_needs_direction",
+            )
 
     async def delete(self, transaction_id: int) -> bool:
         transaction = await self.get(transaction_id)

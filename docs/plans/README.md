@@ -235,6 +235,7 @@ into the view layer (`t()`), keeping services presentation-free.
 | Plan | Area | Effort | Status | Depends on |
 |---|---|---|---|---|
 | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) | cross-cutting | large | archived | — (ships carrier + first cohort; rest in follow-up slices) |
+| [errors-i18n-transactions](errors-i18n-transactions.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: transaction_service) |
 | [reports-i18n-display-keys](archive/reports-i18n-display-keys.md) | reports | large | archived | — (also listed under Reports) |
 
 ### `@planned` gap-closing (from audit-planned-vs-code)

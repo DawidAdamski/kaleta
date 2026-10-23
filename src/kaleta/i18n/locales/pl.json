@@ -126,6 +126,30 @@
       "merge_not_found": "Nie znaleziono automatycznego scalenia",
       "merge_undo_expired": "To scalenie jest starsze niż {days} dni i nie można go już cofnąć",
       "name_exists": "Odbiorca o nazwie „{name}” już istnieje"
+    },
+    "transaction": {
+      "transfer_needs_two_rows": "Przelew wymaga dwóch różnych transakcji.",
+      "not_found": "Nie znaleziono transakcji.",
+      "not_found_id": "Nie znaleziono transakcji {transaction_id}.",
+      "transfer_needs_both_directions": "Przelew wymaga pieniędzy wychodzących z jednego konta i wpływających na drugie.",
+      "category_not_found": "Nie znaleziono kategorii {category_id}.",
+      "only_income_expense_categories": "Przypisać można tylko kategorie przychodów i wydatków.",
+      "split_category_per_line": "Kategorię transakcji podzielonej ustawia się dla każdej pozycji osobno, a nie zbiorczo.",
+      "category_type_mismatch": "Kategorię typu „{category_type}” można przypisać tylko do wierszy typu „{category_type}”.",
+      "outgoing_leg_not_income": "Strona wychodząca przelewu nie może być przychodem.",
+      "incoming_leg_not_expense": "Strona przychodząca przelewu nie może być wydatkiem.",
+      "transfer_different_accounts": "Przelew przenosi pieniądze między dwoma różnymi kontami.",
+      "transfer_currency_mismatch": "Parowanie wierszy w różnych walutach nie jest obsługiwane.",
+      "transfer_amount_mismatch": "Obie strony przelewu muszą mieć tę samą kwotę.",
+      "already_linked": "Transakcja {transaction_id} jest już powiązana z innym wierszem.",
+      "split_cannot_be_transfer": "Transakcja podzielona nie może być częścią przelewu.",
+      "split_needs_at_least_one": "Transakcja podzielona musi mieć co najmniej jedną pozycję.",
+      "split_sum_mismatch": "Kwoty pozycji muszą sumować się do {amount}; pozostało {remaining:+.2f}.",
+      "split_amount_needs_splits": "Nie można zmienić kwoty transakcji podzielonej bez zaktualizowania pozycji.",
+      "type_requires_category": "Transakcje typu {transaction_type} wymagają kategorii.",
+      "stale_write_by_member": "Tę transakcję zmienił(a) {changed_by} przed chwilą.",
+      "stale_write_elsewhere": "Ta transakcja została zmieniona w innym miejscu przed chwilą.",
+      "transfer_leg_needs_direction": "Strona przelewu wymaga kierunku transfer_direction („out” lub „in”)."
     }
   },
   "dashboard": {

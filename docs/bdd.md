@@ -3403,6 +3403,14 @@ Feature: Localized error messages
     Then the Polish message reads "„lidl poznan” jest już wariantem nazwy odbiorcy „Lidl sp z o o”"
     And the English message reads "'lidl poznan' is already an identity of payee 'Lidl sp z o o'"
     And every first-cohort error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-002 @automated
+  Scenario: A transaction-service error toast speaks the session's language
+    Given pairing a row with itself carries the key "errors.transaction.transfer_needs_two_rows"
+    Then the Polish message reads "Przelew wymaga dwóch różnych transakcji."
+    And the English message reads "A transfer needs two different transactions."
+    And a split-sum mismatch of 100.00 with -3.50 remaining reads in Polish "Kwoty pozycji muszą sumować się do 100.00; pozostało -3.50."
+    And every transaction error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication
