@@ -18,7 +18,7 @@ import datetime
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
 
@@ -87,6 +87,9 @@ from kaleta.views.theme import (
     TITLE_ACTION_PRIMARY,
     WARM_ACCENT,
 )
+
+if TYPE_CHECKING:
+    from kaleta.schemas.wizard_projections import PaymentCalendarProjection
 
 _WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
@@ -628,7 +631,7 @@ def register() -> None:
                 first = datetime.date(y, m, 1)
                 last = datetime.date(y, m, last_day)
 
-                async def _load_grid(session: Any) -> tuple[MonthGrid, Any]:
+                async def _load_grid(session: Any) -> tuple[MonthGrid, PaymentCalendarProjection]:
                     overdue_days = _lookback_days()
                     grid = await PlannedTransactionService(session).grid_for_month(
                         y, m, overdue_window_days=overdue_days

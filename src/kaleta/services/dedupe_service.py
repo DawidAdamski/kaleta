@@ -250,12 +250,13 @@ class DedupeService:
         """Delete the non-keeper duplicates, carrying their fund/plan links to the keeper.
 
         A duplicate may be the row that carries a link the keeper lacks: the
-        irregular-fund item it settles (``irregular_item_id``) or the planned
-        occurrence it posts (``planned_transaction_id``). Deleting the duplicate
-        outright would lose that link, so each is moved onto the keeper when the
-        keeper has none of its own. A link the keeper already holds is never
-        overwritten; when several duplicates offer one, the lowest-id duplicate
-        wins (deterministic). Returns the number of rows deleted.
+        irregular-fund item it settles (``irregular_item_id``), the planned
+        occurrence it posts (``planned_transaction_id``) or the gift it settles
+        (``gift_id``). Deleting the duplicate outright would lose that link, so
+        each is moved onto the keeper when the keeper has none of its own. A link
+        the keeper already holds is never overwritten; when several duplicates
+        offer one, the lowest-id duplicate wins (deterministic). Returns the
+        number of rows deleted.
         """
         deletable = [oid for oid in other_ids if oid != keeper_id]
         if not deletable:
@@ -269,6 +270,7 @@ class DedupeService:
         # own link always wins; among duplicates the lowest id (first here) does.
         carried_irregular_item_id: int | None = None
         carried_planned_transaction_id: int | None = None
+        carried_gift_id: int | None = None
         if keeper is not None:
             if keeper.irregular_item_id is None:
                 carried_irregular_item_id = next(
@@ -284,10 +286,17 @@ class DedupeService:
                     ),
                     None,
                 )
+            if keeper.gift_id is None:
+                carried_gift_id = next(
+                    (tx.gift_id for tx in txs if tx.gift_id is not None),
+                    None,
+                )
         for tx in txs:
             await self.session.delete(tx)
         if keeper is not None and (
-            carried_irregular_item_id is not None or carried_planned_transaction_id is not None
+            carried_irregular_item_id is not None
+            or carried_planned_transaction_id is not None
+            or carried_gift_id is not None
         ):
             # Flush the deletes first: the unit of work runs updates before
             # deletes, so taking a still-present duplicate's planned link on a
@@ -297,6 +306,8 @@ class DedupeService:
                 keeper.irregular_item_id = carried_irregular_item_id
             if carried_planned_transaction_id is not None:
                 keeper.planned_transaction_id = carried_planned_transaction_id
+            if carried_gift_id is not None:
+                keeper.gift_id = carried_gift_id
         await self.session.commit()
         return len(txs)
 
