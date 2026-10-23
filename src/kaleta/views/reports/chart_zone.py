@@ -3,12 +3,18 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services.saved_report_service import (
+    NO_INSTITUTION_LABEL,
+    OTHER_ROW_LABEL,
+    TYPE_LABEL_PREFIX,
+    UNCATEGORISED_LABEL,
+    WEEKDAY_LABEL_PREFIX,
     PivotResult,
     ReportResult,
     build_report_table_data,
@@ -20,7 +26,6 @@ from kaleta.views.reports.sentence import (
     chart_title,
     derived_headers,
     derived_texts,
-    dimension_label,
     result_total,
     share_percents,
 )
@@ -44,6 +49,58 @@ from kaleta.views.theme import (
     TABLE_SURFACE,
     bar_ramp,
 )
+
+#: Postgres ``dow`` is 0 = Sunday. Reuse the payment calendar's day names
+#: rather than shipping a second copy of Monday…Sunday.
+_WEEKDAY_KEYS = ("sun", "mon", "tue", "wed", "thu", "fri", "sat")
+
+
+def _resolve_label(raw: str) -> str:
+    """One axis label as the reader sees it; a plain value passes through.
+
+    User-entered names (a category, an account) and period strings
+    (``2025-01``) are already their own display text. Only the service's
+    sentinels — a weekday ordinal, a type's enum value, the
+    Uncategorised / No-Institution / Other buckets — are translated here.
+    """
+    if raw == UNCATEGORISED_LABEL:
+        return t("reports.uncategorised")
+    if raw == NO_INSTITUTION_LABEL:
+        return t("reports.no_institution")
+    if raw == OTHER_ROW_LABEL:
+        return t("reports.other_row")
+    if raw.startswith(WEEKDAY_LABEL_PREFIX):
+        dow = int(raw[len(WEEKDAY_LABEL_PREFIX) :])
+        return t(f"payment_calendar.wd_full_{_WEEKDAY_KEYS[dow]}")
+    if raw.startswith(TYPE_LABEL_PREFIX):
+        return t(f"reports.type_{raw[len(TYPE_LABEL_PREFIX) :]}")
+    return raw
+
+
+def _localize(result: ReportResult | PivotResult) -> ReportResult | PivotResult:
+    """A copy of the service's answer with every key and sentinel resolved.
+
+    The service stays presentation-free: it labels its axes with i18n keys
+    (``dim_category``, ``metric_sum``) and its rows with sentinels for the
+    buckets no language spells the same. This is the one place ``t()`` turns
+    them into the reader's own words, so the chart, the grid and the table
+    below all draw from an already-localized result.
+    """
+    if isinstance(result, PivotResult):
+        return dataclasses.replace(
+            result,
+            row_header=t(f"reports.{result.row_header}"),
+            series_header=t(f"reports.{result.series_header}"),
+            metric_header=t(f"reports.{result.metric_header}"),
+            row_labels=[_resolve_label(label) for label in result.row_labels],
+            series_labels=[_resolve_label(label) for label in result.series_labels],
+        )
+    return dataclasses.replace(
+        result,
+        column_header=t(f"reports.{result.column_header}"),
+        metric_header=t(f"reports.{result.metric_header}"),
+        labels=[_resolve_label(label) for label in result.labels],
+    )
 
 
 def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
@@ -69,14 +126,18 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
                 ui.label(t("reports.run_to_preview")).classes(BODY_MUTED)
             return
 
+        # The service names its axes with i18n keys and its rows with
+        # sentinels; this is the one place they become the reader's own words.
+        result = _localize(result)
+
         # A second dimension makes the answer a matrix. The two shapes share
         # the title line and the empty state; everything under it differs.
-        pivot = result if isinstance(result, PivotResult) else None
         # A column of averages does not add up to an average of anything, so on
         # that measure there is no total to draw — on the title line
         # (`KAL-RPT-004`) or in the pivot's Total column and footer.
         adds_up = str(state["metric"]) != "avg"
-        column_totals = pivot.series_totals if pivot is not None else result.values
+        column_totals = result.series_totals if isinstance(result, PivotResult) else result.values
+        labels = result.row_labels if isinstance(result, PivotResult) else result.labels
 
         # The title says what the chart is of, so the chart can be read
         # without looking back up at the sentence that asked for it.
@@ -86,23 +147,23 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
             if column_totals and total is not None:
                 ui.label(t("reports.result_total", amount=total)).classes(RESULT_TOTAL)
 
-        labels = pivot.row_labels if pivot is not None else result.labels
         if not labels:
             ui.label(t("reports.no_data")).classes(f"{BODY_MUTED} text-center py-12 w-full")
             return
 
-        if pivot is not None:
+        if isinstance(result, PivotResult):
             if state["chart_type"] == "table":
-                # The row header comes from the sentence and not from the
-                # result: the service names its columns in English, and the
-                # grid sits directly under the line that named the same
-                # dimension in the reader's own language.
-                _pivot_grid(pivot, row_header=dimension_label(state), show_totals=adds_up)
+                # The row header is the localized dimension key the result
+                # already carries, so the grid's corner names the same
+                # dimension the sentence above it does, in the reader's
+                # language, and stays tied to the data the last run produced.
+                _pivot_grid(result, row_header=result.row_header, show_totals=adds_up)
                 return
-            option = pivot_chart_options(pivot, state["chart_type"], is_dark)
+            option = pivot_chart_options(result, state["chart_type"], is_dark)
             ui.echart(option).classes("w-full").style("height: 380px")
             return
 
+        # One-dimensional from here: ``result`` is a ``ReportResult``.
         if state["chart_type"] == "bar":
             _bar_rows(result)
             return

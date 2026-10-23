@@ -19,12 +19,15 @@ from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import AccountService, CategoryService, SavedReportService, TransactionService
 from kaleta.services.saved_report_service import (
+    NO_INSTITUTION_LABEL,
+    OTHER_ROW_LABEL,
     PivotResult,
     ReportConfig,
     ReportResult,
     build_report_table_data,
     chart_type_icon,
     report_config_from_builder_state,
+    weekday_label,
 )
 
 
@@ -62,8 +65,8 @@ class TestSavedReportViewHelpers:
         result = ReportResult(
             labels=["Food", "Transport"],
             values=[100.5, 50.25],
-            column_header="Category",
-            metric_header="Total Amount",
+            column_header="dim_category",
+            metric_header="metric_sum",
         )
         table = build_report_table_data(result)
         assert len(table.columns) == 2
@@ -220,8 +223,8 @@ class TestPivotExecution:
         await _seed_two_months(session)
         result = await report_svc.execute(_pivot_config())
         assert isinstance(result, PivotResult)
-        assert result.row_header == "Category"
-        assert result.series_header == "Month"
+        assert result.row_header == "dim_category"
+        assert result.series_header == "dim_month"
         assert result.row_labels == ["Food", "Fun"]
         assert result.series_labels == ["2025-01", "2025-02"]
         assert result.cells == [
@@ -267,7 +270,9 @@ class TestPivotExecution:
         await _seed_two_months(session)
         result = await report_svc.execute(_pivot_config(series="weekday"))
         assert isinstance(result, PivotResult)
-        assert result.series_labels == ["Monday", "Friday", "Saturday"]
+        # The service carries the weekday ordinal (Postgres dow, 0 = Sunday),
+        # not a word: Monday is 1, Friday 5, Saturday 6. The view localizes it.
+        assert result.series_labels == [weekday_label(1), weekday_label(5), weekday_label(6)]
 
     async def test_top_n_cuts_rows_and_folds_the_rest_into_one(
         self, report_svc: SavedReportService, session: AsyncSession
@@ -275,7 +280,7 @@ class TestPivotExecution:
         await _seed_two_months(session)
         result = await report_svc.execute(_pivot_config(top_n=1))
         assert isinstance(result, PivotResult)
-        assert result.row_labels == ["Food", "Other"]
+        assert result.row_labels == ["Food", OTHER_ROW_LABEL]
         # The ledger still adds up: what the cut left out is in the Other row,
         # so the column totals match the uncut report's.
         assert result.series_totals == [pytest.approx(100.0), pytest.approx(80.0)]
@@ -309,7 +314,7 @@ class TestPivotExecution:
             _pivot_config(dimension="month", series="category", top_n=1)
         )
         assert isinstance(result, PivotResult)
-        assert result.row_labels == ["2025-02", "Other"]
+        assert result.row_labels == ["2025-02", OTHER_ROW_LABEL]
 
     async def test_split_lines_land_in_their_own_category_and_month(
         self, report_svc: SavedReportService, session: AsyncSession
@@ -334,7 +339,7 @@ class TestPivotExecution:
         result = await report_svc.execute(_pivot_config(dimension="account", series="institution"))
         assert isinstance(result, PivotResult)
         assert result.row_labels == ["Checking"]
-        assert result.series_labels == ["No Institution"]
+        assert result.series_labels == [NO_INSTITUTION_LABEL]
         assert result.cells == [[pytest.approx(180.0)]]
 
 

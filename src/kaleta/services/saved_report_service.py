@@ -45,7 +45,28 @@ Column = Literal["share", "rank", "change", "moving_avg"]
 MOVING_AVG_WINDOWS: tuple[int, ...] = (3, 6, 12)
 DEFAULT_MOVING_AVG_WINDOW = 3
 
-_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+#: Report labels the views resolve to localized text. The service stays
+#: presentation-free: it emits these identifiers, and only the report views
+#: call ``t()`` on them. A NUL prefix keeps a sentinel from ever colliding
+#: with a user-entered category, account or institution name, which share the
+#: label stream with it.
+_LABEL_SENTINEL = "\x00"
+UNCATEGORISED_LABEL = f"{_LABEL_SENTINEL}uncategorised"
+NO_INSTITUTION_LABEL = f"{_LABEL_SENTINEL}no_institution"
+WEEKDAY_LABEL_PREFIX = f"{_LABEL_SENTINEL}weekday:"
+TYPE_LABEL_PREFIX = f"{_LABEL_SENTINEL}type:"
+
+
+def weekday_label(ordinal: int) -> str:
+    """The sentinel a weekday row carries: a Postgres ``dow`` (0 = Sunday)."""
+    return f"{WEEKDAY_LABEL_PREFIX}{ordinal}"
+
+
+def _type_label(raw: Any) -> str:
+    """The sentinel a ``type`` row carries: the transaction type's enum value."""
+    value = raw.value if isinstance(raw, TransactionType) else str(raw)
+    return f"{TYPE_LABEL_PREFIX}{value}"
+
 
 #: The dimensions that are a sequence rather than a bucket. They are ordered
 #: chronologically on either axis of a pivot, where everything else is
@@ -63,7 +84,7 @@ TREND_COLUMNS: frozenset[str] = frozenset({"change", "moving_avg"})
 #: What the rows cut off by ``top_n`` are folded into on a pivot. A column
 #: total that counted rows the table does not draw would read as a bug, and
 #: one that ignored them would disagree with the ledger.
-OTHER_ROW_LABEL = "Other"
+OTHER_ROW_LABEL = f"{_LABEL_SENTINEL}other_row"
 
 
 @dataclass
@@ -163,8 +184,8 @@ def _known_window(raw: Any) -> int:
 class ReportResult:
     labels: list[str]
     values: list[float]
-    column_header: str  # e.g. "Category", "Month"
-    metric_header: str  # e.g. "Total Amount", "Count"
+    column_header: str  # dimension i18n key, e.g. "dim_category"; the view calls t()
+    metric_header: str  # metric i18n key, e.g. "metric_sum"; the view calls t()
     #: The derived columns, when the config asked for any it can answer.
     derived: DerivedResult | None = None
 
@@ -181,12 +202,12 @@ class PivotResult:
     view leaves the Total column and footer off on that measure.
     """
 
-    row_header: str  # e.g. "Category"
-    series_header: str  # e.g. "Month"
+    row_header: str  # dimension i18n key, e.g. "dim_category"; the view calls t()
+    series_header: str  # dimension i18n key, e.g. "dim_month"; the view calls t()
     row_labels: list[str]
     series_labels: list[str]
     cells: list[list[float]]  # [row][series]
-    metric_header: str
+    metric_header: str  # metric i18n key, e.g. "metric_sum"; the view calls t()
     row_totals: list[float]
     series_totals: list[float]
     #: The derived columns, per row along the series axis.
@@ -255,9 +276,9 @@ def build_report_table_data(result: ReportResult) -> ReportTableData:
 
 #: Axes grouped by id and named in Python, with the label of their null bucket.
 _NAMED_AXES: dict[str, tuple[type[Category] | type[Account] | type[Institution], str]] = {
-    "category": (Category, "Uncategorised"),
+    "category": (Category, UNCATEGORISED_LABEL),
     "account": (Account, "—"),
-    "institution": (Institution, "No Institution"),
+    "institution": (Institution, NO_INSTITUTION_LABEL),
 }
 
 
@@ -353,12 +374,12 @@ class SavedReportService:
         date_to: datetime.date | None,
     ) -> ReportResult | PivotResult:
         filters = self._transaction_filters(config, date_from, date_to)
-        dim_expr, joins, col_header, is_weekday = self._dimension(config.dimension)
+        dim_expr, joins, col_header, is_weekday, is_type = self._dimension(config.dimension)
         metric_expr, metric_header = self._metric_exprs(config.metric, use_flows=False)
 
         if config.series is not None:
-            series_expr, series_joins, series_header, series_is_weekday = self._dimension(
-                config.series
+            series_expr, series_joins, series_header, series_is_weekday, series_is_type = (
+                self._dimension(config.series)
             )
             stmt = (
                 select(
@@ -377,6 +398,7 @@ class SavedReportService:
                 config=config,
                 headers=(col_header, series_header, metric_header),
                 weekday_axes=(is_weekday, series_is_weekday),
+                type_axes=(is_type, series_is_type),
                 names=(
                     await self._axis_names(config.dimension, {r.label for r in rows}),
                     await self._axis_names(config.series, {r.series for r in rows}),
@@ -396,7 +418,7 @@ class SavedReportService:
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
         names = await self._axis_names(config.dimension, {r.label for r in rows})
-        return self._rows_to_result(rows, col_header, metric_header, is_weekday, names)
+        return self._rows_to_result(rows, col_header, metric_header, is_weekday, is_type, names)
 
     async def _execute_on_flows(
         self,
@@ -406,12 +428,14 @@ class SavedReportService:
     ) -> ReportResult | PivotResult:
         flow = categorised_flows_selectable()
         filters = self._flow_filters(config, date_from, date_to, flow)
-        dim_expr, joins, col_header, is_weekday = self._flow_dimension(config.dimension, flow)
+        dim_expr, joins, col_header, is_weekday, is_type = self._flow_dimension(
+            config.dimension, flow
+        )
         metric_expr, metric_header = self._metric_exprs(config.metric, use_flows=True, flow=flow)
 
         if config.series is not None:
-            series_expr, series_joins, series_header, series_is_weekday = self._flow_dimension(
-                config.series, flow
+            series_expr, series_joins, series_header, series_is_weekday, series_is_type = (
+                self._flow_dimension(config.series, flow)
             )
             stmt = (
                 select(
@@ -431,6 +455,7 @@ class SavedReportService:
                 config=config,
                 headers=(col_header, series_header, metric_header),
                 weekday_axes=(is_weekday, series_is_weekday),
+                type_axes=(is_type, series_is_type),
                 names=(
                     await self._axis_names(config.dimension, {r.label for r in rows}),
                     await self._axis_names(config.series, {r.series for r in rows}),
@@ -451,7 +476,7 @@ class SavedReportService:
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
         names = await self._axis_names(config.dimension, {r.label for r in rows})
-        return self._rows_to_result(rows, col_header, metric_header, is_weekday, names)
+        return self._rows_to_result(rows, col_header, metric_header, is_weekday, is_type, names)
 
     async def _axis_names(
         self, dimension: Dimension | None, keys: set[Any]
@@ -504,6 +529,7 @@ class SavedReportService:
         config: ReportConfig,
         headers: tuple[str, str, str],
         weekday_axes: tuple[bool, bool],
+        type_axes: tuple[bool, bool],
         names: tuple[dict[Any, str] | None, dict[Any, str] | None] = (None, None),
     ) -> PivotResult:
         """Turn ``(row, series, value)`` triples into the matrix the view draws.
@@ -514,6 +540,7 @@ class SavedReportService:
         """
         row_header, series_header, metric_header = headers
         row_is_weekday, series_is_weekday = weekday_axes
+        row_is_type, series_is_type = type_axes
         row_names, series_names = names
         if config.series is None:  # only ever called on the pivot path
             raise ValueError("A pivot needs a series dimension.")
@@ -537,7 +564,7 @@ class SavedReportService:
         )
 
         matrix = [[cells.get(key, {}).get(s, 0.0) for s in series_order] for key in row_order]
-        labels = [cls._label_of(key, row_is_weekday, row_names) for key in row_order]
+        labels = [cls._label_of(key, row_is_weekday, row_is_type, row_names) for key in row_order]
         if folded:
             matrix.append(
                 [sum(cells.get(key, {}).get(s, 0.0) for key in folded) for s in series_order]
@@ -549,7 +576,8 @@ class SavedReportService:
             series_header=series_header,
             row_labels=labels,
             series_labels=[
-                cls._label_of(key, series_is_weekday, series_names) for key in series_order
+                cls._label_of(key, series_is_weekday, series_is_type, series_names)
+                for key in series_order
             ],
             cells=matrix,
             metric_header=metric_header,
@@ -601,13 +629,24 @@ class SavedReportService:
         return sorted(keys, key=lambda key: (-totals.get(key, 0.0), str(key)))
 
     @staticmethod
-    def _label_of(raw: Any, is_weekday: bool, names: dict[Any, str] | None = None) -> str:
-        """The same labelling the one-dimensional path does, for one value."""
+    def _label_of(
+        raw: Any, is_weekday: bool, is_type: bool, names: dict[Any, str] | None = None
+    ) -> str:
+        """The same labelling the one-dimensional path does, for one value.
+
+        A named axis is already resolved to its name (or a fallback sentinel);
+        a weekday carries its ordinal and a ``type`` its enum value, both as
+        sentinels the view turns into the reader's own words.
+        """
         if names is not None:
             return names[raw]
         if raw is None:
             return "?" if is_weekday else "—"
-        return _WEEKDAY_NAMES[int(raw)] if is_weekday else str(raw)
+        if is_weekday:
+            return weekday_label(int(raw))
+        if is_type:
+            return _type_label(raw)
+        return str(raw)
 
     @staticmethod
     def _rows_to_result(
@@ -615,12 +654,15 @@ class SavedReportService:
         col_header: str,
         metric_header: str,
         is_weekday: bool,
+        is_type: bool,
         names: dict[Any, str] | None = None,
     ) -> ReportResult:
         if names is not None:
             labels = [names[r.label] for r in rows]
         elif is_weekday:
-            labels = [_WEEKDAY_NAMES[int(r.label)] if r.label is not None else "?" for r in rows]
+            labels = [weekday_label(int(r.label)) if r.label is not None else "?" for r in rows]
+        elif is_type:
+            labels = [_type_label(r.label) if r.label is not None else "—" for r in rows]
         else:
             labels = [str(r.label) if r.label is not None else "—" for r in rows]
 
@@ -690,12 +732,12 @@ class SavedReportService:
     ) -> tuple[Any, str]:
         amount_col = flow.c.amount if use_flows and flow is not None else Transaction.amount
         if metric == "sum":
-            return func.sum(amount_col), "Total Amount"
+            return func.sum(amount_col), "metric_sum"
         if metric == "count":
             if use_flows:
-                return func.count(), "Count"
-            return func.count(Transaction.id), "Count"
-        return func.avg(amount_col), "Average"
+                return func.count(), "metric_count"
+            return func.count(Transaction.id), "metric_count"
+        return func.avg(amount_col), "metric_avg"
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -733,51 +775,58 @@ class SavedReportService:
     @staticmethod
     def _dimension(
         dim: Dimension,
-    ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool]:
-        """Return (dim_expr, joins, column_header, is_weekday).
+    ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool, bool]:
+        """Return (dim_expr, joins, column_key, is_weekday, is_type).
 
-        Category, account and institution group by **id**: their names are
-        ciphertext, which SQL can neither group nor order by. ``_axis_names``
-        turns the ids into names afterwards, in Python.
+        ``column_key`` is a ``reports.*`` i18n key (e.g. ``"dim_category"``),
+        not a word: the service stays presentation-free and the view resolves
+        it through ``t()``. Category, account and institution group by **id**:
+        their names are ciphertext, which SQL can neither group nor order by.
+        ``_axis_names`` turns the ids into names afterwards, in Python.
         """
         if dim == "category":
-            return (Transaction.category_id, [], "Category", False)
+            return (Transaction.category_id, [], "dim_category", False, False)
         if dim == "account":
-            return (Transaction.account_id, [], "Account", False)
+            return (Transaction.account_id, [], "dim_account", False, False)
         if dim == "institution":
             return (
                 Account.institution_id,
                 [(Account, Transaction.account_id == Account.id, False)],
-                "Institution",
+                "dim_institution",
+                False,
                 False,
             )
         if dim == "month":
             return (
                 func.to_char(Transaction.date, "YYYY-MM", type_=String),
                 [],
-                "Month",
+                "dim_month",
+                False,
                 False,
             )
         if dim == "year":
             return (
                 extract("year", Transaction.date).label("year"),
                 [],
-                "Year",
+                "dim_year",
+                False,
                 False,
             )
         if dim == "type":
             return (
                 Transaction.type,
                 [],
-                "Type",
+                "dim_type",
                 False,
+                True,
             )
         if dim == "weekday":
             return (
                 cast(extract("dow", Transaction.date), Integer),
                 [],
-                "Weekday",
+                "dim_weekday",
                 True,
+                False,
             )
         # Dimension is a closed Literal and every member is handled above, so
         # this is unreachable; assert_never makes a future unhandled member a
@@ -789,46 +838,51 @@ class SavedReportService:
     def _flow_dimension(
         dim: Dimension,
         flow: Any,
-    ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool]:
-        """Return (dim_expr, joins, column_header, is_weekday) for categorised flows."""
+    ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool, bool]:
+        """Return (dim_expr, joins, column_key, is_weekday, is_type) for categorised flows."""
         if dim == "category":
-            return (flow.c.category_id, [], "Category", False)
+            return (flow.c.category_id, [], "dim_category", False, False)
         if dim == "account":
-            return (flow.c.account_id, [], "Account", False)
+            return (flow.c.account_id, [], "dim_account", False, False)
         if dim == "institution":
             return (
                 Account.institution_id,
                 [(Account, flow.c.account_id == Account.id, False)],
-                "Institution",
+                "dim_institution",
+                False,
                 False,
             )
         if dim == "month":
             return (
                 func.to_char(flow.c.date, "YYYY-MM", type_=String),
                 [],
-                "Month",
+                "dim_month",
+                False,
                 False,
             )
         if dim == "year":
             return (
                 extract("year", flow.c.date).label("year"),
                 [],
-                "Year",
+                "dim_year",
+                False,
                 False,
             )
         if dim == "type":
             return (
                 flow.c.type,
                 [],
-                "Type",
+                "dim_type",
                 False,
+                True,
             )
         if dim == "weekday":
             return (
                 cast(extract("dow", flow.c.date), Integer),
                 [],
-                "Weekday",
+                "dim_weekday",
                 True,
+                False,
             )
         # Unreachable for the same reason as ``_dimension``; fail loudly rather
         # than silently grouping an unknown dimension by category.
