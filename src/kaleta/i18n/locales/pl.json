@@ -270,6 +270,37 @@
       "last_admin_cannot_demote": "Ostatni administrator nie może przestać nim być.",
       "last_admin_cannot_disable": "Ostatniego administratora nie można wyłączyć.",
       "login_not_found": "Nie ma takiego logowania."
+    },
+    "tenant": {
+      "email_belongs_to_other_account": "Ten adres e-mail należy już do innego konta.",
+      "not_suspended": "Rodzina {tenant_id} ma status „{status}”, nie jest zawieszona.",
+      "not_found": "Nie znaleziono rodziny {tenant_id}"
+    },
+    "instance_admin": {
+      "not_found": "Nie znaleziono.",
+      "family_not_found": "Nie znaleziono rodziny {tenant_id}",
+      "family_name_required": "Podaj nazwę rodziny.",
+      "family_name_too_long": "Nazwa rodziny może mieć najwyżej {max} znaków.",
+      "family_name_mismatch": "Wpisana nazwa nie należy do tej rodziny.",
+      "login_not_found": "Nie ma takiego logowania."
+    },
+    "nbp_rate": {
+      "timeout": "Przekroczono czas pobierania kursów NBP. Sprawdź połączenie i spróbuj ponownie.",
+      "http_error": "Nie udało się pobrać kursów NBP (HTTP {code}). Spróbuj ponownie później.",
+      "network_unavailable": "Nie udało się pobrać kursów NBP — brak połączenia z siecią. Aplikacja działa dalej w trybie offline.",
+      "invalid_json": "Odpowiedź NBP nie była prawidłowym JSON-em.",
+      "empty_response": "Odpowiedź NBP (tabela A) była pusta lub nieoczekiwana.",
+      "unexpected_shape": "Odpowiedź NBP (tabela A) miała nieoczekiwaną strukturę.",
+      "missing_effective_date": "W tabeli A NBP brakuje pola effectiveDate.",
+      "no_rates": "Tabela A NBP nie zawierała żadnych kursów.",
+      "no_usable_rates": "Tabela A NBP nie zawierała użytecznych kursów średnich.",
+      "invalid_effective_date": "Nieprawidłowe pole effectiveDate NBP: {date!r}"
+    },
+    "bug_report": {
+      "field_required": "Pole „{field}” jest wymagane",
+      "report_not_found": "Nie znaleziono zgłoszenia {report_id}",
+      "id_allocation_failed": "Nie udało się przydzielić unikalnego identyfikatora zgłoszenia",
+      "rate_limited": "Zbyt wiele zgłoszeń z tej sesji — spróbuj ponownie za godzinę (limit {limit} na godzinę)"
     }
   },
   "dashboard": {

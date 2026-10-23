@@ -3462,6 +3462,16 @@ Feature: Localized error messages
     And unlocking during a re-key carries the key "errors.key.rekeying" reading in Polish "Twoje gospodarstwo jest w trakcie zmiany kluczy. Spróbuj ponownie za chwilę."
     And a key-less raise from these services still renders its English message unchanged
     And every encryption-cohort error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-009 @automated
+  Scenario: An admin and infrastructure error toast speaks the session's language
+    Given an NBP rate fetch over empty JSON carries the key "errors.nbp_rate.empty_response"
+    Then the Polish message reads "Odpowiedź NBP (tabela A) była pusta lub nieoczekiwana."
+    And the English message reads "NBP Table A response was empty or unexpected."
+    And a blank bug-report summary carries the key "errors.bug_report.field_required" reading in English "Summary is required"
+    And a too-long family name of 100 reads in Polish "Nazwa rodziny może mieć najwyżej 100 znaków."
+    And a backup-restore raise keeps its English message, as the Data tab renders it inline
+    And every admin and infrastructure error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication

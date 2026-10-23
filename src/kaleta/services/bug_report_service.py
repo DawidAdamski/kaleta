@@ -30,7 +30,14 @@ _MAX_REPORT_ID_ATTEMPTS = 5
 def _required(value: str | None, *, field: str) -> str:
     text = (value or "").strip()
     if not text:
-        raise ValidationError(f"{field} is required")
+        # Reached from the report dialog's submit → ``notify_kaleta_error``.
+        # ``field`` stays the English column word (``Summary`` / ``Description``):
+        # the service has no locale, so only the sentence frame localizes.
+        raise ValidationError(
+            f"{field} is required",
+            message_key="errors.bug_report.field_required",
+            params={"field": field},
+        )
     return text
 
 
@@ -148,7 +155,13 @@ class BugReportService:
         )
         report = result.scalar_one_or_none()
         if report is None:
-            raise NotFoundError(f"Bug report {report_id} not found")
+            # Reached from the privacy tab's "my reports" delete (a report gone
+            # in another tab) → ``privacy_tab._remove`` → ``notify_kaleta_error``.
+            raise NotFoundError(
+                f"Bug report {report_id} not found",
+                message_key="errors.bug_report.report_not_found",
+                params={"report_id": report_id},
+            )
         return report
 
     async def mark(self, report_id: str, status: BugReportStatus) -> BugReport:
@@ -169,7 +182,13 @@ class BugReportService:
         """Withdraw a report — the user may always take their words back."""
         report = await self.get(report_id)
         if user_id is not None and report.user_id != user_id:
-            raise NotFoundError(f"Bug report {report_id} not found")
+            # Someone else's report, from the privacy tab's delete →
+            # ``privacy_tab._remove`` → ``notify_kaleta_error``.
+            raise NotFoundError(
+                f"Bug report {report_id} not found",
+                message_key="errors.bug_report.report_not_found",
+                params={"report_id": report_id},
+            )
         await self.session.delete(report)
         await self.session.commit()
 
@@ -190,7 +209,10 @@ class BugReportService:
             )
             if existing is None:
                 return candidate
-        raise ValidationError("Could not allocate a unique report id")
+        raise ValidationError(
+            "Could not allocate a unique report id",
+            message_key="errors.bug_report.id_allocation_failed",
+        )
 
     async def _enforce_rate_limit(self, session_id: str | None) -> None:
         if session_id is None:
@@ -205,7 +227,9 @@ class BugReportService:
         if int(recent or 0) >= RATE_LIMIT_PER_SESSION:
             raise ValidationError(
                 f"Too many reports from this session — try again in an hour "
-                f"(limit {RATE_LIMIT_PER_SESSION} per hour)"
+                f"(limit {RATE_LIMIT_PER_SESSION} per hour)",
+                message_key="errors.bug_report.rate_limited",
+                params={"limit": RATE_LIMIT_PER_SESSION},
             )
 
 

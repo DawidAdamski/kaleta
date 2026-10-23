@@ -62,15 +62,19 @@ class NbpRateService:
                 return bytes(response.read())
         except TimeoutError as exc:
             raise ExternalServiceError(
-                "NBP rate fetch timed out. Check your network and try again."
+                "NBP rate fetch timed out. Check your network and try again.",
+                message_key="errors.nbp_rate.timeout",
             ) from exc
         except urllib.error.HTTPError as exc:
             raise ExternalServiceError(
-                f"NBP rate fetch failed (HTTP {exc.code}). Try again later."
+                f"NBP rate fetch failed (HTTP {exc.code}). Try again later.",
+                message_key="errors.nbp_rate.http_error",
+                params={"code": exc.code},
             ) from exc
         except urllib.error.URLError as exc:
             raise ExternalServiceError(
-                "NBP rate fetch failed — network unavailable. The app continues offline."
+                "NBP rate fetch failed — network unavailable. The app continues offline.",
+                message_key="errors.nbp_rate.network_unavailable",
             ) from exc
 
     def fetch_table_a_payload(self) -> list[dict[str, Any]]:
@@ -81,17 +85,26 @@ class NbpRateService:
             raise
         except (TimeoutError, urllib.error.URLError, OSError) as exc:
             raise ExternalServiceError(
-                "NBP rate fetch failed — network unavailable. The app continues offline."
+                "NBP rate fetch failed — network unavailable. The app continues offline.",
+                message_key="errors.nbp_rate.network_unavailable",
             ) from exc
         try:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ValidationError("NBP response was not valid JSON.") from exc
+            raise ValidationError(
+                "NBP response was not valid JSON.", message_key="errors.nbp_rate.invalid_json"
+            ) from exc
         if not isinstance(payload, list) or not payload:
-            raise ValidationError("NBP Table A response was empty or unexpected.")
+            raise ValidationError(
+                "NBP Table A response was empty or unexpected.",
+                message_key="errors.nbp_rate.empty_response",
+            )
         tables = [item for item in payload if isinstance(item, dict)]
         if not tables:
-            raise ValidationError("NBP Table A response had an unexpected shape.")
+            raise ValidationError(
+                "NBP Table A response had an unexpected shape.",
+                message_key="errors.nbp_rate.unexpected_shape",
+            )
         return tables
 
     @staticmethod
@@ -103,11 +116,16 @@ class NbpRateService:
         """
         effective = table.get("effectiveDate")
         if not isinstance(effective, str) or not effective:
-            raise ValidationError("NBP Table A is missing effectiveDate.")
+            raise ValidationError(
+                "NBP Table A is missing effectiveDate.",
+                message_key="errors.nbp_rate.missing_effective_date",
+            )
         table_no = str(table.get("no") or "")
         rates = table.get("rates")
         if not isinstance(rates, list) or not rates:
-            raise ValidationError("NBP Table A contained no rates.")
+            raise ValidationError(
+                "NBP Table A contained no rates.", message_key="errors.nbp_rate.no_rates"
+            )
 
         mids: dict[str, Decimal] = {}
         for entry in rates:
@@ -124,7 +142,10 @@ class NbpRateService:
             if mid > 0:
                 mids[code.upper()] = mid
         if not mids:
-            raise ValidationError("NBP Table A contained no usable mid rates.")
+            raise ValidationError(
+                "NBP Table A contained no usable mid rates.",
+                message_key="errors.nbp_rate.no_usable_rates",
+            )
         return effective, table_no, mids
 
     async def import_latest(self) -> NbpFetchResult:
@@ -140,7 +161,11 @@ class NbpRateService:
         try:
             on_date = datetime.date.fromisoformat(effective_s)
         except ValueError as exc:
-            raise ValidationError(f"NBP effectiveDate is invalid: {effective_s!r}") from exc
+            raise ValidationError(
+                f"NBP effectiveDate is invalid: {effective_s!r}",
+                message_key="errors.nbp_rate.invalid_effective_date",
+                params={"date": effective_s},
+            ) from exc
 
         mids.pop("PLN", None)
         written = 0
