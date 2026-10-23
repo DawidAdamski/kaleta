@@ -100,11 +100,20 @@ class CategoryService:
             return
         parent = await self.get(parent_id)
         if parent is None:
-            raise NotFoundError(f"Parent category id={parent_id} not found")
+            raise NotFoundError(
+                f"Parent category id={parent_id} not found",
+                message_key="errors.category.parent_not_found",
+                params={"parent_id": parent_id},
+            )
         if parent.type != category_type:
             raise ConflictError(
                 f"Category type '{category_type.value}' must match parent type "
-                f"'{parent.type.value}'"
+                f"'{parent.type.value}'",
+                message_key="errors.category.type_must_match_parent",
+                params={
+                    "category_type": category_type.value,
+                    "parent_type": parent.type.value,
+                },
             )
 
     async def _assert_unique_name(
@@ -129,7 +138,11 @@ class CategoryService:
             stmt = stmt.where(Category.id != exclude_id)
         existing = await self.session.execute(stmt)
         if existing.scalar_one_or_none() is not None:
-            raise ConflictError(f"Category name '{name}' already exists under the same parent")
+            raise ConflictError(
+                f"Category name '{name}' already exists under the same parent",
+                message_key="errors.category.name_exists",
+                params={"name": name},
+            )
 
     async def create(self, data: CategoryCreate) -> Category:
         await self._assert_type_matches_parent(parent_id=data.parent_id, category_type=data.type)
@@ -182,7 +195,8 @@ class CategoryService:
             # unplanned radar both read this flagged root. Protect it.
             raise ConflictError(
                 "The Subscriptions category is used by the subscriptions tracker "
-                "and cannot be deleted."
+                "and cannot be deleted.",
+                message_key="errors.category.subscriptions_root_protected",
             )
         await self.session.delete(category)
         await self.session.commit()

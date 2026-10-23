@@ -514,7 +514,10 @@ def split_plan_years(years: Iterable[int]) -> tuple[int, tuple[int, ...]]:
     """
     ordered = sorted(set(years))
     if not ordered:
-        raise ValidationError("At least one year must be selected")
+        raise ValidationError(
+            "At least one year must be selected",
+            message_key="errors.budget.year_required",
+        )
     return ordered[-1], tuple(ordered[:-1])
 
 

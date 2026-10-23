@@ -51,10 +51,16 @@ class RuleService:
     async def create(self, data: CategorisationRuleCreate) -> CategorisationRule:
         pattern = data.pattern.strip()
         if not pattern:
-            raise ValidationError("Rule pattern must not be empty.")
+            raise ValidationError(
+                "Rule pattern must not be empty.",
+                message_key="errors.rule.pattern_empty",
+            )
         await self._require_category(data.category_id)
         if data.match_mode is not RuleMatchMode.CONTAINS:
-            raise ValidationError("Only contains match mode is supported.")
+            raise ValidationError(
+                "Only contains match mode is supported.",
+                message_key="errors.rule.only_contains_mode",
+            )
         rule = CategorisationRule(
             pattern=pattern,
             match_mode=data.match_mode,
@@ -73,12 +79,19 @@ class RuleService:
     async def update(self, rule_id: int, data: CategorisationRuleUpdate) -> CategorisationRule:
         rule = await self.get(rule_id)
         if rule is None:
-            raise NotFoundError(f"Categorisation rule {rule_id} not found.")
+            raise NotFoundError(
+                f"Categorisation rule {rule_id} not found.",
+                message_key="errors.rule.rule_not_found",
+                params={"rule_id": rule_id},
+            )
         updates = data.model_dump(exclude_unset=True)
         if "pattern" in updates:
             pattern = (updates["pattern"] or "").strip()
             if not pattern:
-                raise ValidationError("Rule pattern must not be empty.")
+                raise ValidationError(
+                    "Rule pattern must not be empty.",
+                    message_key="errors.rule.pattern_empty",
+                )
             updates["pattern"] = pattern
         if "category_id" in updates and updates["category_id"] is not None:
             await self._require_category(updates["category_id"])
@@ -87,7 +100,10 @@ class RuleService:
             and updates["match_mode"] is not None
             and updates["match_mode"] is not RuleMatchMode.CONTAINS
         ):
-            raise ValidationError("Only contains match mode is supported.")
+            raise ValidationError(
+                "Only contains match mode is supported.",
+                message_key="errors.rule.only_contains_mode",
+            )
         for field, value in updates.items():
             setattr(rule, field, value)
         await self.session.commit()
@@ -188,7 +204,11 @@ class RuleService:
     async def _require_category(self, category_id: int) -> Category:
         category = await self.session.get(Category, category_id)
         if category is None:
-            raise NotFoundError(f"Category {category_id} not found.")
+            raise NotFoundError(
+                f"Category {category_id} not found.",
+                message_key="errors.rule.category_not_found",
+                params={"category_id": category_id},
+            )
         return category
 
     async def _find_rule_by_pattern(self, pattern: str) -> CategorisationRule | None:

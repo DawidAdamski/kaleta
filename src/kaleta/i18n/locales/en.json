@@ -193,6 +193,30 @@
       "payment_needs_category": "Choose a category for the payment.",
       "transaction_not_found": "Transaction {transaction_id} not found.",
       "only_expense_is_payment": "Only an expense paid from the fund's account is a payment."
+    },
+    "rule": {
+      "pattern_empty": "Rule pattern must not be empty.",
+      "only_contains_mode": "Only contains match mode is supported.",
+      "rule_not_found": "Categorisation rule {rule_id} not found.",
+      "category_not_found": "Category {category_id} not found."
+    },
+    "subscription": {
+      "candidate_needs_account": "A detected charge without an account cannot be planned",
+      "planned_needs_name": "A planned transaction needs a name",
+      "planned_needs_positive_amount": "A planned transaction needs a positive amount",
+      "not_found": "Subscription id={sub_id} not found"
+    },
+    "category": {
+      "parent_not_found": "Parent category id={parent_id} not found",
+      "type_must_match_parent": "Category type '{category_type}' must match parent type '{parent_type}'",
+      "name_exists": "Category name '{name}' already exists under the same parent",
+      "subscriptions_root_protected": "The Subscriptions category is used by the subscriptions tracker and cannot be deleted."
+    },
+    "budget": {
+      "year_required": "At least one year must be selected"
+    },
+    "account": {
+      "ambiguous_external_number": "More than one account matches that account number."
     }
   },
   "dashboard": {

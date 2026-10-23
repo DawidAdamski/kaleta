@@ -282,7 +282,7 @@ class AccountService:
         ]
         if len(matches) > 1:
             msg = "More than one account matches that account number."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.account.ambiguous_external_number")
         return matches[0] if matches else None
 
     async def save_external_number(self, account_id: int, number: str) -> None:
