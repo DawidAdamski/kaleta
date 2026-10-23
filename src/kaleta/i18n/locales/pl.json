@@ -177,6 +177,22 @@
       "link_ambiguous": "Powiąż istniejącą transakcję albo odzwierciedl ją na koncie, ale nie jedno i drugie",
       "transaction_taken": "Transakcja {transaction_id} jest już powiązana z pożyczką",
       "transaction_not_found": "Nie znaleziono transakcji {transaction_id}"
+    },
+    "irregular_item": {
+      "fund_not_found": "Nie znaleziono funduszu {fund_id}.",
+      "not_irregular_fund": "Pozycje ma tylko fundusz wydatków nieregularnych.",
+      "item_not_found": "Nie znaleziono pozycji {item_id}.",
+      "fund_needs_account": "Fundusz wymaga konta, zanim będzie można go zasilać.",
+      "add_item_before_planning": "Dodaj pozycję przed zaplanowaniem comiesięcznego przelewu.",
+      "source_must_differ": "Pieniądze muszą pochodzić z innego konta niż konto funduszu.",
+      "account_not_found": "Nie znaleziono konta.",
+      "transfer_already_planned": "Ten comiesięczny przelew jest już zaplanowany.",
+      "planned_transfer_not_found": "Nie znaleziono zaplanowanego przelewu.",
+      "fund_no_account": "Fundusz nie ma konta, z którego można zapłacić.",
+      "item_other_fund": "Ta pozycja należy do innego funduszu.",
+      "payment_needs_category": "Wybierz kategorię płatności.",
+      "transaction_not_found": "Nie znaleziono transakcji {transaction_id}.",
+      "only_expense_is_payment": "Płatnością jest tylko wydatek opłacony z konta funduszu."
     }
   },
   "dashboard": {
