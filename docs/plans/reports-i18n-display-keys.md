@@ -3,7 +3,7 @@ plan_id: reports-i18n-display-keys
 title: Report results carry dimension/metric keys, views resolve them through t()
 area: reports
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#reports
 ---
 
@@ -107,3 +107,45 @@ Does NOT cover:
 - Migrate `TableResult` and `PivotResult` together — they share `_label_of`
   and the weekday path, so a half-migration would leave one rendering words
   and the other keys.
+
+### Decisions taken during implementation
+
+- **Shape of the emitted identifiers.** Headers (`column_header` /
+  `row_header` / `series_header` / `metric_header`) carry a bare `reports.*`
+  sub-key (`"dim_category"`, `"metric_sum"`); the view calls
+  `t(f"reports.{header}")`. Row labels stay `list[str]`, but the
+  translatable ones carry a NUL-prefixed **sentinel** so no user-entered
+  name (category / account / institution) can collide: `UNCATEGORISED_LABEL`,
+  `NO_INSTITUTION_LABEL`, `OTHER_ROW_LABEL`, `WEEKDAY_LABEL_PREFIX+<ordinal>`,
+  `TYPE_LABEL_PREFIX+<enum>`. Month/year labels (`2025-01`, `2024`) and real
+  names pass through untouched — crucially `report_columns` still parses the
+  period strings. A single view helper (`_resolve_label`) maps sentinels →
+  `t()`, everything else is returned verbatim; `_localize` applies it to a
+  whole result once, so `chart_options` and `build_report_table_data` need no
+  change and receive an already-localized result.
+- **Where resolution happens.** One place: `chart_zone._localize`, called at
+  the top of the refreshable before the result is drawn. `page.py`,
+  `config_zone.py` and `sentence.py` render no result header/label text
+  (`config_zone` only reads `len(series_labels)`; the sentence is built from
+  state, already via `t()`), so they needed no change. The service imports no
+  `t()`/nicegui — `lint-imports` stays 4 kept / 0 broken.
+- **Weekday namespace (open question).** Reused the existing
+  `payment_calendar.wd_full_{mon..sun}` day names rather than duplicating
+  Monday…Sunday under `reports.*`. The view maps the Postgres `dow` ordinal
+  (0 = Sunday) through `_WEEKDAY_KEYS` to that key. No new day-name strings.
+- **Export/CSV audit (open question).** No export path reads
+  `SavedReportService`'s headers/labels. The only CSV export in reports is the
+  canned-report system (`report_service.py` + `api/v1/reports.py`), which is a
+  separate result type and explicitly out of scope. Safe to key-ify.
+- **Derived-column headers (open question).** `share` / `rank` / `change` /
+  `moving_avg` headers are already localized in `sentence.derived_headers`
+  (via `t("reports.col_*")`; `#` and `Δ` are locale-neutral symbols). No
+  English leaks there, so they were left as-is.
+- **Pivot row header.** `_pivot_grid` now reads the localized `row_header` the
+  result carries instead of `dimension_label(state)`, tying the grid's corner
+  to the data the last run produced (previously it reached into the sentence
+  because the service named columns in English — no longer true).
+- **New keys.** Added `reports.uncategorised`, `reports.no_institution`,
+  `reports.other_row` to `en.json`/`pl.json` inside the existing `reports`
+  object (next to the `type_*` block), to avoid textual conflict with the
+  sibling lane adding a top-level `errors` block at end-of-file.

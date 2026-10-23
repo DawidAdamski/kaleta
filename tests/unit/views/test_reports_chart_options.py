@@ -21,8 +21,8 @@ def _result(labels: list[str] | None = None, values: list[float] | None = None) 
     return ReportResult(
         labels=labels if labels is not None else ["Food", "Rent", "Fun"],
         values=values if values is not None else [300.0, 500.0, 200.0],
-        column_header="Category",
-        metric_header="Total Amount",
+        column_header="dim_category",
+        metric_header="metric_sum",
     )
 
 
@@ -85,12 +85,12 @@ class TestOtherTypes:
 def _pivot() -> PivotResult:
     """Two categories over two months — the smallest matrix with a hole in it."""
     return PivotResult(
-        row_header="Category",
-        series_header="Month",
+        row_header="dim_category",
+        series_header="dim_month",
         row_labels=["Food", "Fun"],
         series_labels=["2025-01", "2025-02"],
         cells=[[100.0, 50.0], [0.0, 30.0]],
-        metric_header="Total Amount",
+        metric_header="metric_sum",
         row_totals=[150.0, 30.0],
         series_totals=[100.0, 80.0],
     )
@@ -144,8 +144,8 @@ class TestMovingAverageLine:
         result = ReportResult(
             labels=["2025-01", "2025-02", "2025-03"],
             values=[30.0, 60.0, 90.0],
-            column_header="Month",
-            metric_header="Total Amount",
+            column_header="dim_month",
+            metric_header="metric_sum",
         )
         return dataclasses.replace(result, derived=derive(result, ["moving_avg"], 3))
 

@@ -3315,6 +3315,20 @@ Feature: Report Builder
     When I turn the trend column back off
     Then the limit clause reads "10" again
       And the limit slot can be opened
+
+  KAL-RPT-012 @automated
+  Scenario: A Polish session reads headers and labels in Polish
+    Given my language is Polish
+    When I run a report grouped by "weekday" measured by "Total Amount"
+      And I run a report grouped by "type"
+      And I run a report grouped by "category" with an uncategorised bucket
+    Then the measure header reads "Suma kwot", not "Total Amount"
+      And each weekday row names the day in Polish, not in English
+      And an expense row reads "Wydatek", not "expense"
+      And the uncategorised bucket reads "Bez kategorii", not "Uncategorised"
+      And a folded "Other" row reads "Pozostałe", not "Other"
+    Because the service emits dimension and metric keys, weekday ordinals and
+    stable sentinels, and only the report views resolve them through t().
 ```
 
 ## Feature: Money Flow

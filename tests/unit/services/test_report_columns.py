@@ -22,18 +22,18 @@ from kaleta.services.saved_report_service import PivotResult, ReportConfig, Repo
 
 def _monthly(labels: list[str], values: list[float]) -> ReportResult:
     return ReportResult(
-        labels=labels, values=values, column_header="Month", metric_header="Total Amount"
+        labels=labels, values=values, column_header="dim_month", metric_header="metric_sum"
     )
 
 
 def _pivot(series: list[str], cells: list[list[float]]) -> PivotResult:
     return PivotResult(
-        row_header="Category",
-        series_header="Month",
+        row_header="dim_category",
+        series_header="dim_month",
         row_labels=["Groceries", "Fuel"][: len(cells)],
         series_labels=series,
         cells=cells,
-        metric_header="Total Amount",
+        metric_header="metric_sum",
         row_totals=[sum(row) for row in cells],
         series_totals=[sum(column) for column in zip(*cells, strict=True)],
     )
