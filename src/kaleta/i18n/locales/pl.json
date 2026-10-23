@@ -150,6 +150,33 @@
       "stale_write_by_member": "Tę transakcję zmienił(a) {changed_by} przed chwilą.",
       "stale_write_elsewhere": "Ta transakcja została zmieniona w innym miejscu przed chwilą.",
       "transfer_leg_needs_direction": "Strona przelewu wymaga kierunku transfer_direction („out” lub „in”)."
+    },
+    "reserve_fund": {
+      "multiplier_required_for_spending_target": "Pole emergency_multiplier jest wymagane, gdy ustawiono target_from_spending",
+      "fund_not_found": "Nie znaleziono funduszu rezerwowego {fund_id}.",
+      "only_goal_contributes": "Tylko cel oszczędnościowy przyjmuje wpłaty lub może zostać zamknięty.",
+      "goal_already_closed": "Ten cel jest już zamknięty.",
+      "goal_no_backing_account": "Ten cel nie ma konta powiązanego.",
+      "account_to_itself": "Pieniądze nie mogą zostać przeniesione z konta na to samo konto.",
+      "account_not_found": "Nie znaleziono konta {account_id}.",
+      "same_currency_required": "Oba konta muszą używać tej samej waluty."
+    },
+    "gift": {
+      "not_found": "Nie znaleziono prezentu {gift_id}",
+      "transaction_not_found": "Nie znaleziono transakcji {transaction_id}",
+      "only_expense_pays": "Za prezent może zapłacić tylko wydatek.",
+      "transaction_pays_another": "Ta transakcja opłaca już inny prezent."
+    },
+    "salary": {
+      "window_at_least_one_month": "Okno przychodów musi obejmować co najmniej jeden miesiąc.",
+      "override_not_negative": "Ręczna kwota wypłaty nie może być ujemna.",
+      "source_target_differ": "Konto źródłowe i docelowe wypłaty muszą być różne.",
+      "account_not_found": "Nie znaleziono konta {account_id}."
+    },
+    "personal_loan": {
+      "link_ambiguous": "Powiąż istniejącą transakcję albo odzwierciedl ją na koncie, ale nie jedno i drugie",
+      "transaction_taken": "Transakcja {transaction_id} jest już powiązana z pożyczką",
+      "transaction_not_found": "Nie znaleziono transakcji {transaction_id}"
     }
   },
   "dashboard": {

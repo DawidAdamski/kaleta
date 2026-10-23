@@ -118,7 +118,10 @@ class SalaryService:
         earning month stay in as zeros — a dry month is real information.
         """
         if window_months < 1:
-            raise ValidationError("Income window must span at least one month.")
+            raise ValidationError(
+                "Income window must span at least one month.",
+                message_key="errors.salary.window_at_least_one_month",
+            )
 
         today = today or datetime.date.today()
         last_year, last_month = _shift_month(today.year, today.month, -1)
@@ -172,7 +175,10 @@ class SalaryService:
         projection is replayed against whatever amount actually applies.
         """
         if override is not None and override < 0:
-            raise ValidationError("Salary override cannot be negative.")
+            raise ValidationError(
+                "Salary override cannot be negative.",
+                message_key="errors.salary.override_not_negative",
+            )
 
         months, currencies = await self.income_by_month(window_months=window_months, today=today)
         has_enough_history = len(months) >= MIN_HISTORY_MONTHS
@@ -225,7 +231,10 @@ class SalaryService:
         the human-readable ``source → target`` label for the Payment Calendar.
         """
         if payload.from_account_id == payload.to_account_id:
-            raise ValidationError("Salary source and target accounts must differ.")
+            raise ValidationError(
+                "Salary source and target accounts must differ.",
+                message_key="errors.salary.source_target_differ",
+            )
 
         accounts = (
             (
@@ -241,7 +250,11 @@ class SalaryService:
         by_id = {a.id: a for a in accounts}
         for account_id in (payload.from_account_id, payload.to_account_id):
             if account_id not in by_id:
-                raise NotFoundError(f"Account {account_id} not found.")
+                raise NotFoundError(
+                    f"Account {account_id} not found.",
+                    message_key="errors.salary.account_not_found",
+                    params={"account_id": account_id},
+                )
 
         source = by_id[payload.from_account_id]
         target = by_id[payload.to_account_id]

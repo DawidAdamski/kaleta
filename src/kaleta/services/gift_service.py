@@ -43,7 +43,11 @@ class GiftService:
     async def update(self, gift_id: int, payload: GiftUpdate) -> Gift:
         gift = await self.get(gift_id)
         if gift is None:
-            raise NotFoundError(f"Gift {gift_id} not found")
+            raise NotFoundError(
+                f"Gift {gift_id} not found",
+                message_key="errors.gift.not_found",
+                params={"gift_id": gift_id},
+            )
         for key, value in payload.model_dump(exclude_unset=True).items():
             setattr(gift, key, value)
         await self.session.commit()
@@ -53,7 +57,11 @@ class GiftService:
     async def delete(self, gift_id: int) -> None:
         gift = await self.get(gift_id)
         if gift is None:
-            raise NotFoundError(f"Gift {gift_id} not found")
+            raise NotFoundError(
+                f"Gift {gift_id} not found",
+                message_key="errors.gift.not_found",
+                params={"gift_id": gift_id},
+            )
         await self.session.delete(gift)
         await self.session.commit()
 
@@ -95,14 +103,28 @@ class GiftService:
         """Mark a gift bought by pointing a ledger expense at it."""
         gift = await self.get(gift_id)
         if gift is None:
-            raise NotFoundError(f"Gift {gift_id} not found")
+            raise NotFoundError(
+                f"Gift {gift_id} not found",
+                message_key="errors.gift.not_found",
+                params={"gift_id": gift_id},
+            )
         tx = await self.session.get(Transaction, transaction_id)
         if tx is None:
-            raise NotFoundError(f"Transaction {transaction_id} not found")
+            raise NotFoundError(
+                f"Transaction {transaction_id} not found",
+                message_key="errors.gift.transaction_not_found",
+                params={"transaction_id": transaction_id},
+            )
         if tx.type is not TransactionType.EXPENSE:
-            raise ValidationError("Only an expense can pay for a gift.")
+            raise ValidationError(
+                "Only an expense can pay for a gift.",
+                message_key="errors.gift.only_expense_pays",
+            )
         if tx.gift_id is not None and tx.gift_id != gift_id:
-            raise ConflictError("That transaction already pays for another gift.")
+            raise ConflictError(
+                "That transaction already pays for another gift.",
+                message_key="errors.gift.transaction_pays_another",
+            )
         tx.gift_id = gift_id
         await self.session.commit()
 
@@ -110,7 +132,11 @@ class GiftService:
         """Undo: unlink every transaction from the gift (it is planned again)."""
         gift = await self.get(gift_id)
         if gift is None:
-            raise NotFoundError(f"Gift {gift_id} not found")
+            raise NotFoundError(
+                f"Gift {gift_id} not found",
+                message_key="errors.gift.not_found",
+                params={"gift_id": gift_id},
+            )
         await self.session.execute(
             update(Transaction).where(Transaction.gift_id == gift_id).values(gift_id=None)
         )

@@ -150,6 +150,33 @@
       "stale_write_by_member": "This transaction was changed by {changed_by} a moment ago.",
       "stale_write_elsewhere": "This transaction was changed elsewhere a moment ago.",
       "transfer_leg_needs_direction": "A transfer leg needs transfer_direction ('out' or 'in')."
+    },
+    "reserve_fund": {
+      "multiplier_required_for_spending_target": "emergency_multiplier is required when target_from_spending is set",
+      "fund_not_found": "Reserve fund {fund_id} not found.",
+      "only_goal_contributes": "Only a savings goal takes contributions or closes.",
+      "goal_already_closed": "This goal is already closed.",
+      "goal_no_backing_account": "This goal has no backing account.",
+      "account_to_itself": "Money cannot move from an account to itself.",
+      "account_not_found": "Account {account_id} not found.",
+      "same_currency_required": "Both accounts must use the same currency."
+    },
+    "gift": {
+      "not_found": "Gift {gift_id} not found",
+      "transaction_not_found": "Transaction {transaction_id} not found",
+      "only_expense_pays": "Only an expense can pay for a gift.",
+      "transaction_pays_another": "That transaction already pays for another gift."
+    },
+    "salary": {
+      "window_at_least_one_month": "Income window must span at least one month.",
+      "override_not_negative": "Salary override cannot be negative.",
+      "source_target_differ": "Salary source and target accounts must differ.",
+      "account_not_found": "Account {account_id} not found."
+    },
+    "personal_loan": {
+      "link_ambiguous": "Link an existing transaction or mirror to an account, not both",
+      "transaction_taken": "Transaction {transaction_id} is already linked to a loan",
+      "transaction_not_found": "Transaction {transaction_id} not found"
     }
   },
   "dashboard": {
