@@ -2,11 +2,11 @@
 """Merging duplicate transactions must carry a duplicate's links to the keeper.
 
 A duplicate may be the row that carries a fund-item link
-(``irregular_item_id``) or a planned-occurrence link
-(``planned_transaction_id``) the keeper lacks. Deleting the duplicate must
-not drop that link.
+(``irregular_item_id``), a planned-occurrence link
+(``planned_transaction_id``) or a gift link (``gift_id``) the keeper lacks.
+Deleting the duplicate must not drop that link.
 
-Covers: KAL-DUP-001, KAL-DUP-002
+Covers: KAL-DUP-001, KAL-DUP-002, KAL-DUP-003
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
+from kaleta.models.gift import Gift
 from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundKind
@@ -55,6 +56,14 @@ async def _irregular_item(session: AsyncSession, fund_id: int, name: str) -> int
     return item.id
 
 
+async def _gift(session: AsyncSession) -> int:
+    gift = Gift(person="Anna", occasion="Urodziny", amount=Decimal("150.00"))
+    session.add(gift)
+    await session.commit()
+    await session.refresh(gift)
+    return gift.id
+
+
 async def _planned(session: AsyncSession, account_id: int) -> int:
     plan = PlannedTransaction(
         name="Ubezpieczenie",
@@ -76,6 +85,7 @@ async def _tx(
     account_id: int,
     irregular_item_id: int | None = None,
     planned_transaction_id: int | None = None,
+    gift_id: int | None = None,
 ) -> Transaction:
     tx = Transaction(
         account_id=account_id,
@@ -85,6 +95,7 @@ async def _tx(
         description="UBEZPIECZENIE",
         irregular_item_id=irregular_item_id,
         planned_transaction_id=planned_transaction_id,
+        gift_id=gift_id,
     )
     session.add(tx)
     await session.commit()
@@ -183,3 +194,29 @@ class TestMergeTieBreakLowestId:
         remaining = (await session.execute(select(Transaction.id))).scalars().all()
         assert first_dupe_id not in remaining
         assert second_dupe_id not in remaining
+
+
+class TestMergeKeepsGiftLink:
+    """Covers: KAL-DUP-003"""
+
+    async def test_keeper_inherits_gift_link_from_duplicate(self, session: AsyncSession):
+        acc = await _account(session)
+        gift_id = await _gift(session)
+        # Keeper settles no gift; the duplicate carries the gift link.
+        keeper = await _tx(session, account_id=acc)
+        dupe = await _tx(session, account_id=acc, gift_id=gift_id)
+        keeper_id, dupe_id = keeper.id, dupe.id
+        assert keeper.gift_id is None
+
+        deleted = await DedupeService(session).merge_transactions(
+            keeper_id=keeper_id, other_ids=[dupe_id]
+        )
+
+        assert deleted == 1
+        session.expire_all()
+        remaining = (await session.execute(select(Transaction.id))).scalars().all()
+        assert keeper_id in remaining
+        assert dupe_id not in remaining
+        refreshed = await session.get(Transaction, keeper_id)
+        assert refreshed is not None
+        assert refreshed.gift_id == gift_id
