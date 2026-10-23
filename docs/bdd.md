@@ -3453,6 +3453,15 @@ Feature: Localized error messages
     And the English message reads "Enable two-factor authentication before asking for recovery codes."
     And changing API tokens without a fresh code carries the key "errors.api_token.confirm_code_before_changing" reading in Polish "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim zmienisz tokeny API."
     And every 2FA-cohort error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-008 @automated
+  Scenario: An encryption and local-identity error toast speaks the session's language
+    Given demoting the last administrator carries the key "errors.local_identity.last_admin_cannot_demote"
+    Then the Polish message reads "Ostatni administrator nie może przestać nim być."
+    And the English message reads "The last administrator cannot stop being one."
+    And unlocking during a re-key carries the key "errors.key.rekeying" reading in Polish "Twoje gospodarstwo jest w trakcie zmiany kluczy. Spróbuj ponownie za chwilę."
+    And a key-less raise from these services still renders its English message unchanged
+    And every encryption-cohort error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication

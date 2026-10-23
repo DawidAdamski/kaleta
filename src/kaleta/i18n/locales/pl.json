@@ -257,6 +257,19 @@
     },
     "api_token": {
       "confirm_code_before_changing": "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim zmienisz tokeny API."
+    },
+    "key": {
+      "no_membership": "To logowanie nie ma członkostwa w tym koncie.",
+      "no_passphrase_set_up": "Nie ustawiono jeszcze hasła do danych.",
+      "data_key_not_shared": "Twój klucz do danych nie został Ci jeszcze udostępniony.",
+      "rekeying": "Twoje gospodarstwo jest w trakcie zmiany kluczy. Spróbuj ponownie za chwilę."
+    },
+    "local_identity": {
+      "email_required": "Podaj adres e-mail.",
+      "email_taken": "Konto z tym adresem e-mail już istnieje.",
+      "last_admin_cannot_demote": "Ostatni administrator nie może przestać nim być.",
+      "last_admin_cannot_disable": "Ostatniego administratora nie można wyłączyć.",
+      "login_not_found": "Nie ma takiego logowania."
     }
   },
   "dashboard": {
