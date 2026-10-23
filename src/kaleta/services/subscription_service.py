@@ -511,12 +511,21 @@ class SubscriptionService:
         plan for price-drift checks.
         """
         if candidate.account_id is None:
-            raise ValidationError("A detected charge without an account cannot be planned")
+            raise ValidationError(
+                "A detected charge without an account cannot be planned",
+                message_key="errors.subscription.candidate_needs_account",
+            )
         name = candidate.payee_name.strip()[:100]
         if not name:
-            raise ValidationError("A planned transaction needs a name")
+            raise ValidationError(
+                "A planned transaction needs a name",
+                message_key="errors.subscription.planned_needs_name",
+            )
         if candidate.amount <= 0:
-            raise ValidationError("A planned transaction needs a positive amount")
+            raise ValidationError(
+                "A planned transaction needs a positive amount",
+                message_key="errors.subscription.planned_needs_positive_amount",
+            )
         frequency = (
             RecurrenceFrequency.YEARLY
             if candidate.cadence_days == CADENCE_YEARLY_DAYS
@@ -627,7 +636,11 @@ class SubscriptionService:
         """
         sub = await self.get(sub_id)
         if sub is None:
-            raise NotFoundError(f"Subscription id={sub_id} not found")
+            raise NotFoundError(
+                f"Subscription id={sub_id} not found",
+                message_key="errors.subscription.not_found",
+                params={"sub_id": sub_id},
+            )
         sub.category_id = sub_category_id
         if sub_category_id is None:
             await self.session.commit()
@@ -652,7 +665,11 @@ class SubscriptionService:
         """How many matching charges would move to ``sub_category_id`` (no writes)."""
         sub = await self.get(sub_id)
         if sub is None:
-            raise NotFoundError(f"Subscription id={sub_id} not found")
+            raise NotFoundError(
+                f"Subscription id={sub_id} not found",
+                message_key="errors.subscription.not_found",
+                params={"sub_id": sub_id},
+            )
         return await self._recategorise(
             payee_id=sub.payee_id,
             merchant_name=sub.name,

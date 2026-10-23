@@ -193,6 +193,30 @@
       "payment_needs_category": "Wybierz kategorię płatności.",
       "transaction_not_found": "Nie znaleziono transakcji {transaction_id}.",
       "only_expense_is_payment": "Płatnością jest tylko wydatek opłacony z konta funduszu."
+    },
+    "rule": {
+      "pattern_empty": "Wzorzec reguły nie może być pusty.",
+      "only_contains_mode": "Obsługiwany jest tylko tryb dopasowania „zawiera”.",
+      "rule_not_found": "Nie znaleziono reguły kategoryzacji {rule_id}.",
+      "category_not_found": "Nie znaleziono kategorii {category_id}."
+    },
+    "subscription": {
+      "candidate_needs_account": "Nie można zaplanować wykrytej płatności bez konta",
+      "planned_needs_name": "Zaplanowana transakcja wymaga nazwy",
+      "planned_needs_positive_amount": "Zaplanowana transakcja wymaga dodatniej kwoty",
+      "not_found": "Nie znaleziono subskrypcji id={sub_id}"
+    },
+    "category": {
+      "parent_not_found": "Nie znaleziono kategorii nadrzędnej id={parent_id}",
+      "type_must_match_parent": "Typ kategorii „{category_type}” musi być zgodny z typem kategorii nadrzędnej „{parent_type}”",
+      "name_exists": "Kategoria o nazwie „{name}” już istnieje w tej samej kategorii nadrzędnej",
+      "subscriptions_root_protected": "Kategoria Subskrypcje jest używana przez tracker subskrypcji i nie można jej usunąć."
+    },
+    "budget": {
+      "year_required": "Należy wybrać co najmniej jeden rok"
+    },
+    "account": {
+      "ambiguous_external_number": "Więcej niż jedno konto pasuje do tego numeru konta."
     }
   },
   "dashboard": {

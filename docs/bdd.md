@@ -3428,6 +3428,15 @@ Feature: Localized error messages
     And the English message reads "Reserve fund 999999 not found."
     And a reserve-fund, gift, salary and personal-loan error each resolves its own key
     And every funds-cohort error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-005 @automated
+  Scenario: A core-CRUD service error toast speaks the session's language
+    Given selecting no year for the annual plan carries the key "errors.budget.year_required"
+    Then the Polish message reads "Należy wybrać co najmniej jeden rok"
+    And the English message reads "At least one year must be selected"
+    And a missing categorisation rule 7 reads in Polish "Nie znaleziono reguły kategoryzacji 7."
+    And a rule, subscription, category, budget and account error each resolves its own key
+    And every core-cohort error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication
