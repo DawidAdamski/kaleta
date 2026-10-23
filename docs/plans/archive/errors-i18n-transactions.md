@@ -3,14 +3,15 @@ plan_id: errors-i18n-transactions
 title: Localize transaction_service error toasts
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-10-23
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Localize transaction_service error toasts
 
 ## Intent
-A follow-up slice of [`errors-i18n-message-keys`](archive/errors-i18n-message-keys.md),
+A follow-up slice of [`errors-i18n-message-keys`](errors-i18n-message-keys.md),
 which shipped the carrier (`KaletaError.message_key` + `params`), the
 `error_handling.resolve_toast_text` wiring, and migrated the first cohort
 (payee identity / merge-undo). This slice migrates **only**
@@ -111,3 +112,21 @@ Does NOT cover:
   git conflicts with sibling lanes).
 - **View changes.** None — `transaction_service` is not a view. The test is
   integration-only and touches no file under `src/kaleta/views/`.
+
+## Implementation
+
+Landed on 2026-10-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4c9f468` | Dawid (Ani) | 2026-10-23 | feat(errors): localize transaction_service error toasts |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/errors-i18n-transactions.md
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/transaction_service.py
+- tests/integration/test_error_i18n_transactions.py
