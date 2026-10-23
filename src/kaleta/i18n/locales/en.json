@@ -249,6 +249,14 @@
       "unlock_first": "Unlock your data with your passphrase first.",
       "email_has_login": "This e-mail address already has a login here. Sign in with it to accept.",
       "invitation_just_used": "This invitation has just been used. Sign in instead."
+    },
+    "mfa": {
+      "user_not_found": "User not found",
+      "enable_before_recovery_codes": "Enable two-factor authentication before asking for recovery codes.",
+      "confirm_before_recovery_codes": "Confirm with a two-factor code before reissuing recovery codes."
+    },
+    "api_token": {
+      "confirm_code_before_changing": "Confirm with a two-factor code before changing API tokens."
     }
   },
   "dashboard": {

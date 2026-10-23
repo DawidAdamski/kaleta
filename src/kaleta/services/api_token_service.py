@@ -206,7 +206,7 @@ class ApiTokenService:
         if mfa.step_up_is_fresh(mfa_verified_at):
             return
         msg = "Confirm with a two-factor code before changing API tokens."
-        raise ValidationError(msg)
+        raise ValidationError(msg, message_key="errors.api_token.confirm_code_before_changing")
 
     async def _record_event(self, *, event: str, label: str) -> None:
         from kaleta.db.audit import record_token_event

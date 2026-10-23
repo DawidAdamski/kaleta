@@ -249,6 +249,14 @@
       "unlock_first": "Najpierw odblokuj swoje dane za pomocą hasła.",
       "email_has_login": "Ten adres e-mail ma już tutaj konto logowania. Zaloguj się nim, aby zaakceptować.",
       "invitation_just_used": "To zaproszenie zostało właśnie wykorzystane. Zaloguj się zamiast tego."
+    },
+    "mfa": {
+      "user_not_found": "Nie znaleziono użytkownika.",
+      "enable_before_recovery_codes": "Włącz uwierzytelnianie dwuskładnikowe, zanim poprosisz o kody zapasowe.",
+      "confirm_before_recovery_codes": "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim wygenerujesz nowe kody zapasowe."
+    },
+    "api_token": {
+      "confirm_code_before_changing": "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim zmienisz tokeny API."
     }
   },
   "dashboard": {

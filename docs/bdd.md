@@ -3445,6 +3445,14 @@ Feature: Localized error messages
     And the English message reads "Enter an e-mail address."
     And a full household of 10 reads in Polish "Gospodarstwo może mieć najwyżej 10 członków, wliczając zaproszenia."
     And every household error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-007 @automated
+  Scenario: A two-factor and API-token error toast speaks the session's language
+    Given reissuing recovery codes with the factor off carries the key "errors.mfa.enable_before_recovery_codes"
+    Then the Polish message reads "Włącz uwierzytelnianie dwuskładnikowe, zanim poprosisz o kody zapasowe."
+    And the English message reads "Enable two-factor authentication before asking for recovery codes."
+    And changing API tokens without a fresh code carries the key "errors.api_token.confirm_code_before_changing" reading in Polish "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim zmienisz tokeny API."
+    And every 2FA-cohort error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication
