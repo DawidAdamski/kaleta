@@ -226,6 +226,10 @@ check it still reproduces before acting on it.
       pointer-only. The phone card's rows got `role="button"`, `tabindex="0"`
       and Enter/Space on `plan/restyle-fidelity-phone-widgets`; the banner
       beside it did not.
+      (Fixed: PR #349, KAL-DSH-012 — `_render_row` now sets
+      `tabindex="0" role="button"` and the same
+      `click`/`keydown.enter`/`keydown.space.prevent` handler loop as
+      `_row_element`; covered by `tests/e2e/test_wizard_actions_widget.py`.)
 - [ ] Four restyle plans spell their human sign-off `[owner]` where
       `docs/plans/README.md` defines `[manual]`:
       `docs/plans/archive/restyle-fidelity-screens.md`,
