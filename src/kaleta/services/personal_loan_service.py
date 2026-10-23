@@ -174,6 +174,7 @@ class PersonalLoanService:
             raise ValidationError(
                 "Link an existing transaction or mirror to an account, not both",
                 code="repayment_link_ambiguous",
+                message_key="errors.personal_loan.link_ambiguous",
             )
 
         linked_tx_id: int | None = None
@@ -318,19 +319,27 @@ class PersonalLoanService:
             raise ConflictError(
                 f"Transaction {transaction_id} is already linked to a loan",
                 code="loan_transaction_taken",
+                message_key="errors.personal_loan.transaction_taken",
+                params={"transaction_id": transaction_id},
             ) from exc
 
     async def _check_linkable(self, transaction_id: int) -> None:
         """Raise unless ``transaction_id`` exists and no loan or repayment links it."""
         tx = await self.session.get(Transaction, transaction_id)
         if tx is None:
-            raise NotFoundError(f"Transaction {transaction_id} not found")
+            raise NotFoundError(
+                f"Transaction {transaction_id} not found",
+                message_key="errors.personal_loan.transaction_not_found",
+                params={"transaction_id": transaction_id},
+            )
         linked = loan_linked_transaction_ids().subquery()
         taken = await self.session.execute(select(linked.c.id).where(linked.c.id == transaction_id))
         if taken.first() is not None:
             raise ConflictError(
                 f"Transaction {transaction_id} is already linked to a loan",
                 code="loan_transaction_taken",
+                message_key="errors.personal_loan.transaction_taken",
+                params={"transaction_id": transaction_id},
             )
 
     # ── Totals ────────────────────────────────────────────────────────────

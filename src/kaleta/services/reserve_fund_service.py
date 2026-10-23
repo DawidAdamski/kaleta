@@ -87,7 +87,8 @@ class ReserveFundService:
         multiplier = data.get("emergency_multiplier", fund.emergency_multiplier)
         if from_spending and multiplier is None:
             raise ValidationError(
-                "emergency_multiplier is required when target_from_spending is set"
+                "emergency_multiplier is required when target_from_spending is set",
+                message_key="errors.reserve_fund.multiplier_required_for_spending_target",
             )
         for key, value in data.items():
             setattr(fund, key, value)
@@ -243,13 +244,26 @@ class ReserveFundService:
         """The active goal *fund_id* and its backing account id, or an error."""
         fund = await self.get(fund_id)
         if fund is None:
-            raise NotFoundError(f"Reserve fund {fund_id} not found.")
+            raise NotFoundError(
+                f"Reserve fund {fund_id} not found.",
+                message_key="errors.reserve_fund.fund_not_found",
+                params={"fund_id": fund_id},
+            )
         if fund.kind != GOAL_KIND:
-            raise ValidationError("Only a savings goal takes contributions or closes.")
+            raise ValidationError(
+                "Only a savings goal takes contributions or closes.",
+                message_key="errors.reserve_fund.only_goal_contributes",
+            )
         if fund.is_archived:
-            raise ValidationError("This goal is already closed.")
+            raise ValidationError(
+                "This goal is already closed.",
+                message_key="errors.reserve_fund.goal_already_closed",
+            )
         if fund.backing_account_id is None:
-            raise ValidationError("This goal has no backing account.")
+            raise ValidationError(
+                "This goal has no backing account.",
+                message_key="errors.reserve_fund.goal_no_backing_account",
+            )
         return fund, fund.backing_account_id
 
     async def _move(
@@ -263,16 +277,26 @@ class ReserveFundService:
     ) -> None:
         """One internal transfer between two of the user's accounts."""
         if source_id == target_id:
-            raise ValidationError("Money cannot move from an account to itself.")
+            raise ValidationError(
+                "Money cannot move from an account to itself.",
+                message_key="errors.reserve_fund.account_to_itself",
+            )
         result = await self.session.execute(
             select(Account.id, Account.currency).where(Account.id.in_([source_id, target_id]))
         )
         currencies: dict[int, str] = dict(result.all())
         for account_id in (source_id, target_id):
             if account_id not in currencies:
-                raise NotFoundError(f"Account {account_id} not found.")
+                raise NotFoundError(
+                    f"Account {account_id} not found.",
+                    message_key="errors.reserve_fund.account_not_found",
+                    params={"account_id": account_id},
+                )
         if currencies[source_id] != currencies[target_id]:
-            raise ValidationError("Both accounts must use the same currency.")
+            raise ValidationError(
+                "Both accounts must use the same currency.",
+                message_key="errors.reserve_fund.same_currency_required",
+            )
 
         def leg(account_id: int, direction: TransferDirection) -> TransactionCreate:
             return TransactionCreate(
@@ -347,7 +371,11 @@ class ReserveFundService:
                 )
         archived = await self.archive(fund_id)
         if archived is None:  # deleted between the two steps
-            raise NotFoundError(f"Reserve fund {fund_id} not found.")
+            raise NotFoundError(
+                f"Reserve fund {fund_id} not found.",
+                message_key="errors.reserve_fund.fund_not_found",
+                params={"fund_id": fund_id},
+            )
         return archived
 
     async def with_progress(

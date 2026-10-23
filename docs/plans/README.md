@@ -236,6 +236,7 @@ into the view layer (`t()`), keeping services presentation-free.
 |---|---|---|---|---|
 | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) | cross-cutting | large | archived | — (ships carrier + first cohort; rest in follow-up slices) |
 | [errors-i18n-transactions](errors-i18n-transactions.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: transaction_service) |
+| [errors-i18n-funds-cohort](errors-i18n-funds-cohort.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: reserve_fund + gift + salary + personal_loan) |
 | [reports-i18n-display-keys](archive/reports-i18n-display-keys.md) | reports | large | archived | — (also listed under Reports) |
 
 ### `@planned` gap-closing (from audit-planned-vs-code)
