@@ -308,10 +308,18 @@ class PayeeService:
         if clash is None:
             return
         if clash.payee_id == payee_id:
-            raise ConflictError(f"This payee already has the identity '{clash.pattern}'")
+            raise ConflictError(
+                f"This payee already has the identity '{clash.pattern}'",
+                message_key="errors.payee.identity_already_owned",
+                params={"pattern": clash.pattern},
+            )
         owner = await self.get(clash.payee_id)
         owner_name = owner.name if owner is not None else str(clash.payee_id)
-        raise ConflictError(f"'{pattern}' is already an identity of payee '{owner_name}'")
+        raise ConflictError(
+            f"'{pattern}' is already an identity of payee '{owner_name}'",
+            message_key="errors.payee.identity_taken",
+            params={"pattern": pattern, "owner": owner_name},
+        )
 
     async def add_name_identity(self, payee_id: int, name: str) -> None:
         """After a rename, the new name becomes a spelling too — unless someone holds it.

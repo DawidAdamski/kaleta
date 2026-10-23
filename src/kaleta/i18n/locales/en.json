@@ -119,6 +119,15 @@
     "month_of_11": "November",
     "month_of_12": "December"
   },
+  "errors": {
+    "payee": {
+      "identity_taken": "'{pattern}' is already an identity of payee '{owner}'",
+      "identity_already_owned": "This payee already has the identity '{pattern}'",
+      "merge_not_found": "Automatic merge not found",
+      "merge_undo_expired": "This merge is older than {days} days and can no longer be undone",
+      "name_exists": "A payee named '{name}' already exists"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "total_balance": "Total Balance",

@@ -3374,6 +3374,23 @@ Feature: Money Flow
 
 Cross-cutting guarantees: access control, data safety, automation.
 
+## Feature: Localized error messages
+
+```gherkin
+Feature: Localized error messages
+  As a Polish-speaking user
+  I want handled domain errors shown in my own language
+  So that an error toast is as readable as the rest of the app
+
+  KAL-ERR-001 @automated
+  Scenario: A domain-error toast speaks the session's language
+    Given a payee-identity conflict carries the key "errors.payee.identity_taken"
+    And the parameters are pattern "lidl poznan" and owner "Lidl sp z o o"
+    Then the Polish message reads "„lidl poznan” jest już wariantem nazwy odbiorcy „Lidl sp z o o”"
+    And the English message reads "'lidl poznan' is already an identity of payee 'Lidl sp z o o'"
+    And every first-cohort error key interpolates its parameters without a missing-placeholder error
+```
+
 ## Feature: Authentication
 
 ```gherkin

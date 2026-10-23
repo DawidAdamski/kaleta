@@ -139,6 +139,19 @@ def install_session_resolver() -> None:
     app.on_disconnect(_on_disconnect)
 
 
+def resolve_toast_text(exc: KaletaError) -> str:
+    """The text a toast should show for *exc*.
+
+    When the raise site carried a ``message_key`` the toast localizes via
+    ``t(key, **params)``; otherwise it falls back to the English
+    ``exc.message``. Logs, event capture and the API keep reading
+    ``exc.message`` regardless — only the toast localizes.
+    """
+    if exc.message_key:
+        return t(exc.message_key, **(exc.params or {}))
+    return exc.message
+
+
 async def _notify_with_event(exc: KaletaError, client: Any | None) -> None:
     """Capture the failure, then speak to *client* — its slot, not this task's."""
     if client is None:
@@ -163,15 +176,19 @@ async def _notify_with_event(exc: KaletaError, client: Any | None) -> None:
             user_id=user_id,
             user_events_enabled=get_events_enabled(),
         )
-        message = exc.message
+        # The toast localizes when the raise site carried a translation key;
+        # logs, event capture and the API keep reading the English
+        # ``exc.message`` untouched (see KaletaError).
+        toast_text = resolve_toast_text(exc)
+        message = toast_text
         if event_id:
             record_event_id(event_id, session_id)
-            message = t("common.error_with_event_id", message=exc.message, event_id=event_id)
+            message = t("common.error_with_event_id", message=toast_text, event_id=event_id)
 
         tray = _trays.get(session_id) if session_id else None
         if tray is not None and event_id:
             # An event id means there is something to report — keep it on screen.
-            tray.show(exc.message, event_id)
+            tray.show(toast_text, event_id)
         ui.notify(message, type="negative", multi_line=True)
 
 

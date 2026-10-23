@@ -3,7 +3,7 @@ plan_id: errors-i18n-message-keys
 title: Domain errors carry a translation key, so toasts speak the user's language
 area: cross-cutting
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -99,3 +99,46 @@ Does NOT cover:
   observability and the API already read it; only the *toast* localizes.
 - The fallback path (no `message_key`) is what makes the migration
   incremental and keeps the diff single-purpose per slice.
+
+### Slice 1 (this PR) — carrier + wiring + first cohort
+- Open questions resolved to the plan defaults:
+  - Carrier shape: two explicit fields `message_key: str | None` and
+    `params: dict[str, object] | None` on `KaletaError.__init__` (not a
+    single tuple), for mypy clarity.
+  - Placeholder validation: a locale-format test over the first-cohort keys
+    (`tests/integration/test_error_i18n.py`) rather than a runtime
+    construction-time guard — cheaper, and it also pins the English key to
+    the old free-text fallback so the two can't drift.
+  - Pluralization: none of the first-cohort messages pluralize; ICU-style
+    plurals deferred until a message needs them.
+- Migrated raise sites (first cohort only; the other ~250 are follow-up
+  slices, rule 9):
+  - `payee_service.py` `_check_spelling_free` — both identity-conflict
+    raises: `errors.payee.identity_taken` (`{pattern}`, `{owner}`) and
+    `errors.payee.identity_already_owned` (`{pattern}`).
+  - `payee_merge_service.py` `undo` — all three undo-path raises:
+    `errors.payee.merge_not_found`, `errors.payee.merge_undo_expired`
+    (`{days}`), `errors.payee.name_exists` (`{name}`).
+- i18n: a new top-level `"errors"` block added after `"common"` in
+  `en.json` / `pl.json`, deliberately far from `"reports"` (a sibling lane
+  edits that object) to avoid a textual git conflict.
+- View: `_notify_with_event` resolves `toast_text` once and uses it for the
+  toast, the `common.error_with_event_id` wrapping and `tray.show`; the
+  captured/logged `exc.message` stays English. `api.errors` is untouched.
+- Review follow-ups (reviewer APPROVED; non-blocking items closed in this
+  slice):
+  - The key-selection is a small pure helper `resolve_toast_text(exc)` in
+    `error_handling.py`, so the key-present/absent branch has a direct unit
+    test without the async NiceGUI machinery.
+  - `test_error_i18n.py` now also drives the real first-cohort raises
+    (`PayeeService.add_identity`, `PayeeMergeService.undo`) and asserts
+    `t(exc.message_key, **exc.params) == exc.message` in English — a
+    raise-site key/param typo fails this (missing key echoes the key;
+    wrong param name raises `KeyError`), which the hand-copied locale-format
+    table cannot catch on its own.
+  - `merge_undo_expired` builds its English fallback from `UNDO_WINDOW.days`
+    (not a hardcoded "7"), so the sentence and the `days` param cannot drift.
+  - The `[manual]` Polish-session acceptance criterion was NOT exercised in
+    this lane (it needs a running browser session); the orchestrator runs
+    `./scripts/verify.sh --e2e`, and the automated `KAL-ERR-001` coverage
+    pins the Polish/English literals.
