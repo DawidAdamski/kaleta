@@ -217,6 +217,38 @@
     },
     "account": {
       "ambiguous_external_number": "More than one account matches that account number."
+    },
+    "household": {
+      "member_no_key_to_seal": "A member of this household has no key set up to seal the new one to.",
+      "household_rekeying_already": "This household is being re-keyed already. Try again in a moment.",
+      "key_not_current": "The unlocked key is not the household's current one. Sign in again.",
+      "not_a_member": "You are not a member of a household.",
+      "invite_email_required": "Enter an e-mail address.",
+      "email_belongs_to_other_account": "This e-mail address already belongs to another account.",
+      "already_a_member": "This person is already a member of your household.",
+      "household_full": "A household has at most {max_members} members, invitations included.",
+      "only_pending_can_be_approved": "Only a member waiting for approval can be approved.",
+      "member_no_passphrase": "This member has not set up their data passphrase yet.",
+      "member_key_changed": "This member's key changed since the list was shown. Reload and compare again.",
+      "only_pending_can_be_declined": "Only a member waiting for approval can be declined.",
+      "hand_over_before_leaving": "Hand the household to another member before you leave it.",
+      "only_active_can_be_removed": "Only an active member can be removed; decline a pending one.",
+      "already_the_owner": "You are the owner already.",
+      "only_active_can_be_owner": "Only an active member can become the owner.",
+      "reset_not_a_member": "You are not a member of this household.",
+      "owner_key_cannot_reset": "The owner's key cannot be reset: the household would lose its data.",
+      "name_required": "Enter a name.",
+      "name_too_long": "Keep the name under {max_length} characters.",
+      "account_being_set_up": "Your account is still being set up.",
+      "member_no_account": "This member has no account in the household yet.",
+      "household_gone": "This household is gone.",
+      "member_not_found": "No such member in your household.",
+      "household_rekeying": "Your household is being re-keyed. Try again in a moment.",
+      "membership_pending": "Your membership is waiting for the owner's approval.",
+      "only_owner": "Only the household's owner can do this.",
+      "unlock_first": "Unlock your data with your passphrase first.",
+      "email_has_login": "This e-mail address already has a login here. Sign in with it to accept.",
+      "invitation_just_used": "This invitation has just been used. Sign in instead."
     }
   },
   "dashboard": {

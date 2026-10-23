@@ -229,7 +229,7 @@ class HouseholdRekey:
         for member_id, public_key in result.all():
             if public_key is None:
                 msg = "A member of this household has no key set up to seal the new one to."
-                raise ConflictError(msg)
+                raise ConflictError(msg, message_key="errors.household.member_no_key_to_seal")
             holders.append((member_id, public_key))
         return holders
 
@@ -276,11 +276,11 @@ class HouseholdRekey:
         if tenant.status is not TenantStatus.ACTIVE:
             await self.public.rollback()
             msg = "This household is being re-keyed already. Try again in a moment."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.household_rekeying_already")
         if tenant.key_version != old.version:
             await self.public.rollback()
             msg = "The unlocked key is not the household's current one. Sign in again."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.key_not_current")
         tenant.status = TenantStatus.REKEYING
         await self.public.commit()
 
@@ -337,7 +337,7 @@ class HouseholdService:
         membership = await TenantService(public).get_member_by_subject(subject)
         if membership is None or membership.member.status is TenantMemberStatus.REMOVED:
             msg = "You are not a member of a household."
-            raise NotFoundError(msg)
+            raise NotFoundError(msg, message_key="errors.household.not_a_member")
         return cls(public, membership, tenant_session=tenant_session, max_members=max_members)
 
     @property
@@ -415,17 +415,19 @@ class HouseholdService:
         local, _, domain = address.partition("@")
         if not local or not domain or "@" in domain or any(c.isspace() for c in address):
             msg = "Enter an e-mail address."
-            raise ValidationError(msg)
+            raise ValidationError(msg, message_key="errors.household.invite_email_required")
         existing = (
             await self.public.execute(select(TenantMember).where(TenantMember.email == address))
         ).scalar_one_or_none()
         if existing is not None:
             if existing.tenant_id != self.tenant.id:
                 msg = "This e-mail address already belongs to another account."
-                raise ConflictError(msg)
+                raise ConflictError(
+                    msg, message_key="errors.household.email_belongs_to_other_account"
+                )
             if existing.status is not TenantMemberStatus.REMOVED:
                 msg = "This person is already a member of your household."
-                raise ConflictError(msg)
+                raise ConflictError(msg, message_key="errors.household.already_a_member")
         replaced = await self.public.scalar(
             select(func.count(TenantInvite.id)).where(
                 TenantInvite.tenant_id == self.tenant.id,
@@ -436,7 +438,11 @@ class HouseholdService:
         )
         if await self._places_taken() - int(replaced or 0) >= self.max_members:
             msg = f"A household has at most {self.max_members} members, invitations included."
-            raise ConflictError(msg)
+            raise ConflictError(
+                msg,
+                message_key="errors.household.household_full",
+                params={"max_members": self.max_members},
+            )
         await self.public.execute(
             delete(TenantInvite).where(
                 TenantInvite.tenant_id == self.tenant.id,
@@ -486,19 +492,19 @@ class HouseholdService:
         member = await self._member(member_id)
         if member.status is not TenantMemberStatus.PENDING:
             msg = "Only a member waiting for approval can be approved."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.only_pending_can_be_approved")
         if settings.encryption_enabled:
             key = self._require_key(data_key)
             if member.public_key is None:
                 msg = "This member has not set up their data passphrase yet."
-                raise ConflictError(msg)
+                raise ConflictError(msg, message_key="errors.household.member_no_passphrase")
             if expected_fingerprint is not None and fingerprint(member.public_key) != (
                 expected_fingerprint
             ):
                 msg = (
                     "This member's key changed since the list was shown. Reload and compare again."
                 )
-                raise ConflictError(msg)
+                raise ConflictError(msg, message_key="errors.household.member_key_changed")
             await self._require_current_key(key)
             member.dek_sealed = seal(key.dek, member.public_key)
         member.status = TenantMemberStatus.ACTIVE
@@ -512,7 +518,7 @@ class HouseholdService:
         member = await self._member(member_id)
         if member.status is not TenantMemberStatus.PENDING:
             msg = "Only a member waiting for approval can be declined."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.only_pending_can_be_declined")
         if member.removed_at is not None:
             # A former member invited back: they return to where they were
             # (``removed``), with their row — and the household's history of
@@ -535,10 +541,10 @@ class HouseholdService:
         member = await self._member(member_id)
         if member.id == self.me.member.id:
             msg = "Hand the household to another member before you leave it."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.hand_over_before_leaving")
         if member.status is not TenantMemberStatus.ACTIVE:
             msg = "Only an active member can be removed; decline a pending one."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.only_active_can_be_removed")
         return await self._take_out(member, data_key, rekey=rekey)
 
     async def transfer_ownership(self, member_id: int) -> None:
@@ -547,10 +553,10 @@ class HouseholdService:
         member = await self._member(member_id)
         if member.id == self.me.member.id:
             msg = "You are the owner already."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.already_the_owner")
         if member.status is not TenantMemberStatus.ACTIVE:
             msg = "Only an active member can become the owner."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.only_active_can_be_owner")
         self.me.member.role = TenantRole.MEMBER
         member.role = TenantRole.OWNER
         await self.public.commit()
@@ -562,7 +568,7 @@ class HouseholdService:
         self._require_active()
         if self.is_owner:
             msg = "Hand the household to another member before you leave it."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.hand_over_before_leaving")
         return await self._take_out(self.me.member, data_key, rekey=rekey)
 
     async def reset_keys(self) -> None:
@@ -574,10 +580,10 @@ class HouseholdService:
         member = self.me.member
         if member.status is TenantMemberStatus.REMOVED:
             msg = "You are not a member of this household."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.reset_not_a_member")
         if self.is_owner:
             msg = "The owner's key cannot be reset: the household would lose its data."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.owner_key_cannot_reset")
         clear_member_keys(member)
         member.status = TenantMemberStatus.PENDING
         await self.public.commit()
@@ -589,13 +595,20 @@ class HouseholdService:
         cleaned = " ".join(name.split())
         if not cleaned:
             msg = "Enter a name."
-            raise ValidationError(msg)
+            raise ValidationError(msg, message_key="errors.household.name_required")
         if len(cleaned) > DISPLAY_NAME_MAX:
             msg = f"Keep the name under {DISPLAY_NAME_MAX} characters."
-            raise ValidationError(msg)
+            raise ValidationError(
+                msg,
+                message_key="errors.household.name_too_long",
+                params={"max_length": DISPLAY_NAME_MAX},
+            )
         user_id = self.me.member.user_id
         if user_id is None:
-            raise NotFoundError("Your account is still being set up.")
+            raise NotFoundError(
+                "Your account is still being set up.",
+                message_key="errors.household.account_being_set_up",
+            )
         with use_tenant(self._context()):
             async with self._session_factory()() as session:
                 await session.execute(
@@ -610,13 +623,15 @@ class HouseholdService:
     ) -> RemovedMember:
         if member.user_id is None:
             msg = "This member has no account in the household yet."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.member_no_account")
         user_id = member.user_id
         if settings.encryption_enabled and rekey:
             key = self._require_key(data_key)
             tenant = await self.public.get(Tenant, self.tenant.id, populate_existing=True)
             if tenant is None:
-                raise NotFoundError("This household is gone.")
+                raise NotFoundError(
+                    "This household is gone.", message_key="errors.household.household_gone"
+                )
             await HouseholdRekey(self.public, self._session_factory()).run(tenant, key, member)
             await self.public.refresh(member)
         else:
@@ -644,7 +659,10 @@ class HouseholdService:
     async def _member(self, member_id: int) -> TenantMember:
         member = await self.public.get(TenantMember, member_id)
         if member is None or member.tenant_id != self.tenant.id:
-            raise NotFoundError("No such member in your household.")
+            raise NotFoundError(
+                "No such member in your household.",
+                message_key="errors.household.member_not_found",
+            )
         return member
 
     async def _places_taken(self) -> int:
@@ -718,26 +736,29 @@ class HouseholdService:
         ).scalar_one()
         if tenant.status is not TenantStatus.ACTIVE or key_ring.is_frozen(tenant.id):
             msg = "Your household is being re-keyed. Try again in a moment."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.household_rekeying")
         if tenant.key_version != key.version:
             msg = "The unlocked key is not the household's current one. Sign in again."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.key_not_current")
 
     def _require_active(self) -> None:
         if self.me.member.status is not TenantMemberStatus.ACTIVE:
             msg = "Your membership is waiting for the owner's approval."
-            raise UnauthorizedError(msg)
+            raise UnauthorizedError(msg, message_key="errors.household.membership_pending")
 
     def _require_owner(self) -> None:
         self._require_active()
         if not self.is_owner:
             msg = "Only the household's owner can do this."
-            raise UnauthorizedError(msg)
+            raise UnauthorizedError(msg, message_key="errors.household.only_owner")
 
     @staticmethod
     def _require_key(data_key: DataKey | None) -> DataKey:
         if data_key is None:
-            raise TenantLockedError("Unlock your data with your passphrase first.")
+            raise TenantLockedError(
+                "Unlock your data with your passphrase first.",
+                message_key="errors.household.unlock_first",
+            )
         return data_key
 
     def _context(self) -> TenantContext:
@@ -786,14 +807,14 @@ class HouseholdInvitations:
         logins = LocalIdentityService(self.public)
         if await logins.get_by_email(invite.email) is not None:
             msg = "This e-mail address already has a login here. Sign in with it to accept."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.household.email_has_login")
         try:
             login = await logins.create(invite.email, password)
         except IntegrityError as exc:
             # Two tabs accepting at once: the other one created the login.
             await self.public.rollback()
             msg = "This invitation has just been used. Sign in instead."
-            raise ConflictError(msg) from exc
+            raise ConflictError(msg, message_key="errors.household.invitation_just_used") from exc
         try:
             await self._tenants.join(invite, subject=subject_of(login.id))
         except Exception:
