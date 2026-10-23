@@ -126,6 +126,30 @@
       "merge_not_found": "Automatic merge not found",
       "merge_undo_expired": "This merge is older than {days} days and can no longer be undone",
       "name_exists": "A payee named '{name}' already exists"
+    },
+    "transaction": {
+      "transfer_needs_two_rows": "A transfer needs two different transactions.",
+      "not_found": "Transaction not found.",
+      "not_found_id": "Transaction {transaction_id} not found.",
+      "transfer_needs_both_directions": "A transfer needs money leaving one account and entering another.",
+      "category_not_found": "Category {category_id} not found.",
+      "only_income_expense_categories": "Only income and expense categories can be assigned.",
+      "split_category_per_line": "A split transaction's category is set per line, not in bulk.",
+      "category_type_mismatch": "A {category_type} category can only go on {category_type} rows.",
+      "outgoing_leg_not_income": "The outgoing leg of a transfer cannot be an income.",
+      "incoming_leg_not_expense": "The incoming leg of a transfer cannot be an expense.",
+      "transfer_different_accounts": "A transfer moves money between two different accounts.",
+      "transfer_currency_mismatch": "Pairing rows in different currencies is not supported.",
+      "transfer_amount_mismatch": "Both legs of a transfer must have the same amount.",
+      "already_linked": "Transaction {transaction_id} is already linked to another row.",
+      "split_cannot_be_transfer": "A split transaction cannot be part of a transfer.",
+      "split_needs_at_least_one": "Split transactions must have at least one split.",
+      "split_sum_mismatch": "Split amounts must sum to {amount}; {remaining:+.2f} remaining.",
+      "split_amount_needs_splits": "Cannot change amount on a split transaction without updating splits.",
+      "type_requires_category": "{transaction_type} transactions require a category.",
+      "stale_write_by_member": "This transaction was changed by {changed_by} a moment ago.",
+      "stale_write_elsewhere": "This transaction was changed elsewhere a moment ago.",
+      "transfer_leg_needs_direction": "A transfer leg needs transfer_direction ('out' or 'in')."
     }
   },
   "dashboard": {

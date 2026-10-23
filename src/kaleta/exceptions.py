@@ -56,8 +56,15 @@ class StaleWriteError(ConflictError):
 
     code = "stale_write"
 
-    def __init__(self, message: str, *, changed_by: str | None = None) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        *,
+        changed_by: str | None = None,
+        message_key: str | None = None,
+        params: dict[str, object] | None = None,
+    ) -> None:
+        super().__init__(message, message_key=message_key, params=params)
         self.changed_by = changed_by
 
 
