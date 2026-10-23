@@ -241,6 +241,7 @@ into the view layer (`t()`), keeping services presentation-free.
 | [errors-i18n-core-cohort](archive/errors-i18n-core-cohort.md) | cross-cutting | small | archived | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: rule + subscription + category + budget + account) |
 | [errors-i18n-household](errors-i18n-household.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: household_service) |
 | [errors-i18n-2fa](errors-i18n-2fa.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: mfa_service + hosted_mfa_service + api_token_service) |
+| [errors-i18n-encryption](errors-i18n-encryption.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: key_service + local_identity_service; low yield — most raises are caught-by-type/inline) |
 | [reports-i18n-display-keys](archive/reports-i18n-display-keys.md) | reports | large | archived | — (also listed under Reports) |
 
 ### `@planned` gap-closing (from audit-planned-vs-code)

@@ -119,11 +119,11 @@ class LocalIdentityService:
         local, _, domain = address.partition("@")
         if not local or not domain or "@" in domain or any(c.isspace() for c in address):
             msg = "Enter an e-mail address."
-            raise ValidationError(msg)
+            raise ValidationError(msg, message_key="errors.local_identity.email_required")
         self._validate_password(password)
         if await self.get_by_email(address) is not None:
             msg = "An account with this e-mail address already exists."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.local_identity.email_taken")
         identity = LocalIdentity(
             email=address,
             password_hash=self._hasher.hash(password),
@@ -198,7 +198,9 @@ class LocalIdentityService:
                 and await self._admin_count() == 1
             ):
                 msg = "The last administrator cannot stop being one."
-                raise ValidationError(msg)
+                raise ValidationError(
+                    msg, message_key="errors.local_identity.last_admin_cannot_demote"
+                )
             identity.is_instance_admin = admin
             await self.session.commit()
 
@@ -218,7 +220,9 @@ class LocalIdentityService:
                 and await self._admin_count() == 1
             ):
                 msg = "The last administrator cannot be disabled."
-                raise ValidationError(msg)
+                raise ValidationError(
+                    msg, message_key="errors.local_identity.last_admin_cannot_disable"
+                )
             identity.disabled = disabled
             await self.session.commit()
 
@@ -265,7 +269,7 @@ class LocalIdentityService:
         identity = await self.get(identity_id)
         if identity is None:
             msg = "No such login."
-            raise NotFoundError(msg)
+            raise NotFoundError(msg, message_key="errors.local_identity.login_not_found")
         return identity
 
     async def _admin_count(self) -> int:

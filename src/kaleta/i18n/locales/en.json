@@ -257,6 +257,19 @@
     },
     "api_token": {
       "confirm_code_before_changing": "Confirm with a two-factor code before changing API tokens."
+    },
+    "key": {
+      "no_membership": "This sign-in has no membership in the account.",
+      "no_passphrase_set_up": "No data passphrase is set up yet.",
+      "data_key_not_shared": "Your data key has not been shared with you yet.",
+      "rekeying": "Your household is being re-keyed. Try again in a moment."
+    },
+    "local_identity": {
+      "email_required": "Enter an e-mail address.",
+      "email_taken": "An account with this e-mail address already exists.",
+      "last_admin_cannot_demote": "The last administrator cannot stop being one.",
+      "last_admin_cannot_disable": "The last administrator cannot be disabled.",
+      "login_not_found": "No such login."
     }
   },
   "dashboard": {

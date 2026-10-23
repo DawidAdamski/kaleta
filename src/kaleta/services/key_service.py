@@ -112,7 +112,7 @@ class TenantKeyStore:
         member = result.scalar_one_or_none()
         if member is None:
             msg = "This sign-in has no membership in the account."
-            raise NotFoundError(msg)
+            raise NotFoundError(msg, message_key="errors.key.no_membership")
         return member
 
     async def load(self) -> KeyMaterial | None:
@@ -276,7 +276,7 @@ class KeyService:
         material = await self.store.load()
         if material is None:
             msg = "No data passphrase is set up yet."
-            raise NotFoundError(msg)
+            raise NotFoundError(msg, message_key="errors.key.no_passphrase_set_up")
         return material
 
     async def open(self, passphrase: str) -> tuple[DataKey, bytes]:
@@ -284,9 +284,9 @@ class KeyService:
         material = await self._material()
         if material.dek_sealed is None:
             msg = "Your data key has not been shared with you yet."
-            raise ConflictError(msg)
+            raise ConflictError(msg, message_key="errors.key.data_key_not_shared")
         if key_ring.is_frozen(self.store.tenant_id):
-            raise ConflictError(REKEYING_MESSAGE)
+            raise ConflictError(REKEYING_MESSAGE, message_key="errors.key.rekeying")
         version = await self.store.key_version()
         try:
             private_key = await _derive(partial(open_private_key, material, passphrase))
