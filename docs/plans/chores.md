@@ -855,3 +855,4 @@ check it still reproduces before acting on it.
       adding KAL-DSH-012; worked around by asserting a11y on a top-ranked
       danger loan instead. (Lead, not a fix — the ranks test could seed on a
       cleaned slate or assert via "+N more"-aware lookup.)
+- [ ] **Error-message i18n: migrate the remaining ~250 KaletaError raise sites.** The carrier (message_key+params) and view wiring shipped in PR #353 (KAL-ERR-001); only the payee-identity + merge-undo first cohort was migrated. The rest still toast English. Mechanical now — convert raises to pass message_key+params and add errors.* keys, in small per-area slices referencing docs/plans/archive/errors-i18n-message-keys.md.

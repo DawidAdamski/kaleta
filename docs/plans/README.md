@@ -224,7 +224,7 @@ columns on top. Neither touches the canned `ReportService` reports.
 |---|---|---|---|---|
 | 1 | [reports-second-dimension-pivot](archive/reports-second-dimension-pivot.md) | archived | draft | — |
 | 2 | [reports-trend-columns](archive/reports-trend-columns.md) | archived | draft | 1 |
-| 3 | [reports-i18n-display-keys](reports-i18n-display-keys.md) | large | draft | — (finishes the i18n left by 1) |
+| 3 | [reports-i18n-display-keys](archive/reports-i18n-display-keys.md) | large | archived | — (finishes the i18n left by 1) |
 
 ### Internationalisation (i18n) debt
 
@@ -234,8 +234,8 @@ into the view layer (`t()`), keeping services presentation-free.
 
 | Plan | Area | Effort | Status | Depends on |
 |---|---|---|---|---|
-| [errors-i18n-message-keys](errors-i18n-message-keys.md) | cross-cutting | large | draft | — (ships carrier + first cohort; rest in follow-up slices) |
-| [reports-i18n-display-keys](reports-i18n-display-keys.md) | reports | large | draft | — (also listed under Reports) |
+| [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) | cross-cutting | large | archived | — (ships carrier + first cohort; rest in follow-up slices) |
+| [reports-i18n-display-keys](archive/reports-i18n-display-keys.md) | reports | large | archived | — (also listed under Reports) |
 
 ### `@planned` gap-closing (from audit-planned-vs-code)
 

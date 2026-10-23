@@ -3,8 +3,9 @@ plan_id: reports-i18n-display-keys
 title: Report results carry dimension/metric keys, views resolve them through t()
 area: reports
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#reports
+status: archived
+archived_at: 2026-10-23
+roadmap_ref: ../../roadmap.md#reports
 ---
 
 # Report results carry dimension/metric keys, views resolve them through t()
@@ -149,3 +150,22 @@ Does NOT cover:
   `reports.other_row` to `en.json`/`pl.json` inside the existing `reports`
   object (next to the `type_*` block), to avoid textual conflict with the
   sibling lane adding a top-level `errors` block at end-of-file.
+
+## Implementation
+
+Landed on 2026-10-23 (PR merged to main).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `49f491b` | Dawid (Ani) | 2026-10-23 | feat(reports): emit dimension/metric keys, resolve display strings via t() |
+
+**Files changed:**
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/views/reports/chart_zone.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- docs/bdd.md
+- tests/integration/test_reports_i18n_display.py
+- tests/unit/services/test_report_columns.py
+- tests/unit/services/test_saved_report_service.py
+- tests/unit/views/test_reports_chart_options.py

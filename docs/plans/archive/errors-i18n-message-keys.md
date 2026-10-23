@@ -3,8 +3,9 @@ plan_id: errors-i18n-message-keys
 title: Domain errors carry a translation key, so toasts speak the user's language
 area: cross-cutting
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-10-23
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Domain errors carry a translation key, so toasts speak the user's language
@@ -142,3 +143,23 @@ Does NOT cover:
     this lane (it needs a running browser session); the orchestrator runs
     `./scripts/verify.sh --e2e`, and the automated `KAL-ERR-001` coverage
     pins the Polish/English literals.
+
+## Implementation
+
+Landed on 2026-10-23 (PR merged to main).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `463579e` | Dawid (Ani) | 2026-10-23 | feat(errors): give KaletaError a translation key so toasts localize |
+
+**Files changed:**
+- src/kaleta/exceptions.py
+- src/kaleta/views/error_handling.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/services/payee_merge_service.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- docs/bdd.md
+- tests/integration/test_error_i18n.py
+
+**Notes:** Plan scope was the carrier (message_key + params), view wiring and the FIRST COHORT only (payee identity + merge-undo raises). That scope is complete. The remaining ~250 raise-site migrations are explicit follow-up slices (tracked in docs/plans/chores.md), not part of this plan.
