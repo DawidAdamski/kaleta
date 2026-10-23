@@ -266,9 +266,16 @@ class PayeeMergeService:
         moment = now or datetime.datetime.now(datetime.UTC)
         record = await self.session.get(PayeeAutoMerge, record_id)
         if record is None or record.undone_at is not None:
-            raise NotFoundError("Automatic merge not found")
+            raise NotFoundError(
+                "Automatic merge not found",
+                message_key="errors.payee.merge_not_found",
+            )
         if moment - record.created_at > UNDO_WINDOW:
-            raise ConflictError("This merge is older than 7 days and can no longer be undone")
+            raise ConflictError(
+                f"This merge is older than {UNDO_WINDOW.days} days and can no longer be undone",
+                message_key="errors.payee.merge_undo_expired",
+                params={"days": UNDO_WINDOW.days},
+            )
         keeper_id = record.keeper_id
         snapshot = cast("AutoMergeSnapshot", record.snapshot)
         fields = snapshot["fields"]
@@ -276,7 +283,11 @@ class PayeeMergeService:
             select(Payee.id).where(Payee.name_bidx == exact_index(str(fields["name"])))
         )
         if clash.first() is not None:
-            raise ConflictError(f"A payee named '{fields['name']}' already exists")
+            raise ConflictError(
+                f"A payee named '{fields['name']}' already exists",
+                message_key="errors.payee.name_exists",
+                params={"name": fields["name"]},
+            )
 
         identities = await self.session.execute(
             select(PayeeIdentity).where(

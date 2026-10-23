@@ -119,6 +119,15 @@
     "month_of_11": "listopada",
     "month_of_12": "grudnia"
   },
+  "errors": {
+    "payee": {
+      "identity_taken": "„{pattern}” jest już wariantem nazwy odbiorcy „{owner}”",
+      "identity_already_owned": "Ten odbiorca ma już wariant nazwy „{pattern}”",
+      "merge_not_found": "Nie znaleziono automatycznego scalenia",
+      "merge_undo_expired": "To scalenie jest starsze niż {days} dni i nie można go już cofnąć",
+      "name_exists": "Odbiorca o nazwie „{name}” już istnieje"
+    }
+  },
   "dashboard": {
     "title": "Pulpit",
     "total_balance": "Łączne saldo",

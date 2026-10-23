@@ -5,12 +5,31 @@ from __future__ import annotations
 
 
 class KaletaError(Exception):
-    """Base for expected domain errors surfaced to users."""
+    """Base for expected domain errors surfaced to users.
+
+    ``message`` is the English fallback: it is what logs, ``event_capture``
+    and the REST API read, and what a toast shows when no translation key is
+    given. ``message_key`` plus ``params`` let a raise site localize its
+    *toast* without disturbing any of that — the view resolves
+    ``t(message_key, **params)`` when a key is present, and falls back to
+    ``message`` otherwise (see ``views.error_handling._notify_with_event``).
+    Localization is opt-in per raise site, so un-migrated raises are
+    unaffected.
+    """
 
     code: str = "kaleta_error"
 
-    def __init__(self, message: str, *, code: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        message_key: str | None = None,
+        params: dict[str, object] | None = None,
+    ) -> None:
         self.message = message
+        self.message_key = message_key
+        self.params = params
         if code is not None:
             self.code = code
         super().__init__(message)
