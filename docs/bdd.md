@@ -3412,6 +3412,14 @@ Feature: Localized error messages
     And a split-sum mismatch of 100.00 with -3.50 remaining reads in Polish "Kwoty pozycji muszą sumować się do 100.00; pozostało -3.50."
     And every transaction error key interpolates its parameters without a missing-placeholder error
 
+  KAL-ERR-003 @automated
+  Scenario: An irregular-fund error toast speaks the session's language
+    Given recording a payment without a category carries the key "errors.irregular_item.payment_needs_category"
+    Then the Polish message reads "Wybierz kategorię płatności."
+    And the English message reads "Choose a category for the payment."
+    And a missing fund 404 for fund 123 reads in Polish "Nie znaleziono funduszu 123."
+    And every irregular-item error key interpolates its parameters without a missing-placeholder error
+
   KAL-ERR-004 @automated
   Scenario: A funds/salary/debt service error toast speaks the session's language
     Given pairing a savings-goal contribution against a missing fund carries the key "errors.reserve_fund.fund_not_found"

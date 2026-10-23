@@ -177,6 +177,22 @@
       "link_ambiguous": "Link an existing transaction or mirror to an account, not both",
       "transaction_taken": "Transaction {transaction_id} is already linked to a loan",
       "transaction_not_found": "Transaction {transaction_id} not found"
+    },
+    "irregular_item": {
+      "fund_not_found": "Fund {fund_id} not found.",
+      "not_irregular_fund": "Only an irregular-expenses fund has items.",
+      "item_not_found": "Item {item_id} not found.",
+      "fund_needs_account": "The fund needs an account before it can be fed.",
+      "add_item_before_planning": "Add an item before planning the monthly transfer.",
+      "source_must_differ": "The money has to come from another account than the fund's.",
+      "account_not_found": "Account not found.",
+      "transfer_already_planned": "This monthly transfer is already planned.",
+      "planned_transfer_not_found": "Planned transfer not found.",
+      "fund_no_account": "The fund has no account to pay from.",
+      "item_other_fund": "That item belongs to another fund.",
+      "payment_needs_category": "Choose a category for the payment.",
+      "transaction_not_found": "Transaction {transaction_id} not found.",
+      "only_expense_is_payment": "Only an expense paid from the fund's account is a payment."
     }
   },
   "dashboard": {

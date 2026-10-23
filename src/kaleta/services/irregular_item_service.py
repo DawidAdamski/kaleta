@@ -63,9 +63,16 @@ class IrregularItemService:
     async def _fund(self, fund_id: int) -> ReserveFund:
         fund = await self.session.get(ReserveFund, fund_id)
         if fund is None:
-            raise NotFoundError(f"Fund {fund_id} not found.")
+            raise NotFoundError(
+                f"Fund {fund_id} not found.",
+                message_key="errors.irregular_item.fund_not_found",
+                params={"fund_id": fund_id},
+            )
         if fund.kind is not ReserveFundKind.IRREGULAR:
-            raise ValidationError("Only an irregular-expenses fund has items.")
+            raise ValidationError(
+                "Only an irregular-expenses fund has items.",
+                message_key="errors.irregular_item.not_irregular_fund",
+            )
         return fund
 
     async def items(self, fund_id: int) -> builtins.list[IrregularItem]:
@@ -143,7 +150,11 @@ class IrregularItemService:
     async def _item(self, item_id: int) -> IrregularItem:
         item = await self.session.get(IrregularItem, item_id)
         if item is None:
-            raise NotFoundError(f"Item {item_id} not found.")
+            raise NotFoundError(
+                f"Item {item_id} not found.",
+                message_key="errors.irregular_item.item_not_found",
+                params={"item_id": item_id},
+            )
         return item
 
     async def update(self, item_id: int, data: IrregularItemUpdate) -> IrregularItem:
@@ -173,15 +184,27 @@ class IrregularItemService:
         """
         plan = await self.plan(fund_id)
         if plan.backing_account_id is None:
-            raise ValidationError("The fund needs an account before it can be fed.")
+            raise ValidationError(
+                "The fund needs an account before it can be fed.",
+                message_key="errors.irregular_item.fund_needs_account",
+            )
         if plan.monthly_total <= 0:
-            raise ValidationError("Add an item before planning the monthly transfer.")
+            raise ValidationError(
+                "Add an item before planning the monthly transfer.",
+                message_key="errors.irregular_item.add_item_before_planning",
+            )
         if payload.from_account_id == plan.backing_account_id:
-            raise ValidationError("The money has to come from another account than the fund's.")
+            raise ValidationError(
+                "The money has to come from another account than the fund's.",
+                message_key="errors.irregular_item.source_must_differ",
+            )
         source = await self.session.get(Account, payload.from_account_id)
         target = await self.session.get(Account, plan.backing_account_id)
         if source is None or target is None:
-            raise NotFoundError("Account not found.")
+            raise NotFoundError(
+                "Account not found.",
+                message_key="errors.irregular_item.account_not_found",
+            )
         description = f"{source.name} → {target.name}"
 
         planned = PlannedTransactionService(self.session)
@@ -197,7 +220,10 @@ class IrregularItemService:
                 and existing.description == description
             ):
                 if existing.amount == plan.monthly_total:
-                    raise ConflictError("This monthly transfer is already planned.")
+                    raise ConflictError(
+                        "This monthly transfer is already planned.",
+                        message_key="errors.irregular_item.transfer_already_planned",
+                    )
                 # The contribution changed: refresh the one transfer in place
                 # rather than planning a second one beside it.
                 refreshed = await planned.update(
@@ -205,7 +231,10 @@ class IrregularItemService:
                     PlannedTransactionUpdate(amount=plan.monthly_total),
                 )
                 if refreshed is None:
-                    raise NotFoundError("Planned transfer not found.")
+                    raise NotFoundError(
+                        "Planned transfer not found.",
+                        message_key="errors.irregular_item.planned_transfer_not_found",
+                    )
                 return refreshed
 
         return await planned.create(
@@ -227,13 +256,19 @@ class IrregularItemService:
     async def _fund_account(self, fund_id: int) -> int:
         fund = await self._fund(fund_id)
         if fund.backing_account_id is None:
-            raise ValidationError("The fund has no account to pay from.")
+            raise ValidationError(
+                "The fund has no account to pay from.",
+                message_key="errors.irregular_item.fund_no_account",
+            )
         return fund.backing_account_id
 
     async def _fund_item(self, fund_id: int, item_id: int) -> IrregularItem:
         item = await self._item(item_id)
         if item.fund_id != fund_id:
-            raise ValidationError("That item belongs to another fund.")
+            raise ValidationError(
+                "That item belongs to another fund.",
+                message_key="errors.irregular_item.item_other_fund",
+            )
         return item
 
     async def record_payment(self, fund_id: int, data: IrregularPaymentCreate) -> Transaction:
@@ -242,7 +277,10 @@ class IrregularItemService:
         item = await self._fund_item(fund_id, data.item_id) if data.item_id is not None else None
         category_id = data.category_id or (item.category_id if item is not None else None)
         if category_id is None:
-            raise ValidationError("Choose a category for the payment.")
+            raise ValidationError(
+                "Choose a category for the payment.",
+                message_key="errors.irregular_item.payment_needs_category",
+            )
         description = data.description.strip() or (item.name if item is not None else "")
         tx = await TransactionService(self.session).create(
             TransactionCreate(
@@ -264,9 +302,16 @@ class IrregularItemService:
         account_id = await self._fund_account(fund_id)
         tx = await self.session.get(Transaction, transaction_id)
         if tx is None:
-            raise NotFoundError(f"Transaction {transaction_id} not found.")
+            raise NotFoundError(
+                f"Transaction {transaction_id} not found.",
+                message_key="errors.irregular_item.transaction_not_found",
+                params={"transaction_id": transaction_id},
+            )
         if tx.account_id != account_id or tx.type is not TransactionType.EXPENSE:
-            raise ValidationError("Only an expense paid from the fund's account is a payment.")
+            raise ValidationError(
+                "Only an expense paid from the fund's account is a payment.",
+                message_key="errors.irregular_item.only_expense_is_payment",
+            )
         if item_id is not None:
             await self._fund_item(fund_id, item_id)
         tx.irregular_item_id = item_id
