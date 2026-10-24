@@ -424,10 +424,35 @@ class HostedMfaChallenges:
 hosted_mfa_challenges = HostedMfaChallenges(MFA_CHALLENGE_TTL_MINUTES * 60)
 
 
-def begin_hosted_mfa_challenge(pending: MfaRequired) -> None:
-    """Park a hosted sign-in (``aal1``) in front of the code prompt."""
+def begin_hosted_mfa_challenge(pending: MfaRequired) -> str:
+    """Park a sign-in (``aal1``, or a local factor) in front of the code prompt.
+
+    Returns the challenge reference. The caller hands it to ``/login/mfa`` in
+    the URL (``?c=<ref>``) so the page does not depend on the ``app.storage.user``
+    write below having been flushed before the navigation re-reads it — a
+    deferred ``FilePersistentDict`` write that loses a race with the storage
+    prune under load (the ``/login/mfa`` bounce). The storage write stays as a
+    belt-and-braces fallback for a path that does not carry the ref.
+    """
     clear_mfa_challenge()
-    app.storage.user[SESSION_HOSTED_MFA_REF] = hosted_mfa_challenges.put(pending)
+    ref = hosted_mfa_challenges.put(pending)
+    app.storage.user[SESSION_HOSTED_MFA_REF] = ref
+    app.storage.user[SESSION_HOSTED_MFA_AT] = datetime.now(UTC).isoformat()
+    return ref
+
+
+def adopt_hosted_mfa_challenge(ref: str) -> None:
+    """Take a challenge ref handed to ``/login/mfa`` in the URL into this session.
+
+    Writes the ref (and its stamp) into this session's ``app.storage.user`` when
+    it names a live challenge — an in-process write the page then reads, with no
+    cross-request file round-trip in between, so the hand-off cannot lose the
+    ref to a deferred backup. A forged or expired ref names no challenge and is
+    ignored, leaving storage untouched for the normal pending checks to answer.
+    """
+    if not ref or hosted_mfa_challenges.get(ref) is None:
+        return
+    app.storage.user[SESSION_HOSTED_MFA_REF] = ref
     app.storage.user[SESSION_HOSTED_MFA_AT] = datetime.now(UTC).isoformat()
 
 

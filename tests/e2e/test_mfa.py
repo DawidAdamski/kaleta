@@ -13,6 +13,7 @@ teardown that guarantees the enrolment is gone whatever happened in between.
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Generator
 
@@ -107,6 +108,16 @@ def enrol(page: Page) -> tuple[str, list[str]]:
     return secret, codes
 
 
+def mfa_url(base_url: str) -> re.Pattern[str]:
+    """The code-prompt URL, allowing the optional ``&c=<ref>`` the hand-off carries.
+
+    The password step now passes the challenge reference in the URL (plan
+    mfa-handoff-url-ref), so the landing URL is
+    ``/login/mfa?redirect_to=/&c=<token>`` rather than the bare form.
+    """
+    return re.compile(re.escape(f"{base_url}/login/mfa?redirect_to=/") + r"(&c=[A-Za-z0-9_-]+)?$")
+
+
 def sign_in_with_password(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/login")
     page.get_by_label("E-mail", exact=True).fill(E2E_EMAIL)
@@ -133,7 +144,7 @@ def test_two_factor_authentication(
 
     # KAL-AUTH-014 — the password alone now lands on the code prompt.
     sign_in_with_password(page_no_auth, base_url)
-    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+    expect(page_no_auth).to_have_url(mfa_url(base_url), timeout=10000)
 
     # KAL-AUTH-016 — and that half-finished session opens nothing. Asked over
     # the same cookie jar the browser is holding, without following the
@@ -175,7 +186,7 @@ def test_two_factor_authentication(
     # KAL-AUTH-015 — a recovery code gets in once, and only once.
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
-    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+    expect(page_no_auth).to_have_url(mfa_url(base_url), timeout=10000)
     page_no_auth.get_by_role("button", name="Use a recovery code").click()
     recovery_field = page_no_auth.get_by_label("Recovery code", exact=True)
     expect(recovery_field).to_be_visible()
@@ -192,7 +203,7 @@ def test_two_factor_authentication(
 
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
-    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+    expect(page_no_auth).to_have_url(mfa_url(base_url), timeout=10000)
     page_no_auth.get_by_role("button", name="Use a recovery code").click()
     page_no_auth.get_by_label("Recovery code", exact=True).fill(codes[0])
     page_no_auth.get_by_role("button", name="Verify").click()
@@ -213,7 +224,7 @@ def test_two_factor_authentication(
     # turning the factor off below happens underneath it.
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
-    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+    expect(page_no_auth).to_have_url(mfa_url(base_url), timeout=10000)
 
     # KAL-AUTH-020 — the password and a code turn it off, and the login goes
     # back to what it was.

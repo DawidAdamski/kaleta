@@ -103,20 +103,17 @@ def _terminate_process(proc: subprocess.Popen[str]) -> None:
 
 
 #: Failure signatures that are timing flakes, not defects: Playwright waits
-#: that time out, the strict-mode "resolved to N elements" race, and the
-#: load-sensitive MFA hand-off race (the password step navigates to
-#: ``/login/mfa`` but the challenge reference has not yet been persisted to
-#: ``app.storage.user``, so the page bounces to ``/login`` — NiceGUI's deferred
-#: storage backup losing a race with its storage prune; see
-#: docs/plans/flaky-test-mfa-rerun.md and the chores.md item for the real fix).
-#: Matched against the exception repr by pytest-rerunfailures' ``only_rerun``;
-#: a real regression fails all three attempts, so only the race is rescued.
-#: Remove the ``login/mfa`` signature when the production hand-off fix lands
-#: (chores.md), so the rescue cannot outlive the bug and hide a later regression.
+#: that time out and the strict-mode "resolved to N elements" race. Matched
+#: against the exception repr by pytest-rerunfailures' ``only_rerun``; a real
+#: regression fails all three attempts, so only the race is rescued.
+#:
+#: The ``/login/mfa`` hand-off bounce used to be rescued here too; it is fixed
+#: (plan/mfa-handoff-url-ref — the ref travels in the URL, not a deferred
+#: ``app.storage.user`` write), so its signature is gone and a recurrence now
+#: fails the run rather than being silently retried.
 _E2E_FLAKE_SIGNATURES = [
     "Timeout.*exceeded",
     "strict mode violation",
-    "Page URL expected to be .*login/mfa",
 ]
 _E2E_DIR = Path(__file__).resolve().parent
 
@@ -125,10 +122,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Retry only timing-flaky e2e tests (chores.md: the e2e tier flakes under load).
 
     The e2e tier runs serially with real browser timing, so it occasionally
-    hits Playwright timeouts / strict-mode "resolved to N elements" races, and
-    the MFA hand-off race (the `/login/mfa` bounce — a deferred app.storage.user
-    write losing to NiceGUI's storage prune), all of which pass clean on a
-    retry. Reruns are scoped to those signatures via
+    hits Playwright timeouts / strict-mode "resolved to N elements" races, which
+    pass clean on a retry. Reruns are scoped to those signatures via
     ``only_rerun``: a deterministic failure (a wrong assertion value, a real
     regression) either does not match them, or matches but fails on every
     attempt — so a genuine bug is never masked, only timing flakes are rescued

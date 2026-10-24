@@ -127,6 +127,50 @@ class TestPendingSessionIsUnauthenticated:
         assert session_mod.is_authenticated() is True
 
 
+class TestUrlHandoff:
+    """The ref travels to ``/login/mfa`` in the URL, not only via the deferred
+    ``app.storage.user`` write (plan mfa-handoff-url-ref). The page adopts it."""
+
+    def test_begin_returns_the_ref_it_parked(self, fake_storage: dict[str, Any]) -> None:
+        ref = session_mod.begin_hosted_mfa_challenge(_PENDING)
+        assert fake_storage[session_mod.SESSION_HOSTED_MFA_REF] == ref
+        assert session_mod.hosted_mfa_challenges.get(ref) == _PENDING
+
+    def test_a_live_ref_is_adopted_into_storage(self, fake_storage: dict[str, Any]) -> None:
+        # The server-side challenge exists, but this session's storage is empty —
+        # exactly the state the /login/mfa request starts in, with the ref only
+        # in the URL. Adopting it must make the pending checks see it.
+        ref = session_mod.hosted_mfa_challenges.put(_PENDING)
+        assert session_mod.is_hosted_mfa_pending() is False
+
+        session_mod.adopt_hosted_mfa_challenge(ref)
+
+        assert fake_storage[session_mod.SESSION_HOSTED_MFA_REF] == ref
+        assert fake_storage.get(session_mod.SESSION_HOSTED_MFA_AT) is not None
+        assert session_mod.hosted_mfa_pending() == _PENDING
+
+    def test_a_forged_ref_is_ignored(self, fake_storage: dict[str, Any]) -> None:
+        session_mod.adopt_hosted_mfa_challenge("not-a-real-ref")
+        assert session_mod.SESSION_HOSTED_MFA_REF not in fake_storage
+        assert session_mod.is_hosted_mfa_pending() is False
+
+    def test_an_empty_ref_is_ignored(self, fake_storage: dict[str, Any]) -> None:
+        session_mod.adopt_hosted_mfa_challenge("")
+        assert session_mod.SESSION_HOSTED_MFA_REF not in fake_storage
+
+    def test_an_expired_ref_is_ignored(self, fake_storage: dict[str, Any]) -> None:
+        # A challenge whose TTL has passed is pruned by the store on read, so
+        # the ref names nothing and adoption leaves storage untouched.
+        ref = session_mod.hosted_mfa_challenges.put(_PENDING)
+        born, pending = session_mod.hosted_mfa_challenges._items[ref]
+        session_mod.hosted_mfa_challenges._items[ref] = (
+            born - MFA_CHALLENGE_TTL_MINUTES * 60 - 1,
+            pending,
+        )
+        session_mod.adopt_hosted_mfa_challenge(ref)
+        assert session_mod.SESSION_HOSTED_MFA_REF not in fake_storage
+
+
 class TestRoutesReachableWhilePending:
     def test_the_code_page_is_public(self) -> None:
         """Covers: KAL-AUTH-016

@@ -527,7 +527,7 @@ check it still reproduces before acting on it.
       family. Seen in `postgres-only` part B2b. Fix: find what still reads a
       data key with no context, then drop the resolver (and
       `install_unlock_resolver`) or say why it stays.
-- [ ] **Flaky e2e `test_mfa.py::test_two_factor_authentication` at KAL-AUTH-015.**
+- [x] **Flaky e2e `test_mfa.py::test_two_factor_authentication` at KAL-AUTH-015.**
       Once in four full `verify.sh --e2e` runs on `postgres-only` part B2b, the
       password sign-in after `clear_cookies()` stayed on `/login` with no
       message (line ~178); `test_auth.py` + `test_mfa.py` passed 3/3 together
@@ -550,11 +550,14 @@ check it still reproduces before acting on it.
       passes alone (isolated: 4/4). It is a real, if rare, production race.
       Mitigated for CI in `flaky-test-mfa-rerun` (the bounce signature is on the
       e2e `only_rerun` allowlist, so a retry rescues it; a real regression still
-      fails all three). **Real fix still owed:** hand the challenge over without
-      the `app.storage.user` round-trip — e.g. prompt for the code on `/login`
-      itself (no cross-page navigation), or persist the reference durably before
-      navigating. That is a login-flow change (URL contract, KAL scenarios,
-      deep links) and wants its own slice.
+      fails all three).
+      (Fixed: plan/mfa-handoff-url-ref. The password step and the magic link
+      hand the challenge reference to `/login/mfa` in the URL (`?c=<ref>`), the
+      way `/auth/session/rotate` carries its nonce; the page adopts it into
+      storage on load, an in-process write with no cross-request file round-trip
+      to lose. The `app.storage.user` write stays as a fallback. The `login/mfa`
+      signature was removed from the e2e `only_rerun` allowlist, so a recurrence
+      now fails the run.)
 - [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
       press it, and each press is one request to api.nbp.pl for the whole
       instance (idempotent, public data). Seen in the review of `postgres-only`

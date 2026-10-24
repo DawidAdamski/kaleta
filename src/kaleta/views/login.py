@@ -208,8 +208,10 @@ def register() -> None:
                     # a half-finished login must not open a single data page.
                     # The provider holds the factor; its aal1 session is what
                     # the code gets checked against.
-                    begin_hosted_mfa_challenge(result)
-                    ui.navigate.to(f"/login/mfa?redirect_to={quote(target, safe='/')}")
+                    ref = begin_hosted_mfa_challenge(result)
+                    # Hand the ref over in the URL, not only via the deferred
+                    # app.storage.user write, which the navigation can outrun.
+                    ui.navigate.to(f"/login/mfa?redirect_to={quote(target, safe='/')}&c={ref}")
                     return
                 try:
                     signed_in = await SignInFlow().complete(result)
