@@ -71,7 +71,7 @@ class PersonalLoansSeeder(Seeder):
             due_at=today - datetime.timedelta(days=240),
             status=LoanStatus.SETTLED,
             settled_at=datetime.datetime.combine(
-                today - datetime.timedelta(days=250), datetime.time()
+                today - datetime.timedelta(days=250), datetime.time(), tzinfo=datetime.UTC
             ),
         )
         session.add_all([outstanding, borrowed, settled])

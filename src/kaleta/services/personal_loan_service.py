@@ -218,7 +218,7 @@ class PersonalLoanService:
         )
         if remaining <= Decimal("0"):
             loan.status = LoanStatus.SETTLED
-            loan.settled_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+            loan.settled_at = datetime.datetime.now(datetime.UTC)
         else:
             # User may have reactivated then posted a small repayment —
             # keep status as outstanding.

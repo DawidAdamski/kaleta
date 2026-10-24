@@ -560,7 +560,7 @@ check it still reproduces before acting on it.
       instance (idempotent, public data). Seen in the review of `postgres-only`
       part B2c. Fix: a per-instance minimum interval, or skip when today's
       table is already stored after NBP's publication hour.
-- [ ] **Some family timestamp columns are `timestamp without time zone`.**
+- [x] **Some family timestamp columns are `timestamp without time zone`.**
       The models say `DateTime(timezone=True)` (`TimestampMixin`) but the
       migrations built `tags`, `currency_rates` and `saved_reports`
       `created_at`/`updated_at` naive on PostgreSQL; `audit_log.timestamp`
@@ -569,6 +569,12 @@ check it still reproduces before acting on it.
       datetimes" fallbacks only where the columns are `timestamptz`. Fix: one
       migration to `timestamptz` (`USING … AT TIME ZONE 'UTC'`) and the models
       to match.
+      (`tags`/`currency_rates`/`saved_reports` were already made `timestamptz`
+      by `alembic-drift-reconcile` — revision `9f318d21f98a`. The remaining two
+      done by plan/timestamptz-audit-loan — revision `a1c7e2f84b50`: models
+      gain `DateTime(timezone=True)`, and `PersonalLoanService` drops the
+      `.replace(tzinfo=None)` strip. `reserve_funds.archived_at` stays naive on
+      purpose — its model is a plain `DateTime()`.)
 - [ ] **Household name and the "MFA on/off" column are not built.**
       `hosted-household-sharing` §5 lists both on Settings → Household; Part B
       left them out (a new `EncryptedText` column and migration with nothing

@@ -76,7 +76,9 @@ class PersonalLoan(TimestampMixin, UserOwnedMixin, Base):
         nullable=False,
         default=LoanStatus.OUTSTANDING,
     )
-    settled_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    settled_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # The ledger transaction that moved the principal (e.g. yesterday's bank
     # transfer to the borrower). A linked transaction is loan money, not
     # income or spending — reports exclude it via ``loan_linked_transaction_ids``.
