@@ -3,15 +3,16 @@ plan_id: errors-i18n-tail
 title: Localize the toast-reaching long-tail error raises
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-10-24
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Localize the toast-reaching long-tail error raises
 
 ## Intent
 The final cohort slice of
-[`errors-i18n-message-keys`](archive/errors-i18n-message-keys.md), which shipped
+[`errors-i18n-message-keys`](errors-i18n-message-keys.md), which shipped
 the carrier (`KaletaError.message_key` + `params`), the
 `error_handling.resolve_toast_text` wiring, and migrated the first cohort. The
 earlier slices covered transactions, funds, irregular items, core CRUD,
@@ -222,3 +223,19 @@ identical (2547 keys each, zero diff).
 ### View changes
 None — every migrated raise lives in a service, and the test is
 integration-only (no file under `src/kaleta/views/` touched).
+
+### Landed
+Commit `baa18df` (PR #365), author Dawid (Ani), merged 2026-10-24.
+
+Files touched:
+- `docs/bdd.md`
+- `docs/plans/README.md`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `src/kaleta/services/account_deletion_service.py`
+- `src/kaleta/services/annual_review_service.py`
+- `src/kaleta/services/import_rule_service.py`
+- `src/kaleta/services/planned_price_drift_service.py`
+- `src/kaleta/services/planned_transaction_service.py`
+- `src/kaleta/services/unplanned_radar_service.py`
+- `tests/integration/test_error_i18n_tail.py`

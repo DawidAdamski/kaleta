@@ -3,14 +3,15 @@ plan_id: errors-i18n-household
 title: Localize household_service error toasts
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-10-23
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Localize household_service error toasts
 
 ## Intent
-A follow-up slice of [`errors-i18n-message-keys`](archive/errors-i18n-message-keys.md),
+A follow-up slice of [`errors-i18n-message-keys`](errors-i18n-message-keys.md),
 which shipped the carrier (`KaletaError.message_key` + `params`), the
 `error_handling.resolve_toast_text` wiring, and migrated the first cohort.
 This slice migrates **only** `src/kaleta/services/household_service.py`: its
@@ -151,3 +152,14 @@ Does NOT cover:
   integration-only and touches no file under `src/kaleta/views/`.
 </content>
 </invoke>
+
+### Landed
+Commit `6ae8555` (PR #361), author Dawid (Ani), merged 2026-10-23.
+
+Files touched:
+- `docs/bdd.md`
+- `docs/plans/README.md`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `src/kaleta/services/household_service.py`
+- `tests/integration/test_error_i18n_household.py`

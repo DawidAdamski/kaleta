@@ -3,15 +3,16 @@ plan_id: errors-i18n-admin-infra
 title: Localize the toast-reaching admin / infra error raises
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-10-24
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Localize the toast-reaching admin / infra error raises
 
 ## Intent
 A follow-up cohort slice of
-[`errors-i18n-message-keys`](archive/errors-i18n-message-keys.md), which shipped
+[`errors-i18n-message-keys`](errors-i18n-message-keys.md), which shipped
 the carrier (`KaletaError.message_key` + `params`), the
 `error_handling.resolve_toast_text` wiring, and migrated the first cohort. This
 slice covers five hosted / admin / infra services:
@@ -228,3 +229,17 @@ textual git conflict with sibling lanes editing earlier `errors.*` blocks.
 ### View changes
 None — none of the five services is a view, and the test is integration-only
 (no file under `src/kaleta/views/` touched).
+
+### Landed
+Commit `3eaf8ac` (PR #364), author Dawid (Ani), merged 2026-10-24.
+
+Files touched:
+- `docs/bdd.md`
+- `docs/plans/README.md`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `src/kaleta/services/bug_report_service.py`
+- `src/kaleta/services/instance_admin_service.py`
+- `src/kaleta/services/nbp_rate_service.py`
+- `src/kaleta/services/tenant_service.py`
+- `tests/integration/test_error_i18n_admin_infra.py`

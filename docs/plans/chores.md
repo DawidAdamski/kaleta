@@ -405,11 +405,16 @@ check it still reproduces before acting on it.
       slice. Sweep them onto the helper. Found by
       `plan/funds-savings-goals`.
 
-- [ ] `notify_kaleta_error` toasts `exc.message` verbatim, so service errors
+- [x] `notify_kaleta_error` toasts `exc.message` verbatim, so service errors
       reach Polish users in English — now common with payee identity
       conflicts ("'…' is already an identity of payee '…'") and merge undo.
       Map error codes to `t()` keys. Found by
-      `plan/payees-identities-automerge`.
+      `plan/payees-identities-automerge`. (Fixed: the `errors-i18n-*` slice
+      cohorts — carrier `KaletaError.message_key`/`params` +
+      `resolve_toast_text`, then every toast-reaching raise across all
+      services localized; KAL-ERR-001…010. Raises that never reach a toast
+      (caught-by-type, inline, API/background, unreachable) stay English by
+      design, recorded in each slice plan.)
 
 - [x] A settings validation error prints pydantic's `input_value` dict, which
       includes the start of `KALETA_SECRET_KEY` (and any other secret set in
