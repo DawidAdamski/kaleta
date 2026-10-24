@@ -3,8 +3,9 @@ plan_id: debts-loan-linked-exclusion
 title: Loan-linked transactions excluded from every spending/income reader
 area: debts / reports
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-10-24
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Loan-linked transactions excluded from every spending/income reader
@@ -110,3 +111,19 @@ None — all resolved into the scope above.
   The integration test seeds a 400.00 outgoing loan (tests the expense side)
   and a 900.00 borrowing (an incoming loan-linked income, tests the income
   side).
+
+### Landed
+
+- Commit: `dda0dbe` (PR #367), author Dawid (Ani), merged 2026-10-24.
+- Files touched:
+  - docs/bdd.md
+  - src/kaleta/services/budget_service.py
+  - src/kaleta/services/forecast_service.py
+  - src/kaleta/services/monthly_readiness_service.py
+  - src/kaleta/services/reserve_fund_service.py
+  - src/kaleta/services/salary_service.py
+  - src/kaleta/services/saved_report_service.py
+  - src/kaleta/services/scenario_service.py
+  - src/kaleta/services/unplanned_radar_service.py
+  - tests/integration/test_loan_linked_exclusion.py
+  - tests/unit/services/test_loan_ledger_link.py
