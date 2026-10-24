@@ -392,9 +392,7 @@ async def seed_every_model(session: AsyncSession) -> None:
     )
     session.add(
         AuditLog(
-            # Naive datetime: AuditLog.timestamp is DateTime() without timezone
-            # (TIMESTAMP WITHOUT TIME ZONE on PostgreSQL).
-            timestamp=datetime(2024, 6, 1, 12, 0, 0),
+            timestamp=datetime(2024, 6, 1, 12, 0, 0, tzinfo=UTC),
             operation="INSERT",
             table_name="accounts",
             record_id=account.id,
