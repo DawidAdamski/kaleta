@@ -15,7 +15,11 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
-from kaleta.auth.login_rate_limit import RATE_LIMITER_BACKEND_ERRORS, login_rate_limiter
+from kaleta.auth.login_rate_limit import (
+    RATE_LIMITER_BACKEND_ERRORS,
+    login_email_rate_limiter,
+    login_rate_limiter,
+)
 from kaleta.auth.providers import MfaRequired, get_auth_provider
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
@@ -132,6 +136,22 @@ def register() -> None:
 
                 name = (username.value or "").strip()
                 pwd = password.value or ""
+                # Normalised e-mail key. The second limiter bounds guessing one
+                # e-mail from many client addresses, which the IP limiter above
+                # cannot see. Skipped when the field is empty — nothing to key on.
+                email_key = name.lower()
+
+                if name:
+                    try:
+                        if login_email_rate_limiter.is_locked(email_key):
+                            secs = login_email_rate_limiter.remaining_lock_seconds(email_key)
+                            _say(t("auth.login_rate_limited", seconds=secs))
+                            return
+                    except RATE_LIMITER_BACKEND_ERRORS:
+                        # Same fail-closed as the IP pre-check: can't reach the
+                        # counter, so do not sign in, say so.
+                        _rate_limiter_unavailable()
+                        return
 
                 resend.set_visibility(False)
                 try:
@@ -143,10 +163,25 @@ def register() -> None:
                     return
                 except UnauthorizedError:
                     try:
-                        locked = login_rate_limiter.record_failure(rate_key)
-                        if locked:
-                            secs = login_rate_limiter.remaining_lock_seconds(rate_key)
-                            _say(t("auth.login_rate_limited", seconds=secs))
+                        locked_ip = login_rate_limiter.record_failure(rate_key)
+                        locked_email = bool(name) and login_email_rate_limiter.record_failure(
+                            email_key
+                        )
+                        if locked_ip or locked_email:
+                            # Either bucket may be the one that just locked; show
+                            # the longer remaining lock so the sentence does not
+                            # under-report the wait.
+                            secs_ip = (
+                                login_rate_limiter.remaining_lock_seconds(rate_key)
+                                if locked_ip
+                                else 0
+                            )
+                            secs_email = (
+                                login_email_rate_limiter.remaining_lock_seconds(email_key)
+                                if locked_email
+                                else 0
+                            )
+                            _say(t("auth.login_rate_limited", seconds=max(secs_ip, secs_email)))
                         else:
                             _say(t("auth.login_failed_email"))
                     except RATE_LIMITER_BACKEND_ERRORS:
@@ -158,8 +193,10 @@ def register() -> None:
 
                 try:
                     login_rate_limiter.clear(rate_key)
+                    if name:
+                        login_email_rate_limiter.clear(email_key)
                 except RATE_LIMITER_BACKEND_ERRORS:
-                    # The password was right; clearing the counter is cleanup,
+                    # The password was right; clearing the counters is cleanup,
                     # not a gate. A backend that is down now is no reason to
                     # refuse a sign-in that already succeeded.
                     logger.warning(

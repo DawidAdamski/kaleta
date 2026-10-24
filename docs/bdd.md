@@ -3565,6 +3565,13 @@ Feature: Single-user authentication
     Then further login attempts are rejected with a rate-limit message
     And the lock lasts 15 minutes
 
+  KAL-AUTH-042 @automated
+  Scenario: Repeated wrong passwords for one e-mail lock that e-mail regardless of source address
+    Given a Kaleta user exists
+    When five wrong passwords are submitted for one e-mail, each from a different client address
+    Then that e-mail is locked out even though no single address reached five failures
+    And the lock lasts 15 minutes
+
   KAL-AUTH-009 @automated
   Scenario: Sessions expire after the configured TTL
     Given KALETA_SESSION_TTL_HOURS is 72
