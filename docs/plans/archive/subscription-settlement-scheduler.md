@@ -3,8 +3,9 @@ plan_id: subscription-settlement-scheduler
 title: Settle due subscription cancellations on a schedule, not only on page open
 area: subscriptions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-10-24
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Settle due subscription cancellations on a schedule, not only on page open
@@ -74,5 +75,14 @@ None.
 - The integration test mirrors `test_event_retention_families.py`: a
   multi-tenant sweep across two active families plus one suspended family,
   asserting the suspended one is skipped.
+
+### Landed
+
+- Commit: `80676f5` (PR #370), author Dawid (Ani), merged 2026-10-24.
+- Files touched:
+  - docs/bdd.md
+  - src/kaleta/main.py
+  - src/kaleta/services/subscription_settlement_scheduler.py
+  - tests/integration/test_subscription_settlement_scheduler.py
 
 ## Implementation (filled by plan-archiver)
