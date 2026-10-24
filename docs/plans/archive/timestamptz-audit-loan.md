@@ -3,8 +3,9 @@ plan_id: timestamptz-audit-loan
 title: Make audit_log.timestamp and personal_loans.settled_at tz-aware
 area: models / migrations
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#settings
+status: archived
+archived_at: 2026-10-25
+roadmap_ref: ../../roadmap.md#settings
 ---
 
 # Make `audit_log.timestamp` and `personal_loans.settled_at` tz-aware
@@ -70,3 +71,31 @@ Explicitly NOT in scope:
   pre-change backup holds these two columns as naive UTC strings, which asyncpg
   stores into `timestamptz` as the same UTC instant. Non-shifting, the same as
   every other `timestamptz` column already restored this way.
+
+## Implementation
+
+Landed on 2026-10-25 (PR #373).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f962f26` | Dawid Adamski | 2026-10-24 | Merge pull request #373 from DawidAdamski/fix/timestamptz-audit-loan |
+
+**Files changed:**
+- alembic/versions/a1c7e2f84b50_timestamptz_audit_loan.py
+- docs/plans/chores.md
+- docs/plans/timestamptz-audit-loan.md
+- src/kaleta/models/audit_log.py
+- src/kaleta/models/personal_loan.py
+- src/kaleta/seeders/personal_loans.py
+- src/kaleta/services/personal_loan_service.py
+- tests/backup_helpers.py
+- tests/integration/test_timestamptz_audit_loan.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/integration/test_timestamptz_audit_loan.py -q` | 0 |
+| `uv run pytest tests/unit/services/test_personal_loan_service.py tests/integration/test_backup.py -q` | 0 |
+| `grep -q "AT TIME ZONE 'UTC'" alembic/versions/*timestamptz*audit*loan*.py` | 0 |
+| `./scripts/verify.sh` | 0 |

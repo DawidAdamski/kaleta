@@ -3,8 +3,9 @@ plan_id: nbp-fetch-throttle
 title: Throttle the manual "Fetch NBP rates" button
 area: settings / fx-rates
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#settings
+status: archived
+archived_at: 2026-10-25
+roadmap_ref: ../../roadmap.md#settings
 ---
 
 # Throttle the manual "Fetch NBP rates" button
@@ -89,3 +90,29 @@ Explicitly NOT in scope:
   click-spam and cover the holiday case; short enough that a legitimate
   retry after fixing a transient failure is not punished (and the daily
   scheduler covers routine updates anyway).
+
+## Implementation
+
+Landed on 2026-10-25 (PR #372).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c51418d` | Dawid Adamski | 2026-10-24 | Merge pull request #372 from DawidAdamski/feat/nbp-fetch-throttle |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/nbp-fetch-throttle.md
+- src/kaleta/auth/login_rate_limit.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/settings/data_tab.py
+- tests/integration/test_nbp_fetch_throttle.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/integration/test_nbp_fetch_throttle.py -q` | 0 |
+| `grep -q "KAL-FXR-005" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |

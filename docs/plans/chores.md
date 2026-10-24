@@ -20,6 +20,17 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] **`Deploy Pages` CI job fails on every push to `main`** (5× in a row as of
+      2026-10-24). `.github/workflows/pages.yml` runs `uv run mkdocs build
+      --strict`, which promotes MkDocs WARNINGs to errors (exit 1). The fatal one:
+      `docs/deploy-k3s.md` links to `../deploy/postgres/init-app-role.sql`, a file
+      *outside* the `docs/` tree, so MkDocs cannot resolve it. (Our own
+      `verify.sh` doc link checker passes — it resolves paths on disk, MkDocs only
+      sees files under `docs/`.) The docs site is therefore not deploying; the app
+      image and Release Please are unaffected. Fix: point the link at the GitHub
+      blob URL, copy the SQL under `docs/`, or drop it from strict. Secondary (INFO,
+      not fatal): several archived `plans/` pages are not in the `nav`.
+
 - [ ] `tests/e2e/_ports.py` `pick_free_port()` is called ~10 times back to back
       at import; two calls could in theory return the same OS-ephemeral port
       before either binds. Odds are negligible and a collision is self-announcing
@@ -558,11 +569,14 @@ check it still reproduces before acting on it.
       to lose. The `app.storage.user` write stays as a fallback. The `login/mfa`
       signature was removed from the e2e `only_rerun` allowlist, so a recurrence
       now fails the run.)
-- [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
+- [x] **"Fetch NBP rates" has no throttle.** Any member of any family can
       press it, and each press is one request to api.nbp.pl for the whole
       instance (idempotent, public data). Seen in the review of `postgres-only`
       part B2c. Fix: a per-instance minimum interval, or skip when today's
       table is already stored after NBP's publication hour.
+      (Done: `feat/nbp-fetch-throttle` #372 — a per-instance 15-minute minimum
+      interval via `SendThrottle`, locked on success and fail-open on a
+      rate-limiter backend error. Scenario KAL-FXR-005.)
 - [x] **Some family timestamp columns are `timestamp without time zone`.**
       The models say `DateTime(timezone=True)` (`TimestampMixin`) but the
       migrations built `tags`, `currency_rates` and `saved_reports`

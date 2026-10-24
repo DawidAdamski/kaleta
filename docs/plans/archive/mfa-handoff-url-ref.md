@@ -3,8 +3,9 @@ plan_id: mfa-handoff-url-ref
 title: Hand the MFA challenge over the URL, not a racy storage write
 area: auth / login
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#settings
+status: archived
+archived_at: 2026-10-25
+roadmap_ref: ../../roadmap.md#settings
 ---
 
 # Hand the MFA challenge over the URL, not a racy storage write
@@ -91,3 +92,33 @@ Explicitly NOT in scope:
   storage untouched; `begin_hosted_mfa_challenge` returning the ref is pinned
   too. `tests/e2e/test_mfa.py` ran 3× with no reruns (the race reproduced
   ~1/3 alone before), satisfying the `[manual]` criterion.
+
+## Implementation
+
+Landed on 2026-10-25 (PR #374).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0590398` | Dawid Adamski | 2026-10-24 | Merge pull request #374 from DawidAdamski/fix/mfa-handoff-url-ref |
+
+**Files changed:**
+- docs/plans/chores.md
+- docs/plans/mfa-handoff-url-ref.md
+- src/kaleta/auth/session.py
+- src/kaleta/views/login_mfa.py
+- src/kaleta/views/login.py
+- src/kaleta/views/magic_link.py
+- tests/e2e/conftest.py
+- tests/e2e/test_mfa.py
+- tests/unit/auth/test_mfa_guard.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/auth/test_mfa_guard.py -q` | 0 |
+| `grep -q 'c: str' src/kaleta/views/login_mfa.py` | 0 |
+| `test "$(grep -c 'login/mfa' tests/e2e/conftest.py)" -eq 0 || grep -q 'Timeout' tests/e2e/conftest.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
+
+**Notes:** Still @planned in docs/bdd.md: KAL-AUTH-021 — retag before or after archiving.
