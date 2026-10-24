@@ -301,6 +301,30 @@
       "report_not_found": "Nie znaleziono zgłoszenia {report_id}",
       "id_allocation_failed": "Nie udało się przydzielić unikalnego identyfikatora zgłoszenia",
       "rate_limited": "Zbyt wiele zgłoszeń z tej sesji — spróbuj ponownie za godzinę (limit {limit} na godzinę)"
+    },
+    "import_rule": {
+      "not_found": "Nie znaleziono reguły importu {rule_id}.",
+      "account_not_found": "Nie znaleziono konta {account_id}.",
+      "pattern_empty": "Wzorzec nazwy pliku reguły importu nie może być pusty.",
+      "pattern_too_long": "Wzorzec nazwy pliku reguły importu jest za długi."
+    },
+    "annual_review": {
+      "subscription_not_found": "Nie znaleziono subskrypcji {commitment_id}."
+    },
+    "unplanned_radar": {
+      "name_required": "Transakcja planowana wymaga nazwy.",
+      "amount_not_positive": "Transakcja planowana wymaga dodatniej kwoty."
+    },
+    "planned_transaction": {
+      "posted_rows_missing": "Zaksięgowane pozycje zniknęły po zatwierdzeniu: {missing}",
+      "not_found": "Nie znaleziono transakcji planowanej {planned_id}."
+    },
+    "planned_price_drift": {
+      "positive_amount": "Transakcja planowana wymaga dodatniej kwoty.",
+      "not_found": "Nie znaleziono transakcji planowanej {planned_id}."
+    },
+    "account_deletion": {
+      "tenant_not_found": "Nie znaleziono konta {tenant_id}."
     }
   },
   "dashboard": {

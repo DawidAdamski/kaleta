@@ -243,6 +243,7 @@ into the view layer (`t()`), keeping services presentation-free.
 | [errors-i18n-2fa](errors-i18n-2fa.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: mfa_service + hosted_mfa_service + api_token_service) |
 | [errors-i18n-encryption](errors-i18n-encryption.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: key_service + local_identity_service; low yield — most raises are caught-by-type/inline) |
 | [errors-i18n-admin-infra](errors-i18n-admin-infra.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: tenant + instance_admin + backup + nbp_rate + bug_report; low yield — most raises are inline/CLI/background/by-type; backup migrates zero) |
+| [errors-i18n-tail](errors-i18n-tail.md) | cross-cutting | small | in-progress | [errors-i18n-message-keys](archive/errors-i18n-message-keys.md) (slice: long-tail services; 13 of 26 raises migrated — import_rule/annual_review/unplanned_radar/planned_transaction/planned_price_drift/account_deletion; rest inline/by-type/no-toast-arm; scenario + forecast raise nothing) |
 | [reports-i18n-display-keys](archive/reports-i18n-display-keys.md) | reports | large | archived | — (also listed under Reports) |
 
 ### `@planned` gap-closing (from audit-planned-vs-code)

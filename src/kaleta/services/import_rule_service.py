@@ -75,7 +75,11 @@ class ImportRuleService:
     async def update(self, rule_id: int, data: ImportRuleUpdate) -> ImportRule:
         rule = await self.get(rule_id)
         if rule is None:
-            raise NotFoundError(f"Import rule {rule_id} not found.")
+            raise NotFoundError(
+                f"Import rule {rule_id} not found.",
+                message_key="errors.import_rule.not_found",
+                params={"rule_id": rule_id},
+            )
         updates = data.model_dump(exclude_unset=True)
         if "filename_pattern" in updates:
             updates["filename_pattern"] = self._normalise_pattern(updates["filename_pattern"] or "")
@@ -214,14 +218,24 @@ class ImportRuleService:
     async def _require_account(self, account_id: int) -> Account:
         account = await self.session.get(Account, account_id)
         if account is None:
-            raise NotFoundError(f"Account {account_id} not found.")
+            raise NotFoundError(
+                f"Account {account_id} not found.",
+                message_key="errors.import_rule.account_not_found",
+                params={"account_id": account_id},
+            )
         return account
 
     @staticmethod
     def _normalise_pattern(pattern: str) -> str:
         cleaned = pattern.strip()
         if not cleaned:
-            raise ValidationError("Import rule filename pattern must not be empty.")
+            raise ValidationError(
+                "Import rule filename pattern must not be empty.",
+                message_key="errors.import_rule.pattern_empty",
+            )
         if len(cleaned) > 200:
-            raise ValidationError("Import rule filename pattern is too long.")
+            raise ValidationError(
+                "Import rule filename pattern is too long.",
+                message_key="errors.import_rule.pattern_too_long",
+            )
         return cleaned

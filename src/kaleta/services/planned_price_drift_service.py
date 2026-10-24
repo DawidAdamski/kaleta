@@ -100,10 +100,17 @@ class PlannedPriceDriftService:
     async def accept(self, planned_id: int, new_amount: Decimal) -> PlannedTransaction:
         """Update the plan to the new price the flag reported."""
         if new_amount <= 0:
-            raise ValidationError("A planned transaction needs a positive amount")
+            raise ValidationError(
+                "A planned transaction needs a positive amount",
+                message_key="errors.planned_price_drift.positive_amount",
+            )
         plan = await self.session.get(PlannedTransaction, planned_id)
         if plan is None:
-            raise NotFoundError(f"Planned transaction {planned_id} not found")
+            raise NotFoundError(
+                f"Planned transaction {planned_id} not found",
+                message_key="errors.planned_price_drift.not_found",
+                params={"planned_id": planned_id},
+            )
         plan.amount = new_amount.quantize(_CENTS, rounding=ROUND_HALF_UP)
         await self.session.commit()
         logger.info("Planned transaction %s updated to new price %s", planned_id, plan.amount)

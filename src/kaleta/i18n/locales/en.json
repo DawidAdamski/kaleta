@@ -301,6 +301,30 @@
       "report_not_found": "Bug report {report_id} not found",
       "id_allocation_failed": "Could not allocate a unique report id",
       "rate_limited": "Too many reports from this session — try again in an hour (limit {limit} per hour)"
+    },
+    "import_rule": {
+      "not_found": "Import rule {rule_id} not found.",
+      "account_not_found": "Account {account_id} not found.",
+      "pattern_empty": "Import rule filename pattern must not be empty.",
+      "pattern_too_long": "Import rule filename pattern is too long."
+    },
+    "annual_review": {
+      "subscription_not_found": "Subscription {commitment_id} not found."
+    },
+    "unplanned_radar": {
+      "name_required": "A planned transaction needs a name",
+      "amount_not_positive": "A planned transaction needs a positive amount"
+    },
+    "planned_transaction": {
+      "posted_rows_missing": "Posted rows went missing after commit: {missing}",
+      "not_found": "Planned transaction {planned_id} not found"
+    },
+    "planned_price_drift": {
+      "positive_amount": "A planned transaction needs a positive amount",
+      "not_found": "Planned transaction {planned_id} not found"
+    },
+    "account_deletion": {
+      "tenant_not_found": "Tenant {tenant_id} not found"
     }
   },
   "dashboard": {

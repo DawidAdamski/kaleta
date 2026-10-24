@@ -531,7 +531,11 @@ class PlannedTransactionService:
             # the view can put in a toast rather than as a bare KeyError that
             # reaches the user as a 500. Returning the short list silently
             # would tell the strip's button it posted fewer than it did.
-            raise ConflictError(f"Posted rows went missing after commit: {missing}")
+            raise ConflictError(
+                f"Posted rows went missing after commit: {missing}",
+                message_key="errors.planned_transaction.posted_rows_missing",
+                params={"missing": missing},
+            )
         results = [by_id[tx_id] for tx_id in ids]
         logger.info("Posted %s named planned occurrence(s)", len(results))
         return results
@@ -582,7 +586,11 @@ class PlannedTransactionService:
 
         pt = await self.get(planned_id)
         if pt is None:
-            raise NotFoundError(f"Planned transaction {planned_id} not found")
+            raise NotFoundError(
+                f"Planned transaction {planned_id} not found",
+                message_key="errors.planned_transaction.not_found",
+                params={"planned_id": planned_id},
+            )
 
         description = (pt.description or pt.name or "").strip()
         if pt.type == TransactionType.TRANSFER and pt.target_account_id is not None:

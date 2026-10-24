@@ -108,7 +108,11 @@ class AccountDeletionService:
         tenant = await self._tenants.get_tenant(tenant_id)
         if tenant is None:
             msg = f"Tenant {tenant_id} not found"
-            raise NotFoundError(msg)
+            raise NotFoundError(
+                msg,
+                message_key="errors.account_deletion.tenant_not_found",
+                params={"tenant_id": tenant_id},
+            )
         schema = tenant.schema_name
         result = await self.session.execute(
             select(TenantMember.auth_subject).where(TenantMember.tenant_id == tenant_id)
