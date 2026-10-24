@@ -35,6 +35,7 @@ from kaleta.schemas.salary import (
     SalaryPlanCreate,
     SalaryProposal,
 )
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 
 #: Fewer complete months than this and the window says nothing about
@@ -137,6 +138,7 @@ class SalaryService:
                 Transaction.is_internal_transfer == False,  # noqa: E712
                 Transaction.date >= start,
                 Transaction.date <= end,
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
         )
 

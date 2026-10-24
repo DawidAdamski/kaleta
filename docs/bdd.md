@@ -3125,6 +3125,17 @@ Feature: Debt Tracking
     Given a 400.00 transfer recorded as a loan to "Marek"
     When I open the monthly spending summary
     Then the 400.00 is shown under loans, not regular expenses
+
+  KAL-DBT-005 @automated
+  Scenario: Lent money is excluded from budget actuals and income baselines
+    Given this month I earn 3000.00 salary and spend 120.00 on groceries
+    And I lend 400.00 to "Marek", linked to a grocery-category transfer
+    And I borrow 900.00 from "Ania", linked to an incoming transaction
+    When the app reads actuals and baselines across its panels
+    Then the groceries budget actuals show 120.00, not 520.00 — the loan is not spending
+    And the salary income baseline for the month shows 3000.00, not 3900.00 — the borrowing is not income
+    And the safety-fund 3-month burn rate is 40.00 (120.00 ÷ 3), the loan excluded
+    And the what-if 3-month income baseline is 1000.00 (3000.00 ÷ 3), the borrowing excluded
 ```
 
 ## Feature: Investment Tracking

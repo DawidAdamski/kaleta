@@ -20,6 +20,7 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 
 REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
@@ -769,6 +770,7 @@ class BudgetService:
                 flow.c.date <= month_end,
                 flow.c.is_internal_transfer == False,  # noqa: E712
                 flow.c.category_id.isnot(None),
+                flow.c.transaction_id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(flow.c.category_id)
         )
@@ -913,6 +915,7 @@ class BudgetService:
                 flow.c.date <= end,
                 flow.c.is_internal_transfer == False,  # noqa: E712
                 flow.c.category_id.isnot(None),
+                flow.c.transaction_id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(flow.c.category_id)
         )
@@ -952,6 +955,7 @@ class BudgetService:
                 flow.c.date <= datetime.date(year, 12, 31),
                 flow.c.is_internal_transfer == False,  # noqa: E712
                 flow.c.category_id.isnot(None),
+                flow.c.transaction_id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(flow.c.category_id, extract("month", flow.c.date))
         )

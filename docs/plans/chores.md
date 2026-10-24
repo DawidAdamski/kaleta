@@ -292,14 +292,16 @@ check it still reproduces before acting on it.
       it as active. Settle at startup / in the backup scheduler tick if that
       lag ever matters. Found by `plan/subscriptions-panel-gaps`.
 
-- [ ] Loan-linked transactions (KAL-DBT-004) are excluded from
+- [x] Loan-linked transactions (KAL-DBT-004) are excluded from
       `ReportService` and `MoneyFlowService` only. Other income/expense
       readers still count them: `BudgetService` actuals, `ForecastService`,
       `SavedReportService`, `SalaryService`, `UnplannedRadarService`,
       `MonthlyReadinessService`, `ScenarioService`, `ReserveFundService`.
       Add `Transaction.id.not_in(loan_linked_transaction_ids())` where the
       figure means "spending" rather than "cash moved". Found by
-      `plan/debts-ledger-link`.
+      `plan/debts-ledger-link`. (Fixed: plan/debts-loan-linked-exclusion —
+      all 8 readers now apply the loan-linked NOT IN predicate; stage_1 count
+      and the reserve transfer helper left untouched by design.)
 
 - [x] `uv run alembic check` on a fresh head DB reports index drift
       unrelated to any recent plan: `ix_categorisation_rules_pattern`,
