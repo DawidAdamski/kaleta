@@ -2510,6 +2510,14 @@ Feature: Subscriptions Panel
     Given a yearly subscription "Domain 120.00 yearly"
     When the budget builder projects its monthly cost
     Then it shows 10.00 per month, the same twelfth the panel uses
+
+  KAL-SUB-010 @automated
+  Scenario: A due cancellation settles without opening the Subscriptions panel
+    Given subscription "Netflix 49.99 monthly" is tracked
+    And on 2026-04-15 it was cancelled as of 2026-04-30
+    When the settlement scheduler runs on 2026-04-30 without the panel being opened
+    Then the subscription moves to the cancelled section
+    And a reader filtering on active subscriptions no longer sees it
 ```
 
 ---
