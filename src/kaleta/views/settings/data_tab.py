@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import datetime
+import math
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from nicegui import events, ui
 
+from kaleta.auth.login_rate_limit import RATE_LIMITER_BACKEND_ERRORS, nbp_fetch_throttle
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.currency_rate import CurrencyRateCreate, CurrencyRateResponse, RateSource
@@ -192,6 +195,20 @@ async def render_data_tab(
             )
 
             async def _fetch_nbp() -> None:
+                # One fetch serves the whole instance; NBP publishes once a
+                # business day, so throttle the button per instance. Fail open:
+                # a backend error allows the fetch rather than blocking it.
+                try:
+                    remaining = nbp_fetch_throttle.retry_after_seconds("table_a")
+                except RATE_LIMITER_BACKEND_ERRORS:
+                    remaining = 0
+                if remaining > 0:
+                    ui.notify(
+                        t("settings.nbp_throttled", minutes=math.ceil(remaining / 60)),
+                        type="info",
+                    )
+                    return
+
                 notif = ui.notification(t("settings.nbp_fetching"), spinner=True, timeout=0)
                 try:
 
@@ -200,6 +217,8 @@ async def render_data_tab(
 
                     # Into public.nbp_rates: one fetch serves every family.
                     result = await with_public_session(_import)
+                    with contextlib.suppress(*RATE_LIMITER_BACKEND_ERRORS):
+                        nbp_fetch_throttle.mark("table_a")
                     notif.dismiss()
                     ui.notify(
                         t(

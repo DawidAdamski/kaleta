@@ -250,6 +250,21 @@ class SendThrottle:
         self.store.lock(key, until=current + self.interval_seconds, now=current)
         return True
 
+    def retry_after_seconds(self, key: str, *, now: float | None = None) -> int:
+        """Seconds until the interval frees up; ``0`` when it is free now.
+
+        A read with no side effect — unlike :meth:`allow`, it does not start
+        the interval. Pair it with :meth:`mark` when the interval should begin
+        only after the guarded action has actually succeeded.
+        """
+        current = now if now is not None else time.time()
+        return max(0, int(self.store.locked_until(key) - current))
+
+    def mark(self, key: str, *, now: float | None = None) -> None:
+        """Start the interval for *key* now (e.g. after a successful action)."""
+        current = now if now is not None else time.time()
+        self.store.lock(key, until=current + self.interval_seconds, now=current)
+
 
 #: Failed passwords, keyed by client IP.
 login_rate_limiter = LoginRateLimiter(store=default_store("login"))
@@ -268,3 +283,11 @@ mfa_rate_limiter = LoginRateLimiter(store=default_store("mfa"))
 
 #: "Resend confirmation e-mail", keyed by the lower-cased address.
 resend_throttle = SendThrottle(store=default_store("resend"))
+
+#: The manual "Fetch NBP rates" button. One fetch serves the whole instance
+#: (``public.nbp_rates``), so a single constant key throttles it for everyone;
+#: NBP publishes Table A once a business day, so a refresh more than once every
+#: 15 minutes can add nothing. The daily ``NbpRateScheduler`` does not use this
+#: — it has its own once-a-day cadence. Best-effort: callers fail open on a
+#: backend error (one extra NBP call) rather than block the button.
+nbp_fetch_throttle = SendThrottle(interval_seconds=15 * 60, store=default_store("nbp_fetch"))
