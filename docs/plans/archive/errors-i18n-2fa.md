@@ -3,14 +3,15 @@ plan_id: errors-i18n-2fa
 title: Localize MFA, hosted-MFA & API-token error toasts
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-10-23
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Localize MFA, hosted-MFA & API-token error toasts
 
 ## Intent
-A follow-up slice of [`errors-i18n-message-keys`](archive/errors-i18n-message-keys.md),
+A follow-up slice of [`errors-i18n-message-keys`](errors-i18n-message-keys.md),
 which shipped the carrier (`KaletaError.message_key` + `params`), the
 `error_handling.resolve_toast_text` wiring, and migrated the first cohort.
 This slice examines the **two-factor / token family** — `mfa_service.py`,
@@ -193,3 +194,15 @@ dwuskładnikowe", "kody zapasowe".
 ### View changes
 None — the three files are services. The test is integration-only and touches
 no file under `src/kaleta/views/`.
+
+### Landed
+Commit `163ed95` (PR #362), author Dawid (Ani), merged 2026-10-23.
+
+Files touched:
+- `docs/bdd.md`
+- `docs/plans/README.md`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `src/kaleta/services/api_token_service.py`
+- `src/kaleta/services/mfa_service.py`
+- `tests/integration/test_error_i18n_2fa.py`
