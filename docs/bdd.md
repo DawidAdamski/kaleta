@@ -4979,6 +4979,15 @@ Feature: Currency rates — NBP Table A
     Then the EUR→PLN rate on 2024-07-23 is 4.280000
     And the rate history for EUR→PLN is 4.100000, 4.300000, 4.280000
     And the rate list marks the NBP rows as the instance's, which no family can delete
+
+  KAL-FXR-005 @automated
+  Scenario: The manual NBP fetch is throttled per instance after a success
+    Given the manual NBP fetch succeeded just now for the instance
+    When a user presses "Fetch NBP rates" again within 15 minutes
+    Then no request is made to NBP
+    And the user is told the next refresh is available in about 15 minutes
+    When 15 minutes have passed
+    Then pressing "Fetch NBP rates" fetches from NBP again
 ```
 
 ## Feature: Housekeeping — Duplicate transactions

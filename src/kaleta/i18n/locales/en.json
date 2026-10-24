@@ -2013,6 +2013,7 @@
     "nbp_fetching": "Fetching NBP rates…",
     "nbp_fetch_done": "Imported {count} NBP currencies for {date}.",
     "nbp_fetch_error": "NBP fetch failed: {error}",
+    "nbp_throttled": "NBP rates were just fetched. The next refresh is available in about {minutes} min.",
     "backup_title": "Backups & clearing",
     "backup_hint": "Download a full backup of all your data, restore from a previous one, or clear everything. Restoring replaces all current data; clearing removes it.",
     "backup_export": "Download Backup",

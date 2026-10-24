@@ -2013,6 +2013,7 @@
     "nbp_fetching": "Pobieranie kursów NBP…",
     "nbp_fetch_done": "Zaimportowano {count} walut NBP na {date}.",
     "nbp_fetch_error": "Pobieranie NBP nie powiodło się: {error}",
+    "nbp_throttled": "Kursy NBP zostały właśnie pobrane. Kolejne odświeżenie będzie możliwe za około {minutes} min.",
     "backup_title": "Kopie i czyszczenie",
     "backup_hint": "Pobierz pełną kopię zapasową danych, przywróć z wcześniejszej lub wyczyść wszystko. Przywracanie zastępuje bieżące dane; czyszczenie je usuwa.",
     "backup_export": "Pobierz kopię zapasową",
