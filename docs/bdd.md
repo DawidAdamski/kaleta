@@ -3472,6 +3472,16 @@ Feature: Localized error messages
     And a too-long family name of 100 reads in Polish "Nazwa rodziny może mieć najwyżej 100 znaków."
     And a backup-restore raise keeps its English message, as the Data tab renders it inline
     And every admin and infrastructure error key interpolates its parameters without a missing-placeholder error
+
+  KAL-ERR-010 @automated
+  Scenario: A long-tail service error toast speaks the session's language
+    Given promoting an unplanned charge without a name carries the key "errors.unplanned_radar.name_required"
+    Then the Polish message reads "Transakcja planowana wymaga nazwy."
+    And the English message reads "A planned transaction needs a name"
+    And a missing import rule 7 reads in Polish "Nie znaleziono reguły importu 7."
+    And an import-rule, annual-review, unplanned-radar, planned-transaction, planned-price-drift and account-deletion error each resolves its own key
+    And a report grouped by the same dimension twice keeps its English message, as the Reports builder renders it inline
+    And every long-tail error key interpolates its parameters without a missing-placeholder error
 ```
 
 ## Feature: Authentication

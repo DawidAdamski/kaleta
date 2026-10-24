@@ -214,7 +214,11 @@ class AnnualReviewService:
                 commitment_id, SubscriptionUpdate(amount=amount)
             )
             if updated is None:
-                raise NotFoundError(f"Subscription {commitment_id} not found.")
+                raise NotFoundError(
+                    f"Subscription {commitment_id} not found.",
+                    message_key="errors.annual_review.subscription_not_found",
+                    params={"commitment_id": commitment_id},
+                )
         else:
             await IrregularItemService(self.session).update(
                 commitment_id, IrregularItemUpdate(yearly_amount=amount)
@@ -224,6 +228,10 @@ class AnnualReviewService:
         """Cancel the subscription today, or delete the item."""
         if kind is CommitmentKind.SUBSCRIPTION:
             if await SubscriptionService(self.session).cancel(commitment_id) is None:
-                raise NotFoundError(f"Subscription {commitment_id} not found.")
+                raise NotFoundError(
+                    f"Subscription {commitment_id} not found.",
+                    message_key="errors.annual_review.subscription_not_found",
+                    params={"commitment_id": commitment_id},
+                )
         else:
             await IrregularItemService(self.session).delete(commitment_id)

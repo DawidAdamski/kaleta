@@ -209,10 +209,16 @@ class UnplannedRadarService:
         """
         planned_name = (name or candidate.source_name).strip()[:100]
         if not planned_name:
-            raise ValidationError("A planned transaction needs a name")
+            raise ValidationError(
+                "A planned transaction needs a name",
+                message_key="errors.unplanned_radar.name_required",
+            )
         planned_amount = amount if amount is not None else candidate.typical_amount
         if planned_amount <= 0:
-            raise ValidationError("A planned transaction needs a positive amount")
+            raise ValidationError(
+                "A planned transaction needs a positive amount",
+                message_key="errors.unplanned_radar.amount_not_positive",
+            )
 
         payload = PlannedTransactionCreate(
             name=planned_name,
