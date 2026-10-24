@@ -254,6 +254,12 @@ class SendThrottle:
 #: Failed passwords, keyed by client IP.
 login_rate_limiter = LoginRateLimiter(store=default_store("login"))
 
+#: Failed passwords, keyed by the normalised (lower-cased) e-mail. Its own store
+#: namespace so its counts never collide with the IP limiter's: guessing one
+#: e-mail from many addresses is unbounded against the IP limiter alone, so the
+#: login path records a failure on both. Same class, same lock-out sentence.
+login_email_rate_limiter = LoginRateLimiter(store=default_store("login_email"))
+
 #: Failed second factors, keyed by user id. Separate from the password
 #: limiter: the password is already right at this point, so burning the IP
 #: bucket would lock the account out of a retry it is entitled to, and sharing
