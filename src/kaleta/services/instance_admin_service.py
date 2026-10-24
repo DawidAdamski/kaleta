@@ -214,7 +214,11 @@ class InstanceAdminService:
             admin_emails=admin_emails,
         ):
             msg = "Not found."
-            raise NotFoundError(msg)
+            # The page's initial load / refresh catch this by type (404 /
+            # redirect, which ignore the key); but a panel *action* runs
+            # ``for_actor`` inside ``admin._act``'s ``except KaletaError`` arm
+            # (an administrator demoted mid-session), so the toast localizes.
+            raise NotFoundError(msg, message_key="errors.instance_admin.not_found")
         return cls(
             session,
             actor=subject,
@@ -294,7 +298,13 @@ class InstanceAdminService:
             if row.tenant_id == tenant_id:
                 return row
         msg = f"Tenant {tenant_id} not found"
-        raise NotFoundError(msg)
+        # Reached from the admin panel's "Delete" flow (a family deleted
+        # concurrently) → ``admin._act`` → ``notify_kaleta_error``.
+        raise NotFoundError(
+            msg,
+            message_key="errors.instance_admin.family_not_found",
+            params={"tenant_id": tenant_id},
+        )
 
     async def create_family(self, owner_email: str, name: str) -> CreatedFamily:
         """A login for the owner with a one-time password, and their family, now.
@@ -308,10 +318,14 @@ class InstanceAdminService:
         label = name.strip()
         if not label:
             msg = "Give the family a name."
-            raise ValidationError(msg)
+            raise ValidationError(msg, message_key="errors.instance_admin.family_name_required")
         if len(label) > FAMILY_NAME_MAX:
             msg = f"A family name is at most {FAMILY_NAME_MAX} characters."
-            raise ValidationError(msg)
+            raise ValidationError(
+                msg,
+                message_key="errors.instance_admin.family_name_too_long",
+                params={"max": FAMILY_NAME_MAX},
+            )
         password = _one_time_password()
         login = await self._logins.create(owner_email, password, must_change=True)
         identity = Identity(subject=login.subject, email=login.email, email_verified=True)
@@ -352,11 +366,14 @@ class InstanceAdminService:
         family = await self.family(tenant_id)
         if typed is None:
             if self._actor is not None:
+                # ``typed`` is ``None`` only from the CLI's ``--yes`` (the panel
+                # always submits a string); this guard is operator-shell-only.
                 msg = "Type the family's name to delete it."
                 raise ValidationError(msg)
         elif typed.strip() != family.label:
             msg = "The name you typed is not this family's."
-            raise ValidationError(msg)
+            # Reached from the admin panel's delete dialog → ``admin._act``.
+            raise ValidationError(msg, message_key="errors.instance_admin.family_name_mismatch")
         deleted = await AccountDeletionService(
             self.session, self._remover, tenant_service=self._tenants
         ).delete(tenant_id)
@@ -447,7 +464,9 @@ class InstanceAdminService:
         login = await self._logins.get(identity_id)
         if login is None:
             msg = "No such login."
-            raise NotFoundError(msg)
+            # Reached from the admin panel's "Reset password" action (a login
+            # removed concurrently) → ``admin._act`` → ``notify_kaleta_error``.
+            raise NotFoundError(msg, message_key="errors.instance_admin.login_not_found")
         membership = await self._tenants.get_member_by_subject(subject_of(identity_id))
         in_family = membership is not None and membership.member.user_id is not None
         active = (

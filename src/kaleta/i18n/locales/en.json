@@ -270,6 +270,37 @@
       "last_admin_cannot_demote": "The last administrator cannot stop being one.",
       "last_admin_cannot_disable": "The last administrator cannot be disabled.",
       "login_not_found": "No such login."
+    },
+    "tenant": {
+      "email_belongs_to_other_account": "This e-mail address already belongs to another account.",
+      "not_suspended": "Tenant {tenant_id} is {status}, not suspended.",
+      "not_found": "Tenant {tenant_id} not found"
+    },
+    "instance_admin": {
+      "not_found": "Not found.",
+      "family_not_found": "Tenant {tenant_id} not found",
+      "family_name_required": "Give the family a name.",
+      "family_name_too_long": "A family name is at most {max} characters.",
+      "family_name_mismatch": "The name you typed is not this family's.",
+      "login_not_found": "No such login."
+    },
+    "nbp_rate": {
+      "timeout": "NBP rate fetch timed out. Check your network and try again.",
+      "http_error": "NBP rate fetch failed (HTTP {code}). Try again later.",
+      "network_unavailable": "NBP rate fetch failed — network unavailable. The app continues offline.",
+      "invalid_json": "NBP response was not valid JSON.",
+      "empty_response": "NBP Table A response was empty or unexpected.",
+      "unexpected_shape": "NBP Table A response had an unexpected shape.",
+      "missing_effective_date": "NBP Table A is missing effectiveDate.",
+      "no_rates": "NBP Table A contained no rates.",
+      "no_usable_rates": "NBP Table A contained no usable mid rates.",
+      "invalid_effective_date": "NBP effectiveDate is invalid: {date!r}"
+    },
+    "bug_report": {
+      "field_required": "{field} is required",
+      "report_not_found": "Bug report {report_id} not found",
+      "id_allocation_failed": "Could not allocate a unique report id",
+      "rate_limited": "Too many reports from this session — try again in an hour (limit {limit} per hour)"
     }
   },
   "dashboard": {

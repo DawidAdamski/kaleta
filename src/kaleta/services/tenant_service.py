@@ -200,7 +200,12 @@ class TenantService:
                 )
                 if taken.scalar_one_or_none() is not None:
                     msg = "This e-mail address already belongs to another account."
-                    raise ConflictError(msg)
+                    # Reached from the admin panel's "New family" action
+                    # (``create_family`` → ``admin._act`` → ``notify_kaleta_error``);
+                    # the sign-in path renders ``exc.message`` inline (English).
+                    raise ConflictError(
+                        msg, message_key="errors.tenant.email_belongs_to_other_account"
+                    )
                 tenant = Tenant(
                     schema_name=new_schema_name(), status=TenantStatus.PROVISIONING, key_version=1
                 )
@@ -445,7 +450,13 @@ class TenantService:
         tenant = await self._require_tenant(tenant_id)
         if tenant.status is not TenantStatus.SUSPENDED:
             msg = f"Tenant {tenant_id} is {tenant.status.value}, not suspended."
-            raise ConflictError(msg)
+            # Reached from the admin panel's "Resume" button (a concurrent
+            # status change) → ``admin._act`` → ``notify_kaleta_error``.
+            raise ConflictError(
+                msg,
+                message_key="errors.tenant.not_suspended",
+                params={"tenant_id": tenant_id, "status": tenant.status.value},
+            )
         tenant.status = TenantStatus.ACTIVE
         await self.session.commit()
         return tenant
@@ -478,7 +489,11 @@ class TenantService:
         tenant = await self.get_tenant(tenant_id)
         if tenant is None:
             msg = f"Tenant {tenant_id} not found"
-            raise NotFoundError(msg)
+            # Reached from the admin panel's suspend/resume buttons (a family
+            # deleted concurrently) → ``admin._act`` → ``notify_kaleta_error``.
+            raise NotFoundError(
+                msg, message_key="errors.tenant.not_found", params={"tenant_id": tenant_id}
+            )
         return tenant
 
     def _require_provisioner(self) -> SchemaProvisioner:
