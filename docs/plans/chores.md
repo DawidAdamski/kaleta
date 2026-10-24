@@ -284,13 +284,14 @@ check it still reproduces before acting on it.
       Done in `chore/cadence-label-shared-ranges`: the label now reads
       `in MONTHLY_CADENCE_RANGE` / `in YEARLY_CADENCE_RANGE`.
 
-- [ ] A cancellation scheduled for a future date (KAL-SUB-004) only flips
+- [x] A cancellation scheduled for a future date (KAL-SUB-004) only flips
       to `cancelled` when `SubscriptionService.settle_due_cancellations`
       runs, which today is on opening `/wizard/subscriptions`. Until then,
       readers that filter on `status != CANCELLED` (unplanned radar, the
       detector's tracked-payee set, `GET /api/v1/subscriptions`) still see
       it as active. Settle at startup / in the backup scheduler tick if that
       lag ever matters. Found by `plan/subscriptions-panel-gaps`.
+      (Fixed: plan/subscription-settlement-scheduler — SubscriptionSettlementScheduler settles due cancellations at startup and once per day across every active tenant schema, mirroring EventRetentionScheduler.)
 
 - [x] Loan-linked transactions (KAL-DBT-004) are excluded from
       `ReportService` and `MoneyFlowService` only. Other income/expense

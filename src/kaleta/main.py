@@ -225,6 +225,14 @@ def _register_event_retention_scheduler() -> None:
     nicegui_app.on_shutdown(EventRetentionScheduler.stop)
 
 
+def _register_subscription_settlement_scheduler() -> None:
+    from kaleta.services.subscription_settlement_scheduler import SubscriptionSettlementScheduler
+
+    # On the registry layout one sweep settles due cancellations in every family's schema.
+    nicegui_app.on_startup(SubscriptionSettlementScheduler.start)
+    nicegui_app.on_shutdown(SubscriptionSettlementScheduler.stop)
+
+
 def _register_nbp_rate_scheduler() -> None:
     from kaleta.services.nbp_rate_scheduler import NbpRateScheduler
 
@@ -243,12 +251,15 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _sweep_nicegui_storage()
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
     from kaleta.services.nbp_rate_scheduler import NbpRateScheduler
+    from kaleta.services.subscription_settlement_scheduler import SubscriptionSettlementScheduler
 
     EventRetentionScheduler.start()
     NbpRateScheduler.start()
+    SubscriptionSettlementScheduler.start()
     try:
         yield
     finally:
+        await SubscriptionSettlementScheduler.stop()
         await NbpRateScheduler.stop()
         await EventRetentionScheduler.stop()
 
@@ -277,6 +288,7 @@ def run_web() -> None:
     _register_auth()
     _register_views()
     _register_event_retention_scheduler()
+    _register_subscription_settlement_scheduler()
     _register_nbp_rate_scheduler()
     _register_storage_sweep()
     # Last, so it is the outermost middleware and stamps headers on every
