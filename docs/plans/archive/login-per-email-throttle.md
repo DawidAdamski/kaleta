@@ -3,8 +3,9 @@ plan_id: login-per-email-throttle
 title: Throttle password sign-in per e-mail, not only per client address
 area: auth
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-10-24
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Throttle password sign-in per e-mail, not only per client address
@@ -97,5 +98,14 @@ None — design handed down in the chore and the task brief.
   address reaches five), the e-mail limiter locks the e-mail for the
   15-minute window. A second test pins that the e-mail key is matched
   case-insensitively (the view lower-cases before keying).
+
+### Landed
+
+- Commit: `00c814b` (PR #368), author Dawid (Ani), merged 2026-10-24.
+- Files touched:
+  - docs/bdd.md
+  - src/kaleta/auth/login_rate_limit.py
+  - src/kaleta/views/login.py
+  - tests/integration/test_login_email_throttle.py
 
 ## Implementation (filled by plan-archiver)
