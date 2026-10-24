@@ -34,6 +34,7 @@ from kaleta.services import (
     ReportService,
     TransactionService,
 )
+from kaleta.services.budget_service import BudgetService
 from kaleta.services.money_flow_service import (
     IN_LOANS_ID,
     OUT_LOANS_ID,
@@ -43,6 +44,7 @@ from kaleta.services.money_flow_service import (
     month_bounds,
 )
 from kaleta.services.personal_loan_service import PersonalLoanFormError, parse_repayment_form
+from kaleta.services.reserve_fund_service import ReserveFundService
 
 YESTERDAY = datetime.date(2026, 9, 26)
 
@@ -394,3 +396,21 @@ class TestLoansAreNotSpending:
         links = {(lk.source, lk.target): lk.amount for lk in flow.links}
         assert links[(f"acc:{acc}", OUT_LOANS_ID)] == Decimal("400.00")
         assert flow.total_out == Decimal("120.00")
+
+    async def test_budget_actuals_exclude_the_loan(self, session: AsyncSession) -> None:
+        """Covers: KAL-DBT-005 — budget actuals do not count the 400.00 lent."""
+        _, food = await self._setup(session)
+
+        grid = await BudgetService(session).actuals_by_category_month(2026)
+
+        assert grid[(food, 9)] == Decimal("120.00")
+
+    async def test_reserve_burn_rate_excludes_the_loan(self, session: AsyncSession) -> None:
+        """Covers: KAL-DBT-005 — the 3-month burn rate is 120.00 ÷ 3, loan out."""
+        await self._setup(session)
+
+        burn = await ReserveFundService(session).trailing_monthly_expense(
+            today=datetime.date(2026, 10, 1)
+        )
+
+        assert burn == Decimal("40.00")

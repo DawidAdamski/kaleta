@@ -18,6 +18,7 @@ from kaleta.models.report import SavedReport
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.report import SavedReportCreate
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.text_order import by_name, text_key
 
 if TYPE_CHECKING:  # report_columns imports this module's result types at runtime
@@ -681,6 +682,7 @@ class SavedReportService:
         date_to: datetime.date | None,
     ) -> builtins.list[Any]:
         filters: builtins.list[Any] = [Transaction.is_internal_transfer == False]  # noqa: E712
+        filters.append(Transaction.id.not_in(loan_linked_transaction_ids()))
         if date_from:
             filters.append(Transaction.date >= date_from)
         if date_to:
@@ -698,6 +700,7 @@ class SavedReportService:
         flow: Any,
     ) -> builtins.list[Any]:
         filters: builtins.list[Any] = [flow.c.is_internal_transfer == False]  # noqa: E712
+        filters.append(flow.c.transaction_id.not_in(loan_linked_transaction_ids()))
         if date_from:
             filters.append(flow.c.date >= date_from)
         if date_to:

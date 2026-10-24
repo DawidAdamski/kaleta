@@ -36,6 +36,7 @@ from kaleta.services.forecast_service import (
     ScenarioShift,
     apply_scenarios,
 )
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.reserve_fund_service import (
     TRAILING_WINDOW_DAYS,
     TRAILING_WINDOW_MONTHS,
@@ -264,6 +265,7 @@ class ScenarioService:
             Transaction.is_internal_transfer == False,  # noqa: E712
             Transaction.date >= start,
             Transaction.date <= ref,
+            Transaction.id.not_in(loan_linked_transaction_ids()),
         )
         if account_id is not None:
             stmt = stmt.where(Transaction.account_id == account_id)

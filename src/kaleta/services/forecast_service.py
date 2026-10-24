@@ -20,6 +20,7 @@ from kaleta.models.account import Account
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.account_service import AccountService
 from kaleta.services.forecasters import active_forecaster_model, get_forecaster
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.text_order import by_name
 
 if TYPE_CHECKING:
@@ -277,6 +278,7 @@ class ForecastService:
             .where(
                 Transaction.date >= since,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .group_by("day", Transaction.type)
             .order_by("day")

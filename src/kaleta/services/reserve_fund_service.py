@@ -25,6 +25,7 @@ from kaleta.schemas.reserve_fund import (
 )
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.account_service import AccountService
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.transaction_service import TransactionService
 
 #: The kind a savings goal (skarbonka) is. Target date, contributions, pace
@@ -157,6 +158,7 @@ class ReserveFundService:
                 Transaction.is_internal_transfer == False,  # noqa: E712
                 Transaction.date >= start,
                 Transaction.date <= ref,
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
         )
         total = result.scalar_one() or Decimal("0")

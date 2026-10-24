@@ -23,6 +23,7 @@ from kaleta.schemas.monthly_readiness import (
     Stage4PlannedRow,
 )
 from kaleta.services.budget_service import BudgetService
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 
 
@@ -138,6 +139,7 @@ class MonthlyReadinessService:
             Transaction.date >= start,
             Transaction.date <= end,
             Transaction.is_internal_transfer == False,  # noqa: E712
+            Transaction.id.not_in(loan_linked_transaction_ids()),
         )
         actual_total = (await self.session.execute(actual_stmt)).scalar_one() or Decimal("0")
         # Distribute actual total proportionally by expected share — simple

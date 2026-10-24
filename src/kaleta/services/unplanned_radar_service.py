@@ -38,6 +38,7 @@ from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.unplanned_radar import RadarCandidate, RadarPlannedRow
+from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.merchant_key import merchant_key_from_description
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.text_order import text_key
@@ -109,6 +110,7 @@ class UnplannedRadarService:
                 # dialog: the name match below cannot see through a rename,
                 # but the link conversion wrote survives one.
                 Transaction.planned_transaction_id.is_(None),
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .order_by(Transaction.date)
         )

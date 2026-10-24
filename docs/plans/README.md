@@ -297,6 +297,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [debts-loan-linked-exclusion](debts-loan-linked-exclusion.md) | in-progress | Q3 2026 — Stabilisation & debt (KAL-DBT-005) |
 | [categories-name-unique-per-type](archive/categories-name-unique-per-type.md) | archived | Categories — dogfooding bug |
 | [backup-scheduler-active-db-url](archive/backup-scheduler-active-db-url.md) | archived | Settings / data safety — dogfooding bug |
 | [import-flow-polish](archive/import-flow-polish.md) | archived | Import — dogfooding UX |
