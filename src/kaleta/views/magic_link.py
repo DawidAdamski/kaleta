@@ -41,8 +41,10 @@ def register() -> None:
             return RedirectResponse("/login?reason=link_failed")
         if isinstance(identity, MfaRequired):
             # The link stands in for the password, not for the second factor.
-            begin_hosted_mfa_challenge(identity)
-            return RedirectResponse("/login/mfa")
+            ref = begin_hosted_mfa_challenge(identity)
+            # Carry the ref in the URL so the code prompt does not depend on the
+            # deferred app.storage.user write having landed (the /login/mfa race).
+            return RedirectResponse(f"/login/mfa?c={ref}")
         try:
             signed_in = await SignInFlow().complete(identity)
         except KaletaError:

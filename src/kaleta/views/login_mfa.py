@@ -24,6 +24,7 @@ from nicegui import ui
 from kaleta.auth.login_rate_limit import RATE_LIMITER_BACKEND_ERRORS, mfa_rate_limiter
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
+    adopt_hosted_mfa_challenge,
     clear_mfa_challenge,
     finish_login,
     hosted_mfa_pending,
@@ -68,9 +69,16 @@ def _back_to_login(reason: str, target: str) -> str:
 
 def register() -> None:
     @ui.page("/login/mfa")
-    async def login_mfa_page(redirect_to: str = "/") -> RedirectResponse | None:
+    async def login_mfa_page(redirect_to: str = "/", c: str = "") -> RedirectResponse | None:
         if is_authenticated():
             return RedirectResponse(safe_redirect(redirect_to))
+
+        # The password step (or a magic link) hands the challenge ref here in
+        # the URL; adopt it into this session's storage before the checks below,
+        # so the prompt does not depend on the deferred app.storage.user write
+        # from the previous page having landed (the /login/mfa hand-off race).
+        if c:
+            adopt_hosted_mfa_challenge(c)
 
         # Asked before, because `hosted_mfa_pending()` clears a stale challenge
         # on its way to answering None — and the difference matters: one of
