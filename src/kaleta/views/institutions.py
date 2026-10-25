@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import base64
 from typing import Any
 
 from nicegui import events, ui
@@ -12,9 +13,14 @@ from kaleta.schemas.institution import (
     InstitutionUpdate,
 )
 from kaleta.services import InstitutionService, with_session
-from kaleta.services.institution_logo_service import delete_logo, save_logo
-from kaleta.views.institution_avatar import institution_avatar
+from kaleta.services.institution_service import MAX_LOGO_BYTES, logo_mime_for
+from kaleta.views.institution_avatar import institution_avatar, logo_url
 from kaleta.views.layout import page_layout
+
+
+def _logo_data_uri(content: bytes, mime: str) -> str:
+    """An inline preview source for a freshly-uploaded logo (no row id yet)."""
+    return f"data:{mime};base64,{base64.b64encode(content).decode('ascii')}"
 
 
 def _type_labels() -> dict[str, str]:
@@ -38,8 +44,11 @@ def register() -> None:
         institution_list = await with_session(_load)
 
         selected_id: list[int | None] = [None]
-        add_logo_path: list[str | None] = [None]
-        edit_logo_path: list[str | None] = [None]
+        # Pending logo uploads: (content, filename). The row has no id during
+        # Add, so the bytes wait here and are stored right after create().
+        add_logo_pending: list[tuple[bytes, str] | None] = [None]
+        edit_logo_new: list[tuple[bytes, str] | None] = [None]
+        edit_logo_cleared: list[bool] = [False]
 
         with page_layout(t("institutions.title")):
             with ui.row().classes("w-full items-center justify-between"):
@@ -129,21 +138,23 @@ def register() -> None:
                 add_logo_preview.visible = False
 
                 async def _add_upload(e: events.UploadEventArguments) -> None:
+                    content = await e.file.read()
                     try:
-                        url = save_logo(e.file.name, await e.file.read())
+                        mime = logo_mime_for(e.file.name)
                     except ValidationError:
                         ui.notify(t("institutions.logo_invalid_format"), type="negative")
                         return
-                    if add_logo_path[0]:
-                        delete_logo(add_logo_path[0])
-                    add_logo_path[0] = url
-                    add_logo_preview.set_source(url)
+                    if len(content) > MAX_LOGO_BYTES:
+                        # Reject here so the oversize bytes never reach set_logo
+                        # after create() — that would orphan a logo-less row.
+                        ui.notify(t("institutions.logo_too_large"), type="negative")
+                        return
+                    add_logo_pending[0] = (content, e.file.name)
+                    add_logo_preview.set_source(_logo_data_uri(content, mime))
                     add_logo_preview.visible = True
 
                 def _add_remove_logo() -> None:
-                    if add_logo_path[0]:
-                        delete_logo(add_logo_path[0])
-                    add_logo_path[0] = None
+                    add_logo_pending[0] = None
                     add_logo_preview.set_source("")
                     add_logo_preview.visible = False
 
@@ -167,11 +178,17 @@ def register() -> None:
                     color=add_color.value.strip() or None,
                     website=add_website.value.strip() or None,
                     description=add_desc.value.strip() or None,
-                    logo_path=add_logo_path[0],
                 )
 
                 async def _persist(session: Any) -> InstitutionResponse:
-                    inst = await InstitutionService(session).create(data)
+                    svc = InstitutionService(session)
+                    inst = await svc.create(data)
+                    if add_logo_pending[0] is not None:
+                        content, filename = add_logo_pending[0]
+                        await svc.set_logo(inst.id, filename, content)
+                        # set_logo committed and expired the row; reload the
+                        # non-deferred attrs so has_logo is accurate (async-safe).
+                        await session.refresh(inst)
                     return InstitutionResponse.model_validate(inst)
 
                 institution_list.append(await with_session(_persist))
@@ -235,21 +252,23 @@ def register() -> None:
                 edit_logo_preview.visible = False
 
                 async def _edit_upload(e: events.UploadEventArguments) -> None:
+                    content = await e.file.read()
                     try:
-                        url = save_logo(e.file.name, await e.file.read())
+                        mime = logo_mime_for(e.file.name)
                     except ValidationError:
                         ui.notify(t("institutions.logo_invalid_format"), type="negative")
                         return
-                    if edit_logo_path[0]:
-                        delete_logo(edit_logo_path[0])
-                    edit_logo_path[0] = url
-                    edit_logo_preview.set_source(url)
+                    if len(content) > MAX_LOGO_BYTES:
+                        ui.notify(t("institutions.logo_too_large"), type="negative")
+                        return
+                    edit_logo_new[0] = (content, e.file.name)
+                    edit_logo_cleared[0] = False
+                    edit_logo_preview.set_source(_logo_data_uri(content, mime))
                     edit_logo_preview.visible = True
 
                 def _edit_remove_logo() -> None:
-                    if edit_logo_path[0]:
-                        delete_logo(edit_logo_path[0])
-                    edit_logo_path[0] = None
+                    edit_logo_new[0] = None
+                    edit_logo_cleared[0] = True
                     edit_logo_preview.set_source("")
                     edit_logo_preview.visible = False
 
@@ -276,12 +295,20 @@ def register() -> None:
                     color=edit_color.value.strip() or None,
                     website=edit_website.value.strip() or None,
                     description=edit_desc.value.strip() or None,
-                    logo_path=edit_logo_path[0],
                 )
 
                 async def _persist(session: Any) -> InstitutionResponse | None:
-                    updated = await InstitutionService(session).update(iid, data)
-                    return InstitutionResponse.model_validate(updated) if updated else None
+                    svc = InstitutionService(session)
+                    updated = await svc.update(iid, data)
+                    if updated is None:
+                        return None
+                    if edit_logo_new[0] is not None:
+                        content, filename = edit_logo_new[0]
+                        await svc.set_logo(iid, filename, content)
+                    elif edit_logo_cleared[0]:
+                        await svc.clear_logo(iid)
+                    await session.refresh(updated)
+                    return InstitutionResponse.model_validate(updated)
 
                 updated = await with_session(_persist)
                 if updated:
@@ -338,7 +365,7 @@ def register() -> None:
             _add_sync_swatch()
             add_website.set_value("")
             add_desc.set_value("")
-            add_logo_path[0] = None
+            add_logo_pending[0] = None
             add_logo_preview.set_source("")
             add_logo_preview.visible = False
             add_dialog.open()
@@ -351,9 +378,10 @@ def register() -> None:
             edit_website.set_value(inst.website or "")
             edit_desc.set_value(inst.description or "")
             _edit_sync_swatch()
-            edit_logo_path[0] = inst.logo_path
-            if inst.logo_path:
-                edit_logo_preview.set_source(inst.logo_path)
+            edit_logo_new[0] = None
+            edit_logo_cleared[0] = False
+            if inst.has_logo:
+                edit_logo_preview.set_source(logo_url(inst))
                 edit_logo_preview.visible = True
             else:
                 edit_logo_preview.set_source("")

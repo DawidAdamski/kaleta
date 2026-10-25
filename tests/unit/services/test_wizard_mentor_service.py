@@ -132,9 +132,9 @@ async def test_missing_logos_rule_fires_when_institution_has_no_logo(
 async def test_missing_logos_rule_silent_when_all_have_logo(
     svc: WizardMentorService, session: AsyncSession
 ) -> None:
-    await InstitutionService(session).create(
-        InstitutionCreate(name="mBank", type=InstitutionType.BANK, logo_path="/logos/foo.png")
-    )
+    inst_svc = InstitutionService(session)
+    inst = await inst_svc.create(InstitutionCreate(name="mBank", type=InstitutionType.BANK))
+    await inst_svc.set_logo(inst.id, "logo.png", b"\x89PNG-fake-bytes")
 
     keys = {s.key for s in await svc.suggestions()}
     assert "missing_logos" not in keys

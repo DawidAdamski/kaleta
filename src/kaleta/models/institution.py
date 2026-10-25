@@ -41,11 +41,24 @@ class Institution(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(
         EncryptedText("institutions.description"), nullable=True
     )
-    logo_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Logo MIME stays plaintext: it is the cheap "has a logo" signal and the
+    # Content-Type the serving route needs without decrypting anything.
+    logo_mime: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The image itself: bytes base64-encoded and encrypted under the account
+    # data key (so it cannot be a visual oracle for the encrypted name).
+    # Deferred — only the /logo route loads it, never list()/get().
+    logo_b64: Mapped[str | None] = mapped_column(
+        EncryptedText("institutions.logo_b64"), nullable=True, deferred=True
+    )
 
     accounts: Mapped[list[Account]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Account", back_populates="institution"
     )
+
+    @property
+    def has_logo(self) -> bool:
+        """True when a logo is stored — read from the plaintext mime, never the blob."""
+        return self.logo_mime is not None
 
     def __repr__(self) -> str:
         return f"<Institution id={self.id} name={self.name!r} type={self.type}>"
