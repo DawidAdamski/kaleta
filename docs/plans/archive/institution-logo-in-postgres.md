@@ -3,8 +3,9 @@ plan_id: institution-logo-in-postgres
 title: Store institution logos in Postgres, not on the pod filesystem
 area: institutions / storage
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#institutions
+status: archived
+archived_at: 2026-10-25
+roadmap_ref: ../../roadmap.md#institutions
 ---
 
 # Store institution logos in Postgres, not on the pod filesystem
@@ -158,3 +159,42 @@ Explicitly NOT in scope:
 - **Route 200 test.** `tests/integration/test_institution_logo.py` asserts the
   served bytes, `Content-Type`, `Cache-Control` and sandbox header (the
   `session`/`api_client` fixtures share one DB connection), not only the 404.
+
+## Implementation
+
+Landed on 2026-10-25 (PR #376).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `10801915` | Dawid Adamski | 2026-10-25 | Merge pull request #376 from DawidAdamski/fix/institution-logo-in-postgres |
+
+**Files changed:**
+- alembic/versions/b2e9f41a7c38_institution_logo_bytes.py
+- docs/bdd.md
+- docs/plans/institution-logo-in-postgres.md
+- src/kaleta/api/v1/institutions.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/institution.py
+- src/kaleta/pwa.py
+- src/kaleta/schemas/institution.py
+- src/kaleta/services/institution_logo_service.py
+- src/kaleta/services/institution_service.py
+- src/kaleta/services/wizard_mentor_service.py
+- src/kaleta/views/institution_avatar.py
+- src/kaleta/views/institutions.py
+- tests/e2e/test_institutions.py
+- tests/integration/test_institution_logo.py
+- tests/unit/services/test_wizard_mentor_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/integration/test_institution_logo.py -q` | 0 |
+| `grep -q 'logo_b64' src/kaleta/models/institution.py && ! grep -q 'logo_path' src/kaleta/models/institution.py` | 0 |
+| `test ! -f src/kaleta/services/institution_logo_service.py` | 0 |
+| `! grep -rq '/logos' src/kaleta/auth/middleware.py src/kaleta/pwa.py` | 0 |
+| `uv run alembic upgrade head && uv run alembic downgrade -1 && uv run alembic upgrade head` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
