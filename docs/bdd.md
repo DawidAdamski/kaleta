@@ -274,6 +274,13 @@ Feature: Institution Management
     And I upload a PNG image as the logo
     Then I see a preview of the uploaded logo
     And after saving, the institution "Revolut" shows its logo in the list
+
+  KAL-INS-010 @automated
+  Scenario: An institution logo is stored in the database and outlives a restart
+    Given an institution "Revolut" with an uploaded logo
+    When the application is restarted and its session storage is gone
+    Then the logo is still served for "Revolut"
+    And its bytes come from the database, not a file on disk
 ```
 
 ## Feature: Account Management

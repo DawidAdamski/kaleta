@@ -1184,7 +1184,8 @@
     "upload_logo": "Wgraj logo",
     "remove_logo": "Usuń logo",
     "logo_hint": "SVG, PNG, JPG lub WEBP",
-    "logo_invalid_format": "Nieobsługiwany format logo. Użyj SVG, PNG, JPG lub WEBP."
+    "logo_invalid_format": "Nieobsługiwany format logo. Użyj SVG, PNG, JPG lub WEBP.",
+    "logo_too_large": "To logo jest za duże. Limit to 2 MB."
   },
   "categories": {
     "title": "Kategorie",

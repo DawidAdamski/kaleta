@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.api.deps import get_session
@@ -55,6 +55,38 @@ async def get_institution(
     if not institution:
         raise HTTPException(status_code=404, detail="Institution not found")
     return InstitutionResponse.model_validate(institution)
+
+
+@router.get(
+    "/{institution_id}/logo",
+    summary="Fetch an institution's logo image",
+    responses=_404,
+    response_class=Response,
+)
+async def get_institution_logo(
+    institution_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Stream the stored logo. ``get_session`` binds the family schema and the
+    data key, so the deferred, encrypted blob decrypts for this request only.
+    """
+    logo = await InstitutionService(session).get_logo(institution_id)
+    if logo is None:
+        raise HTTPException(status_code=404, detail="Institution not found")
+    content, mime = logo
+    return Response(
+        content=content,
+        media_type=mime,
+        headers={
+            # Private: it is one family's data, never shared-cacheable.
+            "Cache-Control": "private, max-age=300",
+            # A logo may be an SVG. Sandbox the response so one opened as a
+            # top-level navigation cannot run inline script against another
+            # family member, even under a permissive page CSP.
+            "Content-Security-Policy": "sandbox; default-src 'none'",
+            "Content-Disposition": "inline",
+        },
+    )
 
 
 @router.put(

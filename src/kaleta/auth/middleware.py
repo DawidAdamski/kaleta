@@ -52,7 +52,6 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
 _PUBLIC_PREFIXES: tuple[str, ...] = (
     "/_nicegui",
     "/static/",
-    "/logos/",
     "/api/v1/",
     "/api-docs",
 )

@@ -22,7 +22,6 @@ class InstitutionBase(BaseModel):
     color: str | None = Field(default=None, max_length=7)
     website: str | None = Field(default=None, max_length=200)
     description: str | None = Field(default=None, max_length=500)
-    logo_path: str | None = Field(default=None, max_length=255)
 
 
 class InstitutionCreate(InstitutionBase):
@@ -35,12 +34,13 @@ class InstitutionUpdate(BaseModel):
     color: str | None = Field(default=None, max_length=7)
     website: str | None = Field(default=None, max_length=200)
     description: str | None = Field(default=None, max_length=500)
-    logo_path: str | None = Field(default=None, max_length=255)
 
 
 class InstitutionResponse(InstitutionBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    # True when a logo is stored; the bytes are fetched from GET /{id}/logo.
+    has_logo: bool = False
     created_at: datetime
     updated_at: datetime

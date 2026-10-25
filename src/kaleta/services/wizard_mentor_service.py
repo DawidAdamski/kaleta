@@ -136,7 +136,7 @@ class WizardMentorService:
             return None
         missing = (
             await self.session.execute(
-                select(func.count(Institution.id)).where(Institution.logo_path.is_(None))
+                select(func.count(Institution.id)).where(Institution.logo_mime.is_(None))
             )
         ).scalar_one()
         if missing == 0:

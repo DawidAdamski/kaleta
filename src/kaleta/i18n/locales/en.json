@@ -1184,7 +1184,8 @@
     "upload_logo": "Upload logo",
     "remove_logo": "Remove logo",
     "logo_hint": "SVG, PNG, JPG or WEBP",
-    "logo_invalid_format": "Unsupported logo format. Use SVG, PNG, JPG or WEBP."
+    "logo_invalid_format": "Unsupported logo format. Use SVG, PNG, JPG or WEBP.",
+    "logo_too_large": "That logo is too large. The limit is 2 MB."
   },
   "categories": {
     "title": "Categories",
