@@ -27,10 +27,13 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       keep a module-level set of issued ports and retry on a repeat. (reviewer
       nit on `e2e-parallel-isolation` / PR #325.)
 
-- [ ] The `nav.budget_plan` i18n key (en/pl) is now unreferenced since the
-      sidebar entry was dropped in `budgets-unification-slice-1` (the planning
-      grid is a Budgets tab now). Remove the key when slice 2 removes the
-      `/budget-plan` route, or sooner.
+- [x] The `nav.budget_plan` i18n key (en/pl) was unreferenced since the sidebar
+      entry was dropped in `budgets-unification-slice-1` (the planning grid is a
+      Budgets tab now). The `nav` list in `views/layout.py` is a static set of
+      explicit `nav.*` keys with no dynamic lookup, so the label orphan was safe
+      to drop ahead of the `/budget-plan` route removal ("or sooner"). Removed
+      from both locales; the page's own `budget_plan.*` block (month labels, etc.)
+      stays — it is still used by the Budgets tab.
 
 - [x] **`Deploy Pages` CI job failed on every push to `main`** (5× in a row as of
       2026-10-24). `.github/workflows/pages.yml` runs `uv run mkdocs build
