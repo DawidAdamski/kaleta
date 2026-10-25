@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.1](https://github.com/DawidAdamski/kaleta/compare/v0.8.0...v0.8.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **docs:** unbreak Deploy Pages by linking out-of-tree SQL via GitHub URL ([e148209](https://github.com/DawidAdamski/kaleta/commit/e1482092ee38a7d82c3848f97da07f9532949af4))
+* **docs:** unbreak Deploy Pages by linking out-of-tree SQL via GitHub URL ([284e891](https://github.com/DawidAdamski/kaleta/commit/284e89195f4a848634bd7ee53edafab4145b9fee))
+* **institutions:** store logos in Postgres, not on the pod filesystem ([1080191](https://github.com/DawidAdamski/kaleta/commit/10801915cdbe3e2d73d3f6d5992f0f6863c283d8))
+* **institutions:** store logos in Postgres, not on the pod filesystem ([536293a](https://github.com/DawidAdamski/kaleta/commit/536293abb832be276eb3cb1691ee256c09934d65))
+
 ## [0.8.0](https://github.com/DawidAdamski/kaleta/compare/v0.7.0...v0.8.0) (2026-10-24)
 
 
