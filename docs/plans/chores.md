@@ -20,17 +20,6 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
-- [ ] **`Deploy Pages` CI job fails on every push to `main`** (5× in a row as of
-      2026-10-24). `.github/workflows/pages.yml` runs `uv run mkdocs build
-      --strict`, which promotes MkDocs WARNINGs to errors (exit 1). The fatal one:
-      `docs/deploy-k3s.md` links to `../deploy/postgres/init-app-role.sql`, a file
-      *outside* the `docs/` tree, so MkDocs cannot resolve it. (Our own
-      `verify.sh` doc link checker passes — it resolves paths on disk, MkDocs only
-      sees files under `docs/`.) The docs site is therefore not deploying; the app
-      image and Release Please are unaffected. Fix: point the link at the GitHub
-      blob URL, copy the SQL under `docs/`, or drop it from strict. Secondary (INFO,
-      not fatal): several archived `plans/` pages are not in the `nav`.
-
 - [ ] `tests/e2e/_ports.py` `pick_free_port()` is called ~10 times back to back
       at import; two calls could in theory return the same OS-ephemeral port
       before either binds. Odds are negligible and a collision is self-announcing
@@ -42,6 +31,15 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       sidebar entry was dropped in `budgets-unification-slice-1` (the planning
       grid is a Budgets tab now). Remove the key when slice 2 removes the
       `/budget-plan` route, or sooner.
+
+- [x] **`Deploy Pages` CI job failed on every push to `main`** (5× in a row as of
+      2026-10-24). `.github/workflows/pages.yml` runs `uv run mkdocs build
+      --strict`, which promotes MkDocs WARNINGs to errors (exit 1). The fatal one:
+      `docs/deploy-k3s.md` linked to `../deploy/postgres/init-app-role.sql`, a file
+      *outside* the `docs/` tree, which MkDocs cannot resolve. Fixed: both links
+      now point at the GitHub blob URL (matching `docs/deployment.md`). Secondary
+      (INFO, not fatal, left as-is): several archived `plans/` pages are not in
+      the `nav`.
 
 - [x] `IrregularItemService.create_funding_plan` dedupes a planned transfer by
       `existing.amount == plan.monthly_total` (`irregular_item_service.py`).

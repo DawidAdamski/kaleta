@@ -66,8 +66,8 @@ helm install kaleta deploy/k3s \
 
 The bundled Postgres StatefulSet creates the `kaleta` database and a
 **non-superuser** app role (`kaleta_app`) via an init script that mirrors
-[`deploy/postgres/init-app-role.sql`](../deploy/postgres/init-app-role.sql) (the
-hosted instance's bootstrap);
+[`deploy/postgres/init-app-role.sql`](https://github.com/DawidAdamski/kaleta/blob/main/deploy/postgres/init-app-role.sql)
+(the hosted instance's bootstrap);
 the role owns nothing it does not need — it may create schemas (one per family,
 ADR-38) and the registry tables in `public`, nothing more. The init script runs
 once, on an empty data directory; the role password is read from the Secret at
@@ -89,8 +89,8 @@ helm install kaleta deploy/k3s \
 
 The role on the external server needs `CREATE` on the database and on `public`
 (it owns the per-family schemas). See
-[`deploy/postgres/init-app-role.sql`](../deploy/postgres/init-app-role.sql) for
-the exact grants.
+[`deploy/postgres/init-app-role.sql`](https://github.com/DawidAdamski/kaleta/blob/main/deploy/postgres/init-app-role.sql)
+for the exact grants.
 
 ## Secrets & GitOps
 
