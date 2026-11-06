@@ -31,6 +31,11 @@ the user did not pick. Once they answer, continue below with that plan id.
 
 ## Steps
 
+0. If the plan's frontmatter says `harness: true`, the plan changes the
+   harness (ADR-39). Run `echo "${KALETA_HARNESS_MAINTAINER:-unset}"`: unless
+   it prints `1`, STOP and tell the user to relaunch the session as
+   `KALETA_HARNESS_MAINTAINER=1 claude`. Without it every edit to the harness
+   is refused and the gate vetoes protected paths changed through Bash.
 1. `scripts/plan_goal.sh start $ARGUMENTS` — arms the gate, creates
    `plan/<plan_id>` from main if needed, flips the plan to
    `status: in-progress`.

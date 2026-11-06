@@ -31,7 +31,8 @@ scripts/plan_goal.sh start ──► .claude/state/active-plan   (arms the gate)
 |---|---|
 | `.claude/settings.json` | wires the two hooks below (project-level, committed) |
 | `.claude/hooks/dod-gate.sh` | **Stop hook** — the judge; active only while a plan is armed |
-| `.claude/hooks/protect-files.sh` | **PreToolUse hook** — agent cannot edit the harness, archived plans, applied migrations |
+| `.claude/hooks/protect-files.sh` | **PreToolUse hook** — agent cannot edit the paths in `docs/harness/protected-paths.txt` (harness, owner's rules, archived plans, applied migrations) unless the session runs in maintainer mode |
+| `docs/harness/protected-paths.txt` | the one list of protected paths, read by the hook and by the gate |
 | `.claude/commands/implement-plan.md` | `/implement-plan <plan_id>` — the interactive entry point; also the prompt used by the runner |
 | `.claude/agents/reviewer.md` | interactive, explainable review (same rubric as CI) |
 | `scripts/plan_goal.sh` | `start / status / block / finish` — goal state in `.claude/state/` |
@@ -136,6 +137,37 @@ against `agent --help` if the call fails — the script logs raw output to
 
 Model choices: `KALETA_REVIEW_MODEL` (default `sonnet`) for the Claude
 reviewer; `--model` on the runner for the implementer.
+
+## Changing the harness
+
+The harness is the judge, so the implementer may not change it
+([ADR-39](adr/039-measurable-critic-deterministic-judge.md)). Every path in
+`docs/harness/protected-paths.txt` is refused by `protect-files.sh`, and the
+gate vetoes a diff that changed one of them through Bash (`sed -i`,
+`cat >`) — the Edit guard alone does not see those.
+
+The owner changes the harness in **maintainer mode**:
+
+```bash
+KALETA_HARNESS_MAINTAINER=1 claude      # hooks inherit this; the agent cannot set it for them
+> /implement-plan harness-maintainer-mode
+```
+
+- Plans that change the harness say `harness: true` in their frontmatter.
+  `/implement-plan` stops unless the session runs in maintainer mode, and
+  `scripts/plan_runner.sh` refuses them: the harness is never changed
+  headless.
+- Every edit let through prints `protect-files: maintainer edit <path>`.
+- The gate still judges harness plans (acceptance criteria, `verify.sh`,
+  review); the owner reads the diff before merging anyway.
+- Exhaustion is terminal: once `result` is `exhausted` the gate stays quiet
+  until `scripts/plan_goal.sh start <plan_id>` re-arms the plan.
+- A requested cross-family review (`KALETA_CROSS_REVIEW=1`) that cannot run
+  makes `review_gate.sh` fail with `verdict: "error"` instead of silently
+  continuing with one reviewer.
+
+The harness has its own tests, next to it and protected with it:
+`uv run pytest scripts/harness/tests` (part of `verify.sh`).
 
 ## What the gate does NOT protect against
 

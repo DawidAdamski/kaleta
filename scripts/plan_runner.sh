@@ -52,6 +52,7 @@ if [ ${#plans[@]} -eq 0 ]; then
     [ "$(basename "$f")" = README.md ] && continue
     s=$(grep -m1 '^status:' "$f" | sed -E 's/^status:[[:space:]]*//')
     e=$(grep -m1 '^effort:' "$f" | sed -E 's/^effort:[[:space:]]*//')
+    grep -q '^harness: true' "$f" && continue   # harness plans never run headless (ADR-39)
     [ "$s" = "$status_f" ] && [ "$e" = "$effort_f" ] && plans+=("$(basename "$f" .md)")
   done
 fi
@@ -70,6 +71,10 @@ summary=()
 for id in "${plans[@]}"; do
   plan="docs/plans/$id.md"
   [ -f "$plan" ] || { summary+=("$id: MISSING plan file"); continue; }
+  if grep -q '^harness: true' "$plan"; then
+    summary+=("$id: REFUSED — harness: true; implement it interactively with KALETA_HARNESS_MAINTAINER=1 claude")
+    continue
+  fi
   wt="$wt_root/$id"
   echo; echo "══ $id ══"
   if [ ! -d "$wt" ]; then

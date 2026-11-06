@@ -50,6 +50,8 @@ echo "==> doc link checker"
 uv run python scripts/check_doc_links.py
 echo "==> SPDX headers (AGPL-3.0-or-later)"
 uv run python scripts/check_spdx_headers.py
+echo "==> harness tests (goal-mode hooks, critic, judge — no database, no model)"
+uv run pytest scripts/harness/tests -q -p no:cacheprovider
 
 # E2e: explicit via --e2e, or FORCED when views/ changed (Working Agreement rule 8).
 RUN_E2E="${1:-}"
