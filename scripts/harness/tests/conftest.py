@@ -241,5 +241,16 @@ def answers(**by_id: str | tuple[str, str, int]) -> dict:
     return {"answers": out, "cost_usd": 0.1}
 
 
+def clean(**overrides: str | tuple[str, str, int]) -> dict:
+    """A sample that answers every question in the repo's set: "no", unless overridden."""
+    import tomllib
+
+    data = tomllib.loads((REPO / "docs/harness/critic-questions.toml").read_text(encoding="utf-8"))
+    base: dict[str, str | tuple[str, str, int]] = {
+        q["id"].replace("-", "_"): "no" for q in data["question"]
+    }
+    return answers(**(base | overrides))
+
+
 def edit_payload(path: str) -> str:
     return json.dumps({"tool_name": "Edit", "tool_input": {"file_path": path}})

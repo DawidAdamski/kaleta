@@ -29,6 +29,11 @@ the user did not pick. Once they answer, continue below with that plan id.
   (which answers narrow questions; the gate, not the critic, decides).
   When it blocks you, read the reason, fix, and finish your turn again.
   You cannot talk your way past it — only make it pass.
+- The gate's judge (`scripts/harness/judge.py`) applies the owner's
+  profile (`docs/harness/profile.toml`, as merged on `main`). It can also
+  **escalate**: a veto (protected path, secret) or a doubt the critic could
+  not settle goes to the owner and the session ends. That is an outcome,
+  not a failure — stop and report it; do not try to work around it.
 
 ## Steps
 
@@ -63,7 +68,8 @@ the user did not pick. Once they answer, continue below with that plan id.
    a warning: strengthen the evidence (a test, a clearer note) rather than
    arguing with it.
 8. Commit. Then finish your turn with a short report: what was done,
-   the verify.sh tail, the critic's p per question, manual acceptance criteria
+   the verify.sh tail, the decision note `.claude/state/decision.md`
+   (outcome, autonomy mode A–D and why), manual acceptance criteria
    left for the owner, and the exact `gh pr create` command to open the
    PR (do not push or open the PR yourself unless the user asked).
    Archiving is automatic: merging a `plan/<plan_id>` PR triggers

@@ -6,6 +6,13 @@ cannot declare victory by itself. The judge is a Claude Code `Stop`
 hook, but every check it runs is a plain script, so the same gate works
 from Cursor or a headless runner.
 
+The roles follow a separation of powers
+([ADR-39](adr/039-measurable-critic-deterministic-judge.md)): the
+**implementer** proposes a diff and never judges it; the **critic** answers
+narrow questions with evidence and a sampled probability, never a verdict;
+the **judge** is plain code applying the owner's profile; the **owner**
+writes the profile, the questions and the checklist, and merges.
+
 ```
 /implement-plan <plan_id>          (interactive, Claude Code)
 scripts/plan_runner.sh [...]       (headless, one worktree + branch per plan)
@@ -14,15 +21,17 @@ scripts/plan_runner.sh [...]       (headless, one worktree + branch per plan)
 scripts/plan_goal.sh start ──► .claude/state/active-plan   (arms the gate)
         │
         ▼
-  implementer works ──► wants to finish ──► .claude/hooks/dod-gate.sh
-                                              │  plan hygiene (status, Implementation notes)
-                                              │  green-washing check (skip/xfail/ignore_imports)
-                                              │  plan's executable acceptance criteria
-                                              │  ./scripts/verify.sh [--e2e]
-                                              │  fresh review verdict (scripts/review_gate.sh)
+  implementer works ──► wants to finish ──► .claude/hooks/dod-gate.sh → scripts/harness/gate.py
+                                              │  protected paths, secrets          (vetoes)
+                                              │  plan hygiene, acceptance criteria, verify.sh [--e2e]
+                                              │  green-washing patterns            (profile)
+                                              │  critic's p per question, pooled   (scripts/review_gate.sh)
                                               ▼
-                              block + reason ──► implementer fixes, tries again (≤ max attempts)
-                              pass            ──► session ends, PR is opened by a human or --pr
+                                   judge.decide(evidence, profile from main)
+                                              │
+                    block + reasons ──► implementer fixes, tries again (≤ max attempts)
+                    done, mode A–C  ──► session ends; decision.md; PR by a human or --pr
+                    escalate (C/D)  ──► session ends; the owner decides
 ```
 
 ## Files
@@ -133,10 +142,11 @@ The critic is an expert witness, not a judge
 4. reports `p_violation` per question — the share of valid samples that
    found the problem — in `.claude/state/critic.json` and the run log.
 
-There is no verdict. The gate blocks when a question reaches 2 of 3 and
-warns below that (until `judge-profile-and-autonomy` replaces this rule
-with the owner's profile). The result is bound to the diff hash; any
-further edit makes it stale.
+There is no verdict: the judge weighs `p` against the thresholds in the
+owner's profile (next section). The result is bound to the diff hash; any
+further edit makes it stale. Re-running the critic on an unchanged diff
+adds samples to the same estimate (the gate pools every run on that diff
+from the run log), so re-rolling for a lucky draw does not work.
 
 ```bash
 scripts/review_gate.sh --dry-run          # which questions apply, critic hash, no model call
@@ -165,6 +175,62 @@ samples; `--model` on the runner for the implementer. The critic hash
 calibration report applies to. The interactive `reviewer` subagent asks
 the same questions and explains its answers.
 
+## The judge and the profile
+
+`scripts/harness/judge.py` decides; `gate.py` only collects the evidence.
+`decide(inputs, profile)` is a pure function — no I/O, clock or randomness —
+and every gate record stores the inputs, the profile and the decision, so
+`judge.py replay docs/harness/runs/<plan>.jsonl` recomputes every decision
+(CI does this on every PR).
+
+The **profile** `docs/harness/profile.toml` is the owner's law, signed
+(`[meta] version, owner, signed`). The gate reads it **as merged on the
+merge-base**, not from the working tree: a diff cannot change the law it is
+judged by (and touching it is a protected-path veto anyway). Maintainer
+sessions read the working tree.
+
+Order of the decision:
+
+1. **Vetoes → escalate, mode D**: protected paths changed outside maintainer
+   mode, a secret pattern on an added line, the critic reporting secret data.
+   The session ends; there are no further attempts.
+2. **Block** (the implementer fixes it): failed hygiene, criteria or
+   `verify.sh`; a blocking green-washing pattern; no, stale or broken critic
+   run; a question with `p >= block`; a question with
+   `uncertain <= p < block` for the first `uncertain_rounds` diffs
+   ("strengthen the evidence").
+3. **Escalate, mode C**: a question that stayed uncertain across more review
+   rounds, or a required cross-family sample that could not run. The critic
+   cannot settle it, so the owner does.
+4. **Done**, with the **autonomy mode of this change**: the risk class of the
+   highest-risk changed path (`[risk]`; a plan without executable criteria or
+   a harness plan is high) picks the mode in `[autonomy]`; while any
+   applicable question is not calibrated the mode is capped at
+   `uncalibrated_cap` (B).
+
+| Mode | Meaning |
+|---|---|
+| A | eligible to merge with audit only — a label while `allow_auto_merge = false` |
+| B | the owner merges after reading the decision note (today's behaviour) |
+| C | owner approval required; a cross-family critic sample; PR labelled `needs-owner-review` |
+| D | stop — a veto was hit |
+
+Every run writes `.claude/state/decision.md` in plain English: the outcome,
+the mode and why not a freer one, what would change it, the critic's table
+and the profile version. `plan_runner.sh --pr` puts it at the top of the PR
+body and labels the PR `autonomy:<mode>`. `plan_goal.sh status` shows it.
+
+```bash
+uv run python scripts/harness/judge.py check-profile               # is the profile valid and signed?
+uv run python scripts/harness/judge.py replay docs/harness/runs/*.jsonl
+uv run python scripts/harness/judge.py decide --inputs inputs.json # what-if on recorded inputs
+```
+
+Autonomy grows only with evidence: a question counts as calibrated when the
+report in `[calibration] report` was made for the current critic hash and
+its miss rate's upper bound is at or below `miss_rate_target` (plan
+`critic-calibration-set`). Until then nothing is freer than B.
+
 ## Run log
 
 Every gate run and every review run appends one record to
@@ -173,10 +239,11 @@ file is committed with the plan's PR, so the evidence behind a merge stays
 next to the code.
 
 - **gate** records: attempt, branch, base, diff hash, the hashes of the plan,
-  the checklist and the protected-paths list, every check with its output
-  tail and duration, changed paths, green-washing hits, the decision and the
-  outcome (`block`, `done`, `exhausted`). `plan_goal.sh check` runs are
-  marked `dry`.
+  the checklist and the protected-paths list, the full judge inputs (checks
+  with output tails and durations, changed paths, green-washing and secret
+  hits, pooled critic answers, prior uncertainty, calibration), the profile
+  and where it came from, the decision and the outcome (`block`, `done`,
+  `escalated`, `exhausted`). `plan_goal.sh check` runs are marked `dry`.
 - **review** records: the full critic result — diff hash, critic hash,
   status, every sample (reviewer, model, cost, turns), `p_violation` with
   evidence per question, advisory findings.

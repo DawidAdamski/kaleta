@@ -117,18 +117,28 @@ for id in "${plans[@]}"; do
     fi
   )
   result=$(cat "$wt/.claude/state/result" 2>/dev/null || echo "no-result")
+  mode=$(cat "$wt/.claude/state/mode" 2>/dev/null || true)
   turns=$(jq -r '.num_turns // "?"' "$log_root/$id.json" 2>/dev/null || echo "?")
   cost=$(jq -r '.total_cost_usd // "?"' "$log_root/$id.json" 2>/dev/null || echo "?")
-  line="$id: $result (turns $turns, cost \$$cost, worktree $wt)"
+  line="$id: $result${mode:+ (mode $mode)} (turns $turns, cost \$$cost, worktree $wt)"
   if [ "$result" = "done" ] && [ "$open_pr" = 1 ]; then
     title=$(grep -m1 '^title:' "$plan" | sed -E 's/^title:[[:space:]]*//')
-    body=$(printf 'Implements plan [`%s`](docs/plans/%s.md) — goal mode run.\n\n## Acceptance criteria / verify.sh (tail)\n```\n%s\n```\n\n## Critic (p_violation per question)\n```\n%s\n```\n\nManual criteria (if any) are left for the owner.\n' \
-      "$id" "$id" "$(tail -n 40 "$wt/.claude/state/verify-last.log" 2>/dev/null || echo 'see logs')" \
-      "$(jq -r '.questions[] | "\(.id) p=\(.p_violation // "-") (\(.violations)/\(.k_valid))"' "$wt/.claude/state/critic.json" 2>/dev/null || echo 'n/a')")
-    (cd "$wt" && git push -u origin "plan/$id" && gh pr create --base main --head "plan/$id" --title "$title" --body "$body") \
-      && line="$line → PR opened" || line="$line → push/PR FAILED"
+    body=$(printf 'Implements plan [`%s`](docs/plans/%s.md) — goal mode run.\n\n%s\n\n## verify.sh (tail)\n```\n%s\n```\n' \
+      "$id" "$id" "$(cat "$wt/.claude/state/decision.md" 2>/dev/null || echo '(no decision note)')" \
+      "$(tail -n 40 "$wt/.claude/state/verify-last.log" 2>/dev/null || echo 'see logs')")
+    labels=("autonomy:$mode"); [ "$mode" = C ] && labels+=("needs-owner-review")
+    if (cd "$wt" && git push -u origin "plan/$id" && gh pr create --base main --head "plan/$id" --title "$title" --body "$body"); then
+      line="$line → PR opened"
+      for l in "${labels[@]}"; do
+        (cd "$wt" && gh label create "$l" --force >/dev/null 2>&1; gh pr edit "plan/$id" --add-label "$l" >/dev/null 2>&1) || true
+      done
+    else
+      line="$line → push/PR FAILED"
+    fi
   elif [ "$result" = "done" ]; then
     line="$line → ready: cd $wt && git push -u origin plan/$id && gh pr create --base main --head plan/$id"
+  elif [ "$result" = "escalated" ]; then
+    line="$line → owner decision needed: $wt/.claude/state/decision.md"
   fi
   summary+=("$line")
 done

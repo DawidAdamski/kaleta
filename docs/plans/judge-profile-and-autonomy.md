@@ -3,7 +3,7 @@ plan_id: judge-profile-and-autonomy
 title: Deterministic judge over an owner-signed profile, autonomy chosen per change, escalation as an outcome
 area: harness / goal mode
 effort: large
-status: draft
+status: in-progress
 harness: true
 roadmap_ref: ../roadmap.md#5-engineering-hygiene
 ---
@@ -99,11 +99,9 @@ Does **not** cover:
 ## Acceptance criteria
 
 - `test -f docs/harness/profile.toml`
-- `uv run pytest tests/unit/harness/test_judge_decide.py -q`
-- `uv run pytest tests/unit/harness/test_judge_profile.py -q`
-- `uv run pytest tests/unit/harness/test_judge_replay.py -q`
-- `uv run pytest tests/unit/harness/test_dod_gate_judge.py -q`
-- `uv run python scripts/harness/judge.py replay tests/unit/harness/fixtures/runs/sample.jsonl`
+- `uv run python scripts/harness/judge.py check-profile`
+- `uv run pytest scripts/harness/tests/test_judge.py -q`
+- `uv run pytest scripts/harness/tests/test_gate_judge.py -q`
 - `uv run python -c "import tomllib; p=tomllib.load(open('docs/harness/profile.toml','rb')); assert p['autonomy']['allow_auto_merge'] is False"`
 - `grep -q "escalated" scripts/plan_runner.sh`
 - `./scripts/verify.sh`
@@ -112,12 +110,13 @@ Does **not** cover:
   ("uncalibrated cap") and says so.
 
 ## Touchpoints
-- `docs/harness/profile.toml` (new)
-- `scripts/harness/judge.py` (new), `scripts/harness/critic.py` (reads the profile)
-- `.claude/hooks/dod-gate.sh`, `scripts/plan_goal.sh`, `scripts/plan_runner.sh`
-- `.claude/commands/implement-plan.md` (step 8: print `decision.md`)
-- `tests/unit/harness/` (decide is table-driven, one case per branch above; replay fixture)
-- `docs/goal-mode.md` (judge, profile, modes), `docs/review-checklist.md` (points at the question set)
+- `docs/harness/profile.toml` (new), `docs/harness/README.md`
+- `scripts/harness/judge.py`, `scripts/harness/planfile.py` (new)
+- `scripts/harness/gate.py` (collects evidence, pools critic runs, calls the judge), `critic.py` (risk class, samples and cross-family rule from the profile), `protected.py` (rules from the merge-base)
+- `scripts/plan_goal.sh`, `scripts/plan_runner.sh`, `.claude/commands/implement-plan.md`
+- `.github/workflows/ci.yml` (profile check, replay)
+- `scripts/harness/tests/test_judge.py`, `test_gate_judge.py`
+- `docs/goal-mode.md` (roles, diagram, judge and profile), `docs/review-checklist.md` (pointer)
 
 ## Open questions
 - *Thresholds before calibration.* Default `block = 0.67`, `uncertain = 0.34`
@@ -130,4 +129,35 @@ Does **not** cover:
   The implementer cannot argue a mode up.
 
 ## Implementation notes
-_Filled in as work progresses._
+- **The law comes from `main`.** A test caught that the gate read the
+  profile from the working tree, which the implementer can change through
+  Bash. The gate now reads `profile.toml` and `protected-paths.txt` from the
+  merge-base (`git show <base>:…`), and every gate record says where the
+  profile came from (`profile_source`). Maintainer sessions read the working
+  tree. Touching the profile is still a protected-path veto.
+- **Pooling instead of re-rolling.** Re-running the critic on an unchanged
+  diff could have produced a lucky draw. The gate pools every successful
+  critic run with the same diff hash and critic hash from the run log
+  (`runs_pooled`), so extra runs only sharpen the estimate.
+- **Vetoes end the session.** A protected path changed outside maintainer
+  mode, a secret pattern on an added line, or the critic reporting secret
+  data escalate in mode D instead of blocking: an implementer that touched
+  the judge does not get more attempts. The plan-1 tests were updated to
+  that.
+- **Thresholds 0.66 / 0.33** (see `critic-narrow-questions`): 2 of 3 and
+  1 of 3 with k=3. Tenant isolation and auth surface block on a single valid
+  sample.
+- **No valid answer** for a question (every sample's evidence invalid)
+  blocks with "run the critic again" (`critic.no_answer.*`) rather than
+  counting as clean.
+- **Cross-family required for high risk** (`cross_family_required =
+  ["high"]`): without the Cursor CLI, a high-risk plan ends escalated with
+  the reason, which is the owner's call by design. Remove `"high"` from the
+  list in the profile to relax it.
+- **Dry runs** (`plan_goal.sh check`) report "would be DONE in mode X" or
+  "Would ESCALATE" without touching `result`.
+- **Labels.** `plan_runner.sh --pr` creates `autonomy:<mode>` (and
+  `needs-owner-review` for C) with `gh label create --force` and adds them
+  after the PR exists, so a missing label never fails the PR.
+- **Defaults taken:** `uncertain_rounds = 1`, highest class wins for mixed
+  changes, only the profile can change a class's mode.

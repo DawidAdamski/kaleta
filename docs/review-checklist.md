@@ -1,5 +1,12 @@
 # PR Review Checklist
 
+> In goal mode the checklist is not judged by prose. Its checkable parts are
+> vetoes and green-washing patterns in `docs/harness/profile.toml`; the rest
+> are the narrow questions in `docs/harness/critic-questions.toml`, answered
+> with evidence by the critic and weighed by the judge
+> ([ADR-39](adr/039-measurable-critic-deterministic-judge.md)). The
+> sections below stay the rubric for humans and the CI reviewer.
+
 Used by the automated PR reviewer (`.github/workflows/pr-review.yml`)
 and by humans. Every PR is reviewed **against its plan**, not in a
 vacuum. The PR description must link the plan file in `docs/plans/`

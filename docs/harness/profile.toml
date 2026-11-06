@@ -1,0 +1,124 @@
+# Owner-signed profile for the DoD judge (ADR-39).
+#
+# The judge (scripts/harness/judge.py) only reads this file; the implementer
+# cannot change it (docs/harness/protected-paths.txt). Every gate record in
+# docs/harness/runs/ carries a copy, so a decision can be replayed against
+# the profile it was made under. Globs: `*` matches any characters, `/` too.
+#
+# Bump `version` and `signed` on every change.
+
+[meta]
+version = 1
+owner = "Dawid Adamski"
+signed = 2026-11-07
+note = "Provisional: thresholds are not calibrated yet (plan critic-calibration-set). Until a calibration report exists, every change is capped at mode B."
+
+# ── Green-washing: patterns on changed lines ─────────────────────────────
+# outcome "block" = the implementer must fix it; "warn" = justify it in
+# Implementation notes. lines: "added" or "removed".
+[[green_washing]]
+id = "skip-xfail"
+lines = "added"
+paths = ["*"]
+exclude = ["docs/*"]
+pattern = '''pytest\.mark\.(skip|xfail)|pytest\.skip\(|@unittest\.skip'''
+outcome = "block"
+message = "New skip/xfail in the diff — forbidden (rule 4). Fix the root cause instead."
+
+[[green_washing]]
+id = "ignore-imports"
+lines = "added"
+paths = ["*"]
+exclude = ["docs/*"]
+pattern = '''^\s*ignore_imports'''
+outcome = "block"
+message = "New ignore_imports entry — forbidden (rule 6). The import-linter contract is law."
+
+[[green_washing]]
+id = "type-ignore"
+lines = "added"
+paths = ["*"]
+exclude = ["docs/*"]
+pattern = '''#\s*type:\s*ignore'''
+outcome = "warn"
+message = "New '# type: ignore' — justify it in Implementation notes or remove it (rule 10)."
+
+[[green_washing]]
+id = "removed-assert"
+lines = "removed"
+paths = ["tests/*"]
+exclude = []
+pattern = '''^\s*assert'''
+outcome = "warn"
+message = "Assertions were removed from existing tests — explain this in Implementation notes (rule 4)."
+
+# ── Vetoes: mode D, escalate to the owner, no further attempts ───────────
+[vetoes]
+protected_paths = true
+secret_question = "Q-SECRET-DATA"
+secret_patterns = [
+  '''AKIA[0-9A-Z]{16}''',
+  '''-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----''',
+  '''ghp_[A-Za-z0-9]{36}''',
+  '''sk-ant-[A-Za-z0-9_-]{20,}''',
+  '''xox[baprs]-[A-Za-z0-9-]{10,}''',
+]
+# where the patterns themselves (and their tests) live
+secret_exclude = ["docs/harness/*", "scripts/harness/tests/*"]
+
+# ── Risk classes: the highest-risk changed path decides ──────────────────
+[risk]
+high = [
+  "alembic/*", "alembic_public/*",
+  "src/kaleta/auth/*", "src/kaleta/crypto/*", "src/kaleta/db/*",
+  "src/kaleta/services/tenant*", "src/kaleta/services/household*",
+  "deploy/*", ".github/*", "Containerfile*", "docker-compose*.yml", "compose*.yml",
+  ".claude/*", "scripts/harness/*", "docs/harness/*",
+  "scripts/verify.sh", "scripts/review_gate.sh", "scripts/plan_goal.sh", "scripts/plan_runner.sh",
+]
+low = ["docs/*", "src/kaleta/i18n/locales/*", "tests/*"]
+# not in high or low = medium; these paths never decide the class
+ignore = ["docs/harness/runs/*", "docs/plans/*"]
+no_executable_criteria = "high"
+harness_plan = "high"
+
+# ── Critic thresholds (p_violation) ──────────────────────────────────────
+# p >= block              -> the implementer must fix it
+# uncertain <= p < block  -> "strengthen the evidence" for `uncertain_rounds`
+#                            review rounds, then escalate to the owner
+# With k=3: 2 of 3 = 0.67, 1 of 3 = 0.33.
+[thresholds]
+block = 0.66
+uncertain = 0.33
+uncertain_rounds = 1
+
+[thresholds.question]
+# any valid sample is enough to stop a change here
+"Q-TENANT-ISOLATION" = { block = 0.33, uncertain = 0.01 }
+"Q-AUTH-SURFACE" = { block = 0.33, uncertain = 0.01 }
+
+# ── Autonomy per risk class ──────────────────────────────────────────────
+# A  eligible to merge with audit only (a label while allow_auto_merge = false)
+# B  owner merges after reading the decision note (status quo)
+# C  owner approval required; cross-family critic sample; needs-owner-review
+# D  stop (vetoes only)
+[autonomy]
+low = "A"
+medium = "B"
+high = "C"
+allow_auto_merge = false
+uncalibrated_cap = "B"
+cross_family_required = ["high"]
+
+[autonomy.critic_samples]
+low = 3
+medium = 3
+high = 3
+
+# ── Calibration (plan critic-calibration-set) ────────────────────────────
+# report: path to a test-split calibration report (JSON). A question counts as
+# calibrated when the report's critic hash equals the current critic's and
+# the upper bound of its miss rate is <= miss_rate_target.
+[calibration]
+report = ""
+miss_rate_target = 0.10

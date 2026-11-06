@@ -45,6 +45,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gate_log  # noqa: E402
 import gitutil  # noqa: E402
+import judge  # noqa: E402
+from planfile import plan_meta  # noqa: E402
 
 QUESTIONS = Path("docs/harness/critic-questions.toml")
 PROFILE = Path("docs/harness/profile.toml")
@@ -373,21 +375,31 @@ def aggregate(questions: list[Question], answers: list[dict[str, Answer]]) -> li
     return out
 
 
-# ── profile (judge-profile-and-autonomy) ─────────────────────────────────
-def profile_settings(root: Path, risk_class: str | None) -> tuple[int | None, bool]:
-    """(samples, cross_family_required) for the change's risk class, if a profile exists."""
-    path = root / PROFILE
-    if not path.exists() or risk_class is None:
-        return None, False
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
-    autonomy = data.get("autonomy", {})
-    samples = autonomy.get("critic_samples", {}).get(risk_class)
-    required = risk_class in autonomy.get("cross_family_required", [])
-    return (int(samples) if samples else None), required
+# ── profile: how many samples, and whether another model family must be one ──
+def profile_settings(
+    root: Path, paths: list[str], plan_text: str
+) -> tuple[str | None, int | None, bool]:
+    """(risk class, samples, cross_family_required) from the owner's profile, if it is usable."""
+    try:
+        maintainer = os.environ.get("KALETA_HARNESS_MAINTAINER") == "1"
+        profile = judge.load_profile(root, base=None if maintainer else gitutil.merge_base("main"))
+    except judge.ProfileError:
+        return None, None, False
+    meta = plan_meta(plan_text)
+    cls, _ = judge.risk_class(
+        paths, {"exec_criteria": len(meta["criteria"]), "harness": meta["harness"]}, profile
+    )
+    autonomy = profile.autonomy
+    samples = autonomy.get("critic_samples", {}).get(cls)
+    return (
+        cls,
+        (int(samples) if samples else None),
+        cls in autonomy.get("cross_family_required", []),
+    )
 
 
 # ── main ─────────────────────────────────────────────────────────────────
-def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = None) -> int:
+def run(plan_id: str, samples: int | None, dry: bool) -> int:
     root = gitutil.toplevel()
     os.chdir(root)
     STATE.mkdir(parents=True, exist_ok=True)
@@ -403,7 +415,9 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
     paths = [c.path for c in changed if not c.path.startswith("docs/harness/runs/")]
     questions = applicable(load_questions(root), paths)
 
-    prof_samples, cross_required = profile_settings(root, risk_class)
+    risk_class, prof_samples, cross_required = profile_settings(
+        root, paths, plan.read_text(encoding="utf-8")
+    )
     k = samples or int(os.environ.get("KALETA_CRITIC_SAMPLES") or prof_samples or DEFAULT_SAMPLES)
     cross = os.environ.get("KALETA_CROSS_REVIEW") == "1" or cross_required
     model = os.environ.get("KALETA_REVIEW_MODEL", "sonnet")
@@ -414,7 +428,7 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
     n_claude = max(k - 1, 1) if cross else k
 
     if dry:
-        print(f"critic: plan {plan_id}, base {base[:12]}, critic hash {chash}")
+        print(f"critic: plan {plan_id}, base {base[:12]}, critic hash {chash}, risk {risk_class}")
         print(
             f"critic: {n_claude} Claude sample(s) ({model})"
             + (f" + 1 cross ({cross_model})" if cross else "")
@@ -510,7 +524,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("plan_id", nargs="?")
     ap.add_argument("--samples", type=int)
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--risk-class", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     plan_id = args.plan_id
     if not plan_id:
@@ -522,7 +535,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    return run(plan_id, args.samples, args.dry_run, args.risk_class)
+    return run(plan_id, args.samples, args.dry_run)
 
 
 if __name__ == "__main__":

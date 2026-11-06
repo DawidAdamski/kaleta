@@ -18,15 +18,21 @@ def test_bash_edit_of_a_protected_path_is_vetoed(repo: HarnessRepo) -> None:
     repo.commit("edit the judge via bash")
     approve(repo)
     out = repo.gate()
-    assert "Protected paths changed outside maintainer mode" in _reason(out)
-    assert "scripts/harness/sneaky.py" in _reason(out)
+    assert out.stdout.strip() == ""  # no more attempts: the owner decides
+    assert repo.state("result") == "escalated"
+    assert repo.state("mode") == "D"
+    reason = repo.state("escalated-reason") or ""
+    assert "Protected paths changed outside maintainer mode" in reason
+    assert "scripts/harness/sneaky.py" in reason
 
 
 def test_untracked_protected_file_is_vetoed_too(repo: HarnessRepo) -> None:
     repo.new_plan()
     repo.write("docs/harness/profile.toml", "[autonomy]\nallow_auto_merge = true\n")
     approve(repo)
-    assert "docs/harness/profile.toml" in _reason(repo.gate())
+    repo.gate()
+    assert repo.state("result") == "escalated"
+    assert "docs/harness/profile.toml" in (repo.state("escalated-reason") or "")
 
 
 def test_maintainer_mode_clears_the_veto(repo: HarnessRepo) -> None:
