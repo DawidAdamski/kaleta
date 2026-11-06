@@ -1,141 +1,22 @@
 #!/usr/bin/env bash
-# Independent review of the current branch against its plan.
+# Independent critic for the current branch against its plan (ADR-39).
 #
-# Spawns a fresh, read-only `claude -p` reviewer (a separate context that did
-# not write the code) and — optionally — a second reviewer from a different
-# model family via the Cursor CLI. Writes .claude/state/review-verdict.json,
-# which the Stop hook (.claude/hooks/dod-gate.sh) requires to be "approve"
-# and to match the current diff.
+# Runs scripts/harness/critic.py: k fresh, read-only samples (Claude, plus one
+# from another model family when required) answer the narrow questions in
+# docs/harness/critic-questions.toml with yes/no/na and file:line evidence.
+# The result — p_violation per question, never a verdict — goes to
+# .claude/state/critic.json and to the run log; the Stop hook
+# (.claude/hooks/dod-gate.sh) decides what it means.
 #
-#   scripts/review_gate.sh [plan_id]
+#   scripts/review_gate.sh [plan_id] [--samples N] [--dry-run]
 #
 # Env:
-#   KALETA_REVIEW_MODEL        model for the Claude reviewer   (default: sonnet)
-#   KALETA_CROSS_REVIEW=1      also run the Cursor CLI reviewer (needs `agent` / `cursor-agent`)
-#   KALETA_CROSS_REVIEW_MODEL  Cursor model id                 (default: gpt-5)
+#   KALETA_CRITIC_SAMPLES      samples per run              (default: profile, else 3)
+#   KALETA_REVIEW_MODEL        model for the Claude samples (default: sonnet)
+#   KALETA_CROSS_REVIEW=1      one sample from the Cursor CLI (needs `agent` / `cursor-agent`)
+#   KALETA_CROSS_REVIEW_MODEL  Cursor model id              (default: gpt-5)
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-state=.claude/state; mkdir -p "$state"
-
-plan_id=${1:-$(cat "$state/active-plan" 2>/dev/null || true)}
-[ -n "$plan_id" ] || { echo "usage: review_gate.sh <plan_id> (or arm a plan with scripts/plan_goal.sh start)" >&2; exit 1; }
-plan="docs/plans/$plan_id.md"
-[ -f "$plan" ] || { echo "review_gate: $plan not found" >&2; exit 1; }
-
-base=$(git merge-base HEAD main)
-# Run logs are written by the harness itself: excluded so a log line never stales a review.
-diff_hash=$(git diff "$base" -- . ':(exclude)docs/harness/runs/**' | { command -v sha256sum >/dev/null 2>&1 && sha256sum || shasum -a 256; } | cut -c1-16)
-if git diff --quiet "$base" -- . ':(exclude)docs/harness/runs/**'; then echo "review_gate: no diff against $base — nothing to review" >&2; exit 1; fi
-
 # shellcheck source=harness/python.sh
 . scripts/harness/python.sh
-# log_review <verdict-json-file>: append a review record to docs/harness/runs/<plan>.jsonl
-log_review() {
-  local cost turns
-  cost=$(jq -s '[.[] | .total_cost_usd? // 0] | add // 0' "$state/review-raw.json" 2>/dev/null || echo 0)
-  turns=$(jq -r '.num_turns // 0' "$state/review-raw.json" 2>/dev/null || echo 0)
-  jq -c --argjson cost "${cost:-0}" --argjson turns "${turns:-0}" \
-    --arg model "${KALETA_REVIEW_MODEL:-sonnet}" \
-    '{diff_hash, reviewers, verdict, findings, cost_usd: $cost, turns: $turns, model: $model, at}' "$1" \
-    | "${HARNESS_PY[@]}" scripts/harness/gate_log.py append "$plan_id" --kind review --json - >&2 || true
-}
-
-schema='{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","changes"]},"findings":{"type":"array","items":{"type":"object","properties":{"file":{"type":"string"},"line":{"type":"integer"},"section":{"type":"string"},"summary":{"type":"string"}},"required":["file","summary"]}}},"required":["verdict","findings"]}'
-
-read -r -d '' prompt <<PROMPT || true
-You are the independent code reviewer for this repository. You did NOT write
-this code — review it adversarially but fairly. Do not edit anything.
-
-Scope of review: the working-tree diff against merge-base $base.
-Get it with: git diff $base   (and git diff $base --stat)
-
-Process:
-1. Read docs/review-checklist.md — it is your rubric.
-2. Read the plan docs/plans/$plan_id.md: Scope, "Not in scope",
-   Acceptance criteria, Implementation notes.
-3. Read the Working Agreement in AGENTS.md.
-4. Review the diff against the checklist. You may run
-   `uv run pytest <path> -q` to check a claim.
-5. Hard rules → verdict "changes": diff exceeds plan scope without
-   justification; new skip/xfail; new ignore_imports; type erosion
-   (Any for a real type, enum→str); business logic hiding in views/;
-   new user-facing behaviour without a KAL- scenario in docs/bdd.md;
-   Implementation notes not updated.
-6. Do not comment on style that ruff/mypy already enforce.
-
-Return ONLY a JSON object: {"verdict":"approve"|"changes","findings":[{"file","line","section","summary"}]}.
-"approve" means you would merge as-is. Include findings even when approving (as nits) but keep them specific: file, line, what and why.
-PROMPT
-
-echo "review_gate: Claude reviewer (${KALETA_REVIEW_MODEL:-sonnet}) on diff $diff_hash …" >&2
-env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude -p "$prompt" \
-  --model "${KALETA_REVIEW_MODEL:-sonnet}" \
-  --permission-mode dontAsk \
-  --allowedTools "Read,Grep,Glob,Bash(git diff *),Bash(git log *),Bash(git show *),Bash(git status *),Bash(uv run pytest *)" \
-  --max-turns 30 \
-  --output-format json \
-  --json-schema "$schema" > "$state/review-raw.json" || true
-
-claude_verdict=$(jq -c '.structured_output // (.result | try fromjson catch empty) // empty' "$state/review-raw.json" 2>/dev/null || true)
-if [ -z "$claude_verdict" ]; then
-  # last resort: pull the first {...} block out of the text result
-  claude_verdict=$(jq -r '.result // empty' "$state/review-raw.json" | python3 -c '
-import sys,re,json
-t=sys.stdin.read(); m=re.search(r"\{.*\}", t, re.S)
-print(json.dumps(json.loads(m.group(0))) if m else "")' 2>/dev/null || true)
-fi
-if [ -z "$claude_verdict" ]; then
-  echo "review_gate: could not parse the Claude reviewer output (see $state/review-raw.json)" >&2
-  jq -n -c --arg h "$diff_hash" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{diff_hash:$h, at:$at, reviewers:["claude"], verdict:"error", findings:[{file:"-", summary:"reviewer output could not be parsed"}]}' > "$state/review-error.json"
-  log_review "$state/review-error.json"
-  exit 1
-fi
-claude_verdict=$(printf '%s' "$claude_verdict" | jq -c '.findings = [(.findings // [])[] | . + {reviewer:"claude"}]')
-reviewers='["claude"]'
-merged="$claude_verdict"
-
-cross_error=""
-if [ "${KALETA_CROSS_REVIEW:-0}" = "1" ]; then
-  bin=$(command -v agent 2>/dev/null || command -v cursor-agent 2>/dev/null || true)
-  if [ -z "$bin" ]; then
-    echo "review_gate: KALETA_CROSS_REVIEW=1 but Cursor CLI (agent / cursor-agent) not found" >&2
-    cross_error="cross reviewer requested but the Cursor CLI (agent / cursor-agent) is not installed"
-  else
-    model=${KALETA_CROSS_REVIEW_MODEL:-gpt-5}
-    echo "review_gate: Cursor CLI reviewer ($model) …" >&2
-    # Cursor CLI flags may differ by version — check `agent --help` if this fails.
-    "$bin" -p "$prompt" --model "$model" --output-format text > "$state/review-cross-raw.txt" 2>/dev/null || true
-    cross=$(python3 -c '
-import sys,re,json
-t=open(sys.argv[1]).read(); m=re.search(r"\{.*\}", t, re.S)
-print(json.dumps(json.loads(m.group(0))) if m else "")' "$state/review-cross-raw.txt" 2>/dev/null || true)
-    if [ -n "$cross" ]; then
-      cross=$(printf '%s' "$cross" | jq -c --arg r "cursor:$model" '.findings = [(.findings // [])[] | . + {reviewer:$r}]')
-      merged=$(jq -n -c --argjson a "$merged" --argjson b "$cross" \
-        '{verdict: (if ($a.verdict=="approve" and $b.verdict=="approve") then "approve" else "changes" end),
-          findings: ($a.findings + $b.findings)}')
-      reviewers="[\"claude\",\"cursor:$model\"]"
-    else
-      echo "review_gate: could not parse the Cursor reviewer output (see $state/review-cross-raw.txt)" >&2
-      cross_error="cross reviewer output could not be parsed (see $state/review-cross-raw.txt)"
-    fi
-  fi
-fi
-
-# A requested second opinion that did not happen is an error, not a quiet
-# downgrade to one reviewer (ADR-39).
-if [ -n "$cross_error" ]; then
-  merged=$(jq -n -c --argjson a "$merged" --arg e "$cross_error" \
-    '{verdict: "error", findings: ($a.findings + [{file: "-", summary: $e, reviewer: "review_gate"}])}')
-fi
-
-jq -n -c --arg plan "$plan_id" --arg h "$diff_hash" --argjson v "$merged" --argjson r "$reviewers" \
-  --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  '{plan_id:$plan, diff_hash:$h, at:$at, reviewers:$r, verdict:$v.verdict, findings:$v.findings}' > "$state/review-verdict.json"
-
-log_review "$state/review-verdict.json"
-
-echo "review_gate: verdict = $(jq -r .verdict "$state/review-verdict.json") (reviewers: $(jq -r '.reviewers|join(", ")' "$state/review-verdict.json"), diff $diff_hash)"
-jq -r '.findings[] | "  - [\(.reviewer)] \(.file):\(.line // "?") [\(.section // "-")] \(.summary)"' "$state/review-verdict.json"
-[ "$(jq -r .verdict "$state/review-verdict.json")" = "approve" ]
+exec "${HARNESS_PY[@]}" scripts/harness/critic.py "$@"

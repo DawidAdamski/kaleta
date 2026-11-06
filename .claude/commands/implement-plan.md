@@ -25,7 +25,8 @@ the user did not pick. Once they answer, continue below with that plan id.
 - A Stop hook (`.claude/hooks/dod-gate.sh`) judges every attempt to
   finish. It runs the plan's executable acceptance criteria,
   `./scripts/verify.sh` (with `--e2e` when views changed), a
-  green-washing check, and requires a fresh independent review verdict.
+  green-washing check, and requires a fresh run of the independent critic
+  (which answers narrow questions; the gate, not the critic, decides).
   When it blocks you, read the reason, fix, and finish your turn again.
   You cannot talk your way past it — only make it pass.
 
@@ -54,12 +55,15 @@ the user did not pick. Once they answer, continue below with that plan id.
    open questions, anything a reviewer must know.
 6. Run `./scripts/verify.sh` yourself (add `--e2e` if you touched
    `src/kaleta/views/`). Fix until green.
-7. Run `./scripts/review_gate.sh` — an independent reviewer that did
-   not write this code. Fix every finding, re-run until it approves.
-   (If `KALETA_CROSS_REVIEW=1` is set, a second reviewer from another
-   model family must approve too.)
+7. Run `./scripts/review_gate.sh` — an independent critic that did not
+   write this code answers the questions in
+   `docs/harness/critic-questions.toml`, k times. Every question with a
+   violation reported by a majority of samples blocks the gate; fix what
+   its evidence points at and re-run. A question only some samples flag is
+   a warning: strengthen the evidence (a test, a clearer note) rather than
+   arguing with it.
 8. Commit. Then finish your turn with a short report: what was done,
-   the verify.sh tail, the review verdict, manual acceptance criteria
+   the verify.sh tail, the critic's p per question, manual acceptance criteria
    left for the owner, and the exact `gh pr create` command to open the
    PR (do not push or open the PR yourself unless the user asked).
    Archiving is automatic: merging a `plan/<plan_id>` PR triggers

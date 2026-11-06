@@ -40,7 +40,8 @@ case "$cmd" in
     fi
     printf '%s' "$plan_id" > "$state/active-plan"
     printf '%s' "$max" > "$state/max-attempts"
-    rm -f "$state/attempts" "$state/result" "$state/blocked-reason" "$state/review-verdict.json" "$state/review-raw.json"
+    rm -f "$state/attempts" "$state/result" "$state/blocked-reason" "$state/review-verdict.json" "$state/review-raw.json" \
+      "$state/critic.json" "$state/decision.md" "$state/mode" "$state/escalated-reason"
     echo "plan_goal: armed DoD gate for '$plan_id' on branch $(git rev-parse --abbrev-ref HEAD) (max attempts: $max)"
     ;;
   list)
@@ -70,10 +71,11 @@ case "$cmd" in
     echo "branch:    $(git rev-parse --abbrev-ref HEAD)"
     echo "attempts:  $(cat "$state/attempts" 2>/dev/null || echo 0)/$(cat "$state/max-attempts")"
     echo "result:    $(cat "$state/result" 2>/dev/null || echo '-')"
-    if [ -f "$state/review-verdict.json" ]; then
-      echo "review:    $(jq -r '.verdict + " (" + (.reviewers|join(", ")) + ", diff " + .diff_hash + ")"' "$state/review-verdict.json")"
+    if [ -f "$state/critic.json" ]; then
+      echo "critic:    $(jq -r '.status + " (diff " + .diff_hash + ", critic " + .critic_hash + ", " + (.cost_usd|tostring) + " USD)"' "$state/critic.json")"
+      jq -r '.questions[] | "           \(.id) p=\(.p_violation // "-") (\(.violations)/\(.k_valid))"' "$state/critic.json"
     else
-      echo "review:    none yet"
+      echo "critic:    none yet (scripts/review_gate.sh)"
     fi
     [ -f "$state/blocked-reason" ] && echo "blocked:   $(cat "$state/blocked-reason")"
     ;;

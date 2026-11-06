@@ -6,8 +6,8 @@ from __future__ import annotations
 import json
 
 import gate_log
-from conftest import HarnessRepo
-from test_review_gate_cross_error import _fake_bin
+import pytest
+from conftest import HarnessRepo, answers, fake_samples
 
 
 def _records(repo: HarnessRepo, plan_id: str = "fixture") -> list[dict]:
@@ -45,27 +45,27 @@ def test_review_is_recorded_and_log_lines_do_not_stale_it(repo: HarnessRepo) -> 
     repo.new_plan()
     repo.write("src/app.py", "X = 2\n")
     repo.commit("work")
-    out = repo.run("scripts/review_gate.sh", env={"PATH": _fake_bin(repo)})
+    fake = fake_samples(repo, [answers(Q_SCOPE="no")] * 3)
+    out = repo.run("scripts/review_gate.sh", env={"KALETA_CRITIC_FAKE": fake})
     assert out.returncode == 0, out.stderr
     reviews = [r for r in _records(repo) if r["kind"] == "review"]
     assert len(reviews) == 1
-    assert reviews[0]["verdict"] == "approve"
-    assert reviews[0]["cost_usd"] == 0.01
+    assert reviews[0]["status"] == "ok"
+    assert reviews[0]["cost_usd"] == pytest.approx(0.3)
 
-    # the review log line is a change in docs/harness/runs/, yet the verdict stays fresh
+    # the review log line is a change in docs/harness/runs/, yet the critic run stays fresh
     gate = repo.gate()
     reason = json.loads(gate.stdout)["reason"] if gate.stdout.strip() else ""
     assert "stale" not in reason
     assert repo.state("result") == "done"
 
 
-def test_unparsable_review_is_recorded_as_error(repo: HarnessRepo) -> None:
+def test_failed_critic_is_recorded_as_error(repo: HarnessRepo) -> None:
     repo.new_plan()
     repo.write("src/app.py", "X = 2\n")
     repo.commit("work")
-    path = _fake_bin(repo)
-    (repo.root.parent / "bin" / "claude").write_text("#!/usr/bin/env bash\necho 'not json'\n")
-    out = repo.run("scripts/review_gate.sh", env={"PATH": path})
+    out = repo.run("scripts/review_gate.sh", env={"PATH": "/usr/bin:/bin"})  # no claude CLI
     assert out.returncode != 0
     (rec,) = [r for r in _records(repo) if r["kind"] == "review"]
-    assert rec["verdict"] == "error"
+    assert rec["status"] == "error"
+    assert rec["error_kind"] == "no_samples"

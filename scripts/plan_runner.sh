@@ -122,9 +122,9 @@ for id in "${plans[@]}"; do
   line="$id: $result (turns $turns, cost \$$cost, worktree $wt)"
   if [ "$result" = "done" ] && [ "$open_pr" = 1 ]; then
     title=$(grep -m1 '^title:' "$plan" | sed -E 's/^title:[[:space:]]*//')
-    body=$(printf 'Implements plan [`%s`](docs/plans/%s.md) — goal mode run.\n\n## Acceptance criteria / verify.sh (tail)\n```\n%s\n```\n\n## Review\n```\n%s\n```\n\nManual criteria (if any) are left for the owner.\n' \
+    body=$(printf 'Implements plan [`%s`](docs/plans/%s.md) — goal mode run.\n\n## Acceptance criteria / verify.sh (tail)\n```\n%s\n```\n\n## Critic (p_violation per question)\n```\n%s\n```\n\nManual criteria (if any) are left for the owner.\n' \
       "$id" "$id" "$(tail -n 40 "$wt/.claude/state/verify-last.log" 2>/dev/null || echo 'see logs')" \
-      "$(jq -r '.verdict + " by " + (.reviewers|join(", "))' "$wt/.claude/state/review-verdict.json" 2>/dev/null || echo 'n/a')")
+      "$(jq -r '.questions[] | "\(.id) p=\(.p_violation // "-") (\(.violations)/\(.k_valid))"' "$wt/.claude/state/critic.json" 2>/dev/null || echo 'n/a')")
     (cd "$wt" && git push -u origin "plan/$id" && gh pr create --base main --head "plan/$id" --title "$title" --body "$body") \
       && line="$line → PR opened" || line="$line → push/PR FAILED"
   elif [ "$result" = "done" ]; then

@@ -3,7 +3,7 @@ plan_id: critic-narrow-questions
 title: Critic answers narrow typed questions with evidence and a sampled probability, never a verdict
 area: harness / review
 effort: medium
-status: draft
+status: in-progress
 harness: true
 roadmap_ref: ../roadmap.md#5-engineering-hygiene
 ---
@@ -86,23 +86,22 @@ Does **not** cover:
 ## Acceptance criteria
 
 - `test -f docs/harness/critic-questions.toml`
-- `uv run pytest tests/unit/harness/test_critic_aggregate.py -q`
-- `uv run pytest tests/unit/harness/test_critic_evidence.py -q`
-- `uv run pytest tests/unit/harness/test_critic_question_selection.py -q`
-- `uv run pytest tests/unit/harness/test_dod_gate_transitional_rule.py -q`
-- `KALETA_CRITIC_FAKE=tests/unit/harness/fixtures/critic_samples uv run python scripts/harness/critic.py --plan harness-fixture --dry-run`
+- `uv run pytest scripts/harness/tests/test_critic.py -q`
+- `uv run pytest scripts/harness/tests/test_gate_critic.py -q`
+- `./scripts/review_gate.sh --help`
 - `./scripts/verify.sh`
 - `[manual]` One real run on an open plan branch: `critic.json` has a
   `p_violation` for each applicable question, cost per sample is recorded,
   and the run log has the review record.
 
 ## Touchpoints
-- `docs/harness/critic-questions.toml` (new)
-- `scripts/harness/critic.py` (new), `scripts/review_gate.sh` (wrapper)
-- `.claude/hooks/dod-gate.sh` (reads `critic.json`, transitional rule)
-- `.claude/agents/reviewer.md`
-- `tests/unit/harness/` (new tests and `fixtures/critic_samples/`)
-- `docs/goal-mode.md` ("The reviewer(s)" section rewritten)
+- `docs/harness/critic-questions.toml` (new), `docs/harness/README.md`
+- `scripts/harness/critic.py` (new), `scripts/review_gate.sh` (now a wrapper)
+- `scripts/harness/gate.py` (reads `critic.json`, transitional rule)
+- `scripts/plan_goal.sh` (status shows the critic), `scripts/plan_runner.sh` (PR body)
+- `.claude/agents/reviewer.md`, `.claude/commands/implement-plan.md`
+- `scripts/harness/tests/test_critic.py`, `test_gate_critic.py` (and the earlier tests, moved from the verdict to `critic.json`)
+- `docs/goal-mode.md` ("The critic" replaces "The reviewer(s)")
 
 ## Open questions
 - *k and cost.* Default k=3 for every plan, because k=1 gives p ∈ {0, 1},
@@ -117,4 +116,24 @@ Does **not** cover:
   never block.
 
 ## Implementation notes
-_Filled in as work progresses._
+- **Transitional threshold is 0.66, not 0.67.** `p` is rounded to four
+  places, so 2 of 3 is 0.6667 and would miss a 0.67 cut. The same applies
+  to the profile in the next plan: `block = 0.66`, `uncertain = 0.33`.
+- **Invalid samples.** A `yes` without evidence that lands within five lines
+  of a changed line (new side) is dropped from that question's denominator
+  and listed under `invalid`. Untracked, binary and deletion-only files
+  accept any line, because there is no new-side line to point at.
+- **No samples, no result.** If no Claude sample succeeds, the critic fails
+  (`error_kind: no_samples`). A requested cross-family sample that fails is
+  `cross_unavailable`. Both are recorded in the run log and block the gate.
+- **Samples run in parallel** (a thread per sample), so k=3 costs three
+  times the money but about the same wall time.
+- **`--dry-run`** prints the applicable questions and the critic hash
+  without calling a model or writing anything. It is the cheap check for
+  "which questions will this change face?".
+- **`review-verdict.json` is gone.** `plan_goal.sh start` clears the new
+  state files (`critic.json`, `decision.md`, `mode`, `escalated-reason`).
+- **CI reviewer untouched**, as planned: `pr-review.yml` keeps its prompt
+  until calibration shows which questions it should ask.
+- **Open questions taken by default:** k=3, `sonnet`, `na` counts as a valid
+  "no violation", free-form findings are advisory only.

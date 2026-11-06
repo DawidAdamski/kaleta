@@ -32,6 +32,7 @@ from protected import protected_in_diff  # noqa: E402
 STATE = Path(".claude/state")
 DEFAULT_MAX = 6
 CHECK_TAIL = 15
+TRANSITIONAL_BLOCK = 0.66  # 2 of 3 samples (0.667); replaced by profile thresholds (plan 4)
 VERIFY_TAIL = 40
 
 GREEN_WASHING = [
@@ -144,20 +145,36 @@ def green_washing(base: str) -> list[dict[str, Any]]:
     return hits
 
 
-def review_status(diff_hash: str) -> dict[str, Any]:
-    path = STATE / "review-verdict.json"
+def critic_status(diff_hash: str) -> dict[str, Any]:
+    """What the critic (scripts/review_gate.sh -> critic.py) said about this diff."""
+    path = STATE / "critic.json"
     if not path.exists():
         return {"present": False}
     try:
-        v = json.loads(path.read_text(encoding="utf-8"))
+        c = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
-        return {"present": True, "fresh": False, "verdict": "error", "findings": []}
+        return {
+            "present": True,
+            "fresh": False,
+            "status": "error",
+            "error": "critic.json unreadable",
+        }
     return {
         "present": True,
-        "fresh": v.get("diff_hash") == diff_hash,
-        "verdict": v.get("verdict"),
-        "reviewers": v.get("reviewers", []),
-        "findings": v.get("findings", []),
+        "fresh": c.get("diff_hash") == diff_hash,
+        "status": c.get("status"),
+        "error_kind": c.get("error_kind", ""),
+        "error": c.get("error", ""),
+        "critic_hash": c.get("critic_hash"),
+        "risk_class": c.get("risk_class"),
+        "cross_family_present": bool(c.get("cross_family_present")),
+        "questions": [
+            {
+                k: q.get(k)
+                for k in ("id", "p_violation", "violations", "k_valid", "evidence", "notes")
+            }
+            for q in c.get("questions", [])
+        ],
     }
 
 
@@ -214,11 +231,11 @@ def collect(root: Path, plan_id: str, plan_text: str, base: str) -> dict[str, An
         "protected_touched": protected_in_diff(paths, root, base),
         "green_washing": green_washing(base),
         "checks": checks,
-        "review": review_status(diff_hash),
+        "critic": critic_status(diff_hash),
     }
 
 
-# ── decide (plan gate-audit-log: same rules as the bash gate it replaces) ─
+# ── decide ───────────────────────────────────────────────────────────────
 def decide(inputs: dict[str, Any]) -> dict[str, Any]:
     reasons: list[str] = []
     warnings: list[str] = []
@@ -246,24 +263,33 @@ def decide(inputs: dict[str, Any]) -> dict[str, Any]:
             "Plan has no executable acceptance criteria (backtick commands) — "
             "the gate relies on verify.sh and the reviewer only."
         )
-    r = inputs["review"]
-    if not r["present"]:
+    # Transitional rule until judge-profile-and-autonomy: block on a majority.
+    c = inputs["critic"]
+    if not c["present"]:
         reasons.append(
-            "No review verdict yet. Run ./scripts/review_gate.sh (independent reviewer)"
-            " and fix its findings."
+            "No critic run yet. Run ./scripts/review_gate.sh (independent critic)"
+            " and fix what it finds."
         )
-    elif not r["fresh"]:
+    elif not c["fresh"]:
         reasons.append(
-            "Review verdict is stale — the diff changed since the review."
-            " Run ./scripts/review_gate.sh again."
+            "Critic run is stale — the diff changed since. Run ./scripts/review_gate.sh again."
         )
-    elif r["verdict"] != "approve":
-        lines = [
-            f"  - [{f.get('reviewer', 'claude')}] {f.get('file')}:{f.get('line', '?')}"
-            f" — {f.get('summary')}"
-            for f in r["findings"]
-        ]
-        reasons.append("Reviewer requested changes:\n" + "\n".join(lines))
+    elif c["status"] != "ok":
+        reasons.append(f"Critic could not run: {c.get('error') or c['status']}.")
+    else:
+        for q in c["questions"]:
+            p = q["p_violation"]
+            ev = ", ".join(f"{e['file']}:{e['line']}" for e in q["evidence"]) or "-"
+            notes = " / ".join(q["notes"])
+            line = f"{q['id']} p={p} ({q['violations']}/{q['k_valid']}) at {ev}" + (
+                f" — {notes}" if notes else ""
+            )
+            if p is None:
+                warnings.append(f"{q['id']}: no valid critic answer (evidence missing or invalid).")
+            elif p >= TRANSITIONAL_BLOCK:
+                reasons.append(f"Critic found a problem: {line}")
+            elif p > 0:
+                warnings.append(f"Critic is unsure: {line}")
     return {"outcome": "block" if reasons else "done", "reasons": reasons, "warnings": warnings}
 
 
