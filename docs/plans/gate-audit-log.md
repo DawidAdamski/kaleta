@@ -3,7 +3,7 @@ plan_id: gate-audit-log
 title: Append-only, tamper-evident run log for every gate and review run
 area: harness / goal mode
 effort: medium
-status: draft
+status: in-progress
 harness: true
 roadmap_ref: ../roadmap.md#5-engineering-hygiene
 ---
@@ -60,8 +60,8 @@ Does **not** cover:
 
 ## Acceptance criteria
 
-- `uv run pytest tests/unit/harness/test_gate_log.py -q`
-- `uv run pytest tests/unit/harness/test_dod_gate_writes_log.py -q`
+- `uv run pytest scripts/harness/tests/test_gate_log.py -q`
+- `uv run pytest scripts/harness/tests/test_gate_writes_log.py -q`
 - `uv run python scripts/harness/gate_log.py verify`
 - `uv run python scripts/harness/gate_log.py report --help`
 - `grep -q "gate_log.py verify" .github/workflows/ci.yml`
@@ -69,11 +69,11 @@ Does **not** cover:
 - `./scripts/verify.sh`
 
 ## Touchpoints
-- `scripts/harness/gate_log.py` (new), `scripts/harness/__init__.py` if needed for tests
-- `.claude/hooks/dod-gate.sh`, `scripts/review_gate.sh`, `scripts/plan_runner.sh` (summary line reads the log)
-- `docs/harness/runs/` (new, committed)
+- `scripts/harness/gate.py` (new: the gate's logic, moved out of bash), `gate_log.py`, `gitutil.py`, `python.sh` (new)
+- `.claude/hooks/dod-gate.sh` (thin wrapper), `scripts/review_gate.sh` (review records, diff hash without run logs)
+- `docs/harness/runs/` (new, committed), `docs/harness/README.md` (new)
 - `.github/workflows/ci.yml`
-- `tests/unit/harness/test_gate_log.py`, `test_dod_gate_writes_log.py`
+- `scripts/harness/tests/test_gate_log.py`, `test_gate_writes_log.py`
 - `docs/goal-mode.md`
 
 ## Open questions
@@ -86,4 +86,22 @@ Does **not** cover:
 - *Clock / ordering.* The chain hash gives the order; `ts` is informational.
 
 ## Implementation notes
-_Filled in as work progresses._
+- **The gate moved to Python.** Structured records with every check, its
+  tail and its duration are awkward in bash, so the logic of `dod-gate.sh`
+  now lives in `scripts/harness/gate.py` (stdlib only). The hook is a thin
+  wrapper with a fast path when no plan is armed. The decisions are the same
+  as the bash gate's: the existing plan-1 tests run unchanged against it.
+  This also prepares `judge-profile-and-autonomy`, which swaps `decide()` for
+  the pure judge.
+- **Interpreter.** `scripts/harness/python.sh` picks `KALETA_HARNESS_PY`, then
+  `uv run --no-sync python` (laptop, worktrees), then `python3`.
+- **No bytecode.** The gate sets `sys.dont_write_bytecode`, otherwise
+  `__pycache__/` under the protected `scripts/harness/` would trip the
+  protected-path veto in repositories without that ignore rule.
+- **Fail closed.** If `gate.py` is missing, or crashes, the hook blocks with
+  the cause instead of letting the session stop silently.
+- **Cost.** Review records carry `total_cost_usd` and `num_turns` from the
+  `claude -p` JSON. An unparsable reviewer output is recorded as
+  `verdict: "error"`.
+- **`plan_runner.sh` summary** is unchanged. `gate_log.py report` is the
+  cross-plan view.

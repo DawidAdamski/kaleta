@@ -1,0 +1,13 @@
+# Harness: the owner's rules for goal mode
+
+Everything in this folder is legislation in the sense of
+[ADR-39](../adr/039-measurable-critic-deterministic-judge.md): the owner writes
+it, the implementer agent cannot change it, and the gate and critic only read
+it. See [goal-mode.md](../goal-mode.md) for how the loop uses it.
+
+| Path | What it is |
+|---|---|
+| `protected-paths.txt` | paths the agent may not change (hook and gate) |
+| `runs/` | run logs, one hash-chained JSONL per plan, written by the gate and the critic |
+
+Changes here need maintainer mode (`KALETA_HARNESS_MAINTAINER=1 claude`).

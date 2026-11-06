@@ -30,7 +30,9 @@ scripts/plan_goal.sh start ──► .claude/state/active-plan   (arms the gate)
 | File | Role |
 |---|---|
 | `.claude/settings.json` | wires the two hooks below (project-level, committed) |
-| `.claude/hooks/dod-gate.sh` | **Stop hook** — the judge; active only while a plan is armed |
+| `.claude/hooks/dod-gate.sh` | **Stop hook** — active only while a plan is armed; runs `scripts/harness/gate.py` |
+| `scripts/harness/gate.py` | the judge: collects the evidence, decides, writes the run log |
+| `scripts/harness/gate_log.py` | append-only, hash-chained run log in `docs/harness/runs/` |
 | `.claude/hooks/protect-files.sh` | **PreToolUse hook** — agent cannot edit the paths in `docs/harness/protected-paths.txt` (harness, owner's rules, archived plans, applied migrations) unless the session runs in maintainer mode |
 | `docs/harness/protected-paths.txt` | the one list of protected paths, read by the hook and by the gate |
 | `.claude/commands/implement-plan.md` | `/implement-plan <plan_id>` — the interactive entry point; also the prompt used by the runner |
@@ -137,6 +139,32 @@ against `agent --help` if the call fails — the script logs raw output to
 
 Model choices: `KALETA_REVIEW_MODEL` (default `sonnet`) for the Claude
 reviewer; `--model` on the runner for the implementer.
+
+## Run log
+
+Every gate run and every review run appends one record to
+`docs/harness/runs/<plan_id>.jsonl` (`scripts/harness/gate_log.py`). The
+file is committed with the plan's PR, so the evidence behind a merge stays
+next to the code.
+
+- **gate** records: attempt, branch, base, diff hash, the hashes of the plan,
+  the checklist and the protected-paths list, every check with its output
+  tail and duration, changed paths, green-washing hits, the decision and the
+  outcome (`block`, `done`, `exhausted`). `plan_goal.sh check` runs are
+  marked `dry`.
+- **review** records: diff hash, reviewers, verdict, findings, cost in USD
+  and turns.
+- Every record carries `seq`, `prev` and `sha`: editing, deleting or
+  reordering a line breaks the chain. `gate_log.py verify` runs in CI.
+- The log is excluded from the diff hash, so writing a record never makes a
+  review stale, and it is exempt from the protected-path veto because the
+  harness, not the agent, writes it.
+
+```bash
+uv run python scripts/harness/gate_log.py report            # outcomes, attempts, cost per plan
+uv run python scripts/harness/gate_log.py show <plan_id>    # the last records, in full
+uv run python scripts/harness/gate_log.py verify            # hash chain of every log
+```
 
 ## Changing the harness
 

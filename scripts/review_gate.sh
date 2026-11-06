@@ -23,8 +23,22 @@ plan="docs/plans/$plan_id.md"
 [ -f "$plan" ] || { echo "review_gate: $plan not found" >&2; exit 1; }
 
 base=$(git merge-base HEAD main)
-diff_hash=$(git diff "$base" | { command -v sha256sum >/dev/null 2>&1 && sha256sum || shasum -a 256; } | cut -c1-16)
-if git diff --quiet "$base"; then echo "review_gate: no diff against $base — nothing to review" >&2; exit 1; fi
+# Run logs are written by the harness itself: excluded so a log line never stales a review.
+diff_hash=$(git diff "$base" -- . ':(exclude)docs/harness/runs/**' | { command -v sha256sum >/dev/null 2>&1 && sha256sum || shasum -a 256; } | cut -c1-16)
+if git diff --quiet "$base" -- . ':(exclude)docs/harness/runs/**'; then echo "review_gate: no diff against $base — nothing to review" >&2; exit 1; fi
+
+# shellcheck source=harness/python.sh
+. scripts/harness/python.sh
+# log_review <verdict-json-file>: append a review record to docs/harness/runs/<plan>.jsonl
+log_review() {
+  local cost turns
+  cost=$(jq -s '[.[] | .total_cost_usd? // 0] | add // 0' "$state/review-raw.json" 2>/dev/null || echo 0)
+  turns=$(jq -r '.num_turns // 0' "$state/review-raw.json" 2>/dev/null || echo 0)
+  jq -c --argjson cost "${cost:-0}" --argjson turns "${turns:-0}" \
+    --arg model "${KALETA_REVIEW_MODEL:-sonnet}" \
+    '{diff_hash, reviewers, verdict, findings, cost_usd: $cost, turns: $turns, model: $model, at}' "$1" \
+    | "${HARNESS_PY[@]}" scripts/harness/gate_log.py append "$plan_id" --kind review --json - >&2 || true
+}
 
 schema='{"type":"object","properties":{"verdict":{"type":"string","enum":["approve","changes"]},"findings":{"type":"array","items":{"type":"object","properties":{"file":{"type":"string"},"line":{"type":"integer"},"section":{"type":"string"},"summary":{"type":"string"}},"required":["file","summary"]}}},"required":["verdict","findings"]}'
 
@@ -70,7 +84,13 @@ import sys,re,json
 t=sys.stdin.read(); m=re.search(r"\{.*\}", t, re.S)
 print(json.dumps(json.loads(m.group(0))) if m else "")' 2>/dev/null || true)
 fi
-[ -n "$claude_verdict" ] || { echo "review_gate: could not parse the Claude reviewer output (see $state/review-raw.json)" >&2; exit 1; }
+if [ -z "$claude_verdict" ]; then
+  echo "review_gate: could not parse the Claude reviewer output (see $state/review-raw.json)" >&2
+  jq -n -c --arg h "$diff_hash" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{diff_hash:$h, at:$at, reviewers:["claude"], verdict:"error", findings:[{file:"-", summary:"reviewer output could not be parsed"}]}' > "$state/review-error.json"
+  log_review "$state/review-error.json"
+  exit 1
+fi
 claude_verdict=$(printf '%s' "$claude_verdict" | jq -c '.findings = [(.findings // [])[] | . + {reviewer:"claude"}]')
 reviewers='["claude"]'
 merged="$claude_verdict"
@@ -113,6 +133,8 @@ fi
 jq -n -c --arg plan "$plan_id" --arg h "$diff_hash" --argjson v "$merged" --argjson r "$reviewers" \
   --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   '{plan_id:$plan, diff_hash:$h, at:$at, reviewers:$r, verdict:$v.verdict, findings:$v.findings}' > "$state/review-verdict.json"
+
+log_review "$state/review-verdict.json"
 
 echo "review_gate: verdict = $(jq -r .verdict "$state/review-verdict.json") (reviewers: $(jq -r '.reviewers|join(", ")' "$state/review-verdict.json"), diff $diff_hash)"
 jq -r '.findings[] | "  - [\(.reviewer)] \(.file):\(.line // "?") [\(.section // "-")] \(.summary)"' "$state/review-verdict.json"
