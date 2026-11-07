@@ -107,6 +107,28 @@ The subagent:
 
 ## Plans index
 
+### Harness — measurable critic, deterministic judge (execute in this order)
+
+Decision: [ADR-39](../adr/039-measurable-critic-deterministic-judge.md). The
+reviewer stops being the judge: it answers narrow questions with a sampled
+probability, and a pure-function judge applies an owner-signed profile and
+picks the autonomy mode per change. All plans are `harness: true`: implement
+them interactively in a `KALETA_HARNESS_MAINTAINER=1 claude` session, never
+with `plan_runner.sh`.
+
+| # | Plan | Effort | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [harness-maintainer-mode](harness-maintainer-mode.md) | small | draft | — (bootstrap by hand) |
+| 2 | [gate-audit-log](gate-audit-log.md) | medium | draft | 1 |
+| 3 | [critic-narrow-questions](critic-narrow-questions.md) | medium | draft | 2 |
+| 4 | [judge-profile-and-autonomy](judge-profile-and-autonomy.md) | large | draft | 3 |
+| 5 | [critic-calibration-set](critic-calibration-set.md) | large | draft | 3, 4 |
+| 6 | [fidelity-independent-critic](fidelity-independent-critic.md) | medium | draft | 1, 2 |
+| 7 | [review-canary](review-canary.md) | medium | draft | 5 |
+
+Nothing here merges automatically: mode A is a label until the owner sets
+`allow_auto_merge = true` on the strength of a calibration report.
+
 ### Restyle — sand palette (design handoff, execute in this order)
 
 Spec: [`docs/design/restyle/README.md`](../design/restyle/README.md) and the
