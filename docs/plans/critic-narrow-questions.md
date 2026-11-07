@@ -88,6 +88,7 @@ Does **not** cover:
 - `test -f docs/harness/critic-questions.toml`
 - `uv run pytest scripts/harness/tests/test_critic.py -q`
 - `uv run pytest scripts/harness/tests/test_gate_critic.py -q`
+- `uv run pytest scripts/harness/tests/test_critic_local.py -q`
 - `./scripts/review_gate.sh --help`
 - `./scripts/verify.sh`
 - `[manual]` One real run on an open plan branch: `critic.json` has a
@@ -135,5 +136,17 @@ Does **not** cover:
   state files (`critic.json`, `decision.md`, `mode`, `escalated-reason`).
 - **CI reviewer untouched**, as planned: `pr-review.yml` keeps its prompt
   until calibration shows which questions it should ask.
+- **Cross-family sample from a local model (follow-up, 2026-11-07).**
+  Cursor is no longer used, so the cross-family sample now comes from a
+  local model behind an OpenAI-compatible endpoint (Unsloth Studio by
+  default at `http://localhost:8888/v1`, Ollama at `:11434/v1`), configured
+  with `KALETA_CROSS_REVIEW_URL / _MODEL / _API_KEY / _TIMEOUT / _MAX_CHARS`.
+  Without tools it gets the plan and a diff annotated with new-side line
+  numbers, so its evidence is validated like Claude's. Samples are named
+  `local:<model>`. `plan_runner.sh --engine cursor` was removed. Smoke test
+  on the owner's Unsloth Studio (Qwen3.8-27B, thinking off): valid JSON for
+  every question on a real kaleta diff, ~2k tokens. With thinking on and the
+  full prompt (~8k tokens) a reply takes over a minute, which the 900 s
+  default timeout covers.
 - **Open questions taken by default:** k=3, `sonnet`, `na` counts as a valid
   "no violation", free-form findings are advisory only.

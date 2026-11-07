@@ -17,18 +17,16 @@
 #   --max-turns T                claude -p turn limit (default: 80)
 #   --max-attempts N             DoD gate attempts per plan (default: 6)
 #   --model M                    model for the implementer (default: Claude Code default)
-#   --engine claude|cursor       which CLI runs the implementer (default: claude). cursor = Cursor CLI `agent -p`;
-#                                the DoD judge is then scripts/plan_goal.sh check in a Ralph-style loop
 #   --dry-run                    only print what would run
 #
-# Env: KALETA_CROSS_REVIEW=1 (+ KALETA_CROSS_REVIEW_MODEL) is passed through
+# Env: KALETA_CROSS_REVIEW=1 (+ KALETA_CROSS_REVIEW_URL / _MODEL / _API_KEY) is passed through
 # to scripts/review_gate.sh inside the session.
 set -euo pipefail
 repo=$(git rev-parse --show-toplevel); cd "$repo"
 wt_root="$(dirname "$repo")/$(basename "$repo")-worktrees"
 log_root="$repo/logs/plans"; mkdir -p "$log_root"
 
-status_f=draft; effort_f=small; max_n=0; open_pr=0; max_turns=80; max_attempts=6; model=""; dry=0; engine=claude
+status_f=draft; effort_f=small; max_n=0; open_pr=0; max_turns=80; max_attempts=6; model=""; dry=0
 plans=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -39,7 +37,6 @@ while [ $# -gt 0 ]; do
     --max-turns) max_turns=$2; shift 2 ;;
     --max-attempts) max_attempts=$2; shift 2 ;;
     --model) model=$2; shift 2 ;;
-    --engine) engine=$2; shift 2 ;;
     --dry-run) dry=1; shift ;;
     -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     --*) echo "unknown option $1" >&2; exit 1 ;;
@@ -92,29 +89,8 @@ for id in "${plans[@]}"; do
     prompt=${prompt_tpl//\$ARGUMENTS/$id}
     args=(-p "$prompt" --permission-mode dontAsk --allowedTools "$allowed" --max-turns "$max_turns" --output-format json)
     [ -n "$model" ] && args+=(--model "$model")
-    if [ "$engine" = cursor ]; then
-      # Cursor CLI has no Stop hook: emulate the gate with a Ralph-style loop —
-      # run the agent, judge with plan_goal.sh check, feed the verdict back, repeat.
-      bin=$(command -v agent 2>/dev/null || command -v cursor-agent 2>/dev/null || true)
-      [ -n "$bin" ] || { echo "plan_runner: Cursor CLI (agent / cursor-agent) not found" >&2; exit 1; }
-      feedback=""
-      for ((i=1; i<=max_attempts; i++)); do
-        echo "plan_runner: cursor agent -p … (round $i/$max_attempts)"
-        # flags per `agent --help`; --force = apply edits without confirmation
-        "$bin" -p "$prompt"$'\n\n'"$feedback" ${model:+--model "$model"} --force --output-format text \
-          > "$log_root/$id.cursor-$i.txt" 2>&1 || true
-        if verdict=$(scripts/plan_goal.sh check 2>/dev/null); then
-          echo done > .claude/state/result; break
-        fi
-        feedback="Previous round did not pass the DoD gate. Fix exactly this, then stop:"$'\n'"$verdict"
-        [ "$(cat .claude/state/result 2>/dev/null)" = blocked ] && break
-        [ "$i" -eq "$max_attempts" ] && echo exhausted > .claude/state/result
-      done
-      printf '{"engine":"cursor","rounds":%s}' "$i" > "$log_root/$id.json"
-    else
-      echo "plan_runner: claude -p … (max-turns $max_turns, gate attempts $max_attempts)"
-      env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude "${args[@]}" > "$log_root/$id.json" || true
-    fi
+    echo "plan_runner: claude -p … (max-turns $max_turns, gate attempts $max_attempts)"
+    env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT claude "${args[@]}" > "$log_root/$id.json" || true
   )
   result=$(cat "$wt/.claude/state/result" 2>/dev/null || echo "no-result")
   mode=$(cat "$wt/.claude/state/mode" 2>/dev/null || true)

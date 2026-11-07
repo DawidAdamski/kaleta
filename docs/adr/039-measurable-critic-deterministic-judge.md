@@ -42,8 +42,10 @@ status: proposed
      bypass family isolation?" …). Each answer is `yes | no | na`, with
      `file:line` evidence that is checked deterministically. Its strength is
      a probability `p_violation`, taken as the share of *k* independent
-     samples (fresh contexts, optionally another model family) that report a
-     violation, not as verbalised confidence. The critic **never returns a
+     samples (fresh contexts; for high-risk changes one of them from another
+     model family — a local model behind an OpenAI-compatible endpoint such
+     as Unsloth Studio or Ollama) that report a violation, not as
+     verbalised confidence. The critic **never returns a
      verdict**.
   3. **Judge**: `scripts/harness/judge.py`, a pure function
      `decide(inputs, profile) -> Decision` called by the Stop hook. It runs

@@ -4,9 +4,10 @@
 
 Answers the narrow questions in ``docs/harness/critic-questions.toml`` about
 the current diff. Each of *k* independent samples (fresh ``claude -p``
-contexts, optionally one from another model family via the Cursor CLI)
-answers ``yes | no | na`` per question; a ``yes`` must cite ``file:line``
-evidence on the new side of the diff, and this script checks that evidence
+contexts, optionally one from another model family: a local model behind an
+OpenAI-compatible endpoint such as Unsloth Studio or Ollama) answers
+``yes | no | na`` per question; a ``yes`` must cite ``file:line`` evidence on
+the new side of the diff, and this script checks that evidence
 deterministically. ``p_violation`` is the share of valid samples that found
 the problem. There is no verdict: ``scripts/harness/gate.py`` decides.
 
@@ -15,8 +16,13 @@ the problem. There is no verdict: ``scripts/harness/gate.py`` decides.
 Env:
     KALETA_CRITIC_SAMPLES       k (default: profile, else 3)
     KALETA_REVIEW_MODEL         Claude model for the samples (default: sonnet)
-    KALETA_CROSS_REVIEW=1       one of the k samples from the Cursor CLI (required)
-    KALETA_CROSS_REVIEW_MODEL   Cursor model id (default: gpt-5)
+    KALETA_CROSS_REVIEW=1       one of the k samples from a local model (then required)
+    KALETA_CROSS_REVIEW_URL     OpenAI-compatible base URL (default: http://localhost:8888/v1,
+                                Unsloth Studio; Ollama: http://localhost:11434/v1)
+    KALETA_CROSS_REVIEW_MODEL   model id (default: the first one GET /models lists)
+    KALETA_CROSS_REVIEW_API_KEY bearer key, if the server wants one (Unsloth Studio: sk-unsloth-…)
+    KALETA_CROSS_REVIEW_TIMEOUT seconds for the local reply (default: 900)
+    KALETA_CROSS_REVIEW_MAX_CHARS  diff budget in the local prompt (default: 120000)
     KALETA_CRITIC_FAKE=<dir>    read canned samples (sample-<i>.json, cross.json) — tests only
 
 Writes ``.claude/state/critic.json`` and a ``review`` record in the run log.
@@ -34,6 +40,8 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
@@ -48,6 +56,8 @@ import gitutil  # noqa: E402
 import judge  # noqa: E402
 from planfile import plan_meta  # noqa: E402
 
+DEFAULT_CROSS_URL = "http://localhost:8888/v1"
+CROSS_PREFIX = "local:"
 QUESTIONS = Path("docs/harness/critic-questions.toml")
 PROFILE = Path("docs/harness/profile.toml")
 STATE = Path(".claude/state")
@@ -132,6 +142,36 @@ SCHEMA = {
 }
 
 
+LOCAL_TEMPLATE = """You are an independent expert witness reviewing a code change in a repository.
+You did NOT write this code. You cannot open files or run commands: everything you
+may use is below — the plan (the scope contract) and the diff. You do not decide
+whether the change is merged: you answer narrow questions, and a deterministic
+judge combines your answers with thresholds the owner has set.
+
+Answer EVERY question with exactly one of:
+  "yes"  the problem described IS present in this diff. You MUST cite evidence: the
+         file and the NEW-side line number. In the diff below every added or context
+         line starts with its new-side line number, e.g. "  42 + code" -> line 42.
+         A "yes" whose evidence does not point into the diff is discarded.
+  "no"   you checked, and it is not present.
+  "na"   the question does not apply, or you cannot see enough to answer.
+Answer the question as asked, not a broader one. Do not guess "yes".{truncated_note}
+
+Questions:
+{questions}
+
+=== PLAN: docs/plans/{plan_id}.md ===
+{plan}
+
+=== DIFF: git diff {base} (new-side line numbers on the left) ===
+{diff}
+
+Return ONLY a JSON object, no prose around it:
+{{"answers": [{{"id": "Q-…", "answer": "yes|no|na",
+               "evidence": [{{"file": "…", "line": 1}}], "note": "…"}}]}}
+"""
+
+
 # ── questions ────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class Question:
@@ -176,9 +216,61 @@ def render_prompt(base: str, plan_id: str, questions: list[Question]) -> str:
     return TEMPLATE.format(base=base, plan_id=plan_id, questions=qtext)
 
 
+def annotate_diff(diff: str) -> str:
+    """Prefix added and context lines with their new-side line number.
+
+    A model without tools cannot count hunk offsets reliably; with the number
+    in front of every line its ``file:line`` evidence can be checked like Claude's.
+    """
+    out: list[str] = []
+    new_no = 0
+    for raw in diff.splitlines():
+        if raw.startswith("@@"):
+            new = raw.split("+", 1)[1].split(" ", 1)[0]
+            new_no = int(new.split(",")[0])
+            out.append(raw)
+        elif raw.startswith(
+            ("+++", "---", "diff ", "index ", "new file", "deleted file", "similarity", "rename ")
+        ):
+            out.append(raw)
+        elif raw.startswith("+"):
+            out.append(f"{new_no:>5} {raw}")
+            new_no += 1
+        elif raw.startswith("-"):
+            out.append(f"{'':>5} {raw}")
+        elif raw.startswith(" "):
+            out.append(f"{new_no:>5} {raw}")
+            new_no += 1
+        else:
+            out.append(raw)
+    return "\n".join(out)
+
+
+def render_local_prompt(
+    base: str, plan_id: str, plan_text: str, questions: list[Question], diff: str, max_chars: int
+) -> tuple[str, bool]:
+    annotated = annotate_diff(diff)
+    truncated = len(annotated) > max_chars
+    if truncated:
+        annotated = annotated[:max_chars] + "\n... [TRUNCATED]"
+    note = (
+        '\nThe diff was TRUNCATED: answer "na" for anything you could not see.' if truncated else ""
+    )
+    qtext = "\n".join(
+        f"- {q.id}: {q.text}" + (f"\n  (evidence for yes: {q.evidence})" if q.evidence else "")
+        for q in questions
+    )
+    prompt = LOCAL_TEMPLATE.format(
+        base=base, plan_id=plan_id, plan=plan_text, diff=annotated, questions=qtext,
+        truncated_note=note,
+    )  # fmt: skip
+    return prompt, truncated
+
+
 def critic_hash(root: Path, models: list[str]) -> str:
     h = hashlib.sha256()
     h.update(TEMPLATE.encode())
+    h.update(LOCAL_TEMPLATE.encode())
     h.update((root / QUESTIONS).read_bytes())
     h.update("|".join(models).encode())
     return h.hexdigest()[:16]
@@ -246,29 +338,60 @@ def claude_sample(prompt: str, model: str, idx: int) -> Sample:
     )
 
 
-def cursor_sample(prompt: str, model: str) -> Sample:
-    binary = shutil.which("agent") or shutil.which("cursor-agent")
-    reviewer = f"cursor:{model}"
-    if not binary:
-        return Sample(
-            reviewer, model, False, error="Cursor CLI (agent / cursor-agent) is not installed"
-        )
-    out = subprocess.run(
-        [binary, "-p", prompt, "--model", model, "--output-format", "text"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    (STATE / "critic-raw-cross.txt").write_text(out.stdout + out.stderr, encoding="utf-8")
-    payload = _first_json_object(out.stdout)
+def _strip_thinking(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.S)
+
+
+def _http_json(
+    url: str, payload: dict[str, Any] | None, key: str, timeout: float
+) -> dict[str, Any]:
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def local_sample(prompt: str, url: str, model: str, key: str, timeout: float) -> Sample:
+    """One sample from a local model behind an OpenAI-compatible endpoint."""
+    url = url.rstrip("/")
+    try:
+        if not model:
+            listed = _http_json(f"{url}/models", None, key, 30).get("data") or []
+            if not listed:
+                return Sample(f"{CROSS_PREFIX}?", "", False, error=f"{url}/models lists no model")
+            model = str(listed[0]["id"])
+        reviewer = f"{CROSS_PREFIX}{model}"
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            reply = _http_json(f"{url}/chat/completions", body, key, timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (400, 422):
+                raise
+            body.pop("response_format")  # a server that cannot constrain JSON
+            reply = _http_json(f"{url}/chat/completions", body, key, timeout)
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError) as exc:
+        reviewer = f"{CROSS_PREFIX}{model or '?'}"
+        return Sample(reviewer, model, False, error=f"local model at {url} unavailable: {exc}")
+    content = str(((reply.get("choices") or [{}])[0].get("message") or {}).get("content") or "")
+    (STATE / "critic-raw-cross.txt").write_text(content, encoding="utf-8")
+    payload = _first_json_object(_strip_thinking(content))
     if not payload or "answers" not in payload:
-        return Sample(reviewer, model, False, error="Cursor reviewer output could not be parsed")
+        return Sample(reviewer, model, False, error="local model output could not be parsed")
     return Sample(
         reviewer,
         model,
         True,
         answers=list(payload["answers"]),
         findings=list(payload.get("findings") or []),
+        turns=1,
     )
 
 
@@ -421,8 +544,12 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
     k = samples or int(os.environ.get("KALETA_CRITIC_SAMPLES") or prof_samples or DEFAULT_SAMPLES)
     cross = os.environ.get("KALETA_CROSS_REVIEW") == "1" or cross_required
     model = os.environ.get("KALETA_REVIEW_MODEL", "sonnet")
-    cross_model = os.environ.get("KALETA_CROSS_REVIEW_MODEL", "gpt-5")
-    models = [model] + ([f"cursor:{cross_model}"] if cross else [])
+    cross_url = os.environ.get("KALETA_CROSS_REVIEW_URL", DEFAULT_CROSS_URL)
+    cross_model = os.environ.get("KALETA_CROSS_REVIEW_MODEL", "")
+    cross_key = os.environ.get("KALETA_CROSS_REVIEW_API_KEY", "")
+    cross_timeout = float(os.environ.get("KALETA_CROSS_REVIEW_TIMEOUT") or 900)
+    max_chars = int(os.environ.get("KALETA_CROSS_REVIEW_MAX_CHARS") or 120_000)
+    models = [model] + ([f"{CROSS_PREFIX}{cross_model or 'auto'}"] if cross else [])
     chash = critic_hash(root, models)
     prompt = render_prompt(base, plan_id, questions)
     n_claude = max(k - 1, 1) if cross else k
@@ -431,7 +558,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
         print(f"critic: plan {plan_id}, base {base[:12]}, critic hash {chash}, risk {risk_class}")
         print(
             f"critic: {n_claude} Claude sample(s) ({model})"
-            + (f" + 1 cross ({cross_model})" if cross else "")
+            + (f" + 1 local ({cross_model or 'first model'} at {cross_url})" if cross else "")
         )
         for q in questions:
             print(f"  {q.id:20} {q.section}")
@@ -446,14 +573,35 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
             ]
             cross_future = (
                 pool.submit(
-                    fake_sample, Path(fake), "cross.json", f"cursor:{cross_model}", cross_model
+                    fake_sample,
+                    Path(fake),
+                    "cross.json",
+                    f"{CROSS_PREFIX}{cross_model or 'fake'}",
+                    cross_model or "fake",
                 )
                 if cross
                 else None
             )
         else:
             futures = [pool.submit(claude_sample, prompt, model, i) for i in range(1, n_claude + 1)]
-            cross_future = pool.submit(cursor_sample, prompt, cross_model) if cross else None
+            cross_future = None
+            if cross:
+                local_prompt, truncated = render_local_prompt(
+                    base,
+                    plan_id,
+                    plan.read_text(encoding="utf-8"),
+                    questions,
+                    gitutil.git("diff", "-U3", base, "--", ".", gitutil.RUNS_PATHSPEC, check=False),
+                    max_chars,
+                )
+                if truncated:
+                    print(
+                        f"critic: diff truncated to {max_chars} chars for the local model",
+                        file=sys.stderr,
+                    )
+                cross_future = pool.submit(
+                    local_sample, local_prompt, cross_url, cross_model, cross_key, cross_timeout
+                )
         results = [f.result() for f in futures]
         cross_result = cross_future.result() if cross_future else None
 
@@ -464,7 +612,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
             status, error_kind = "error", "cross_unavailable"
             error = f"cross-family sample required but failed: {cross_result.error}"
     ok_samples = [s for s in results if s.ok]
-    if not any(s.ok and not s.reviewer.startswith("cursor:") for s in results):
+    if not any(s.ok and not s.reviewer.startswith(CROSS_PREFIX) for s in results):
         status, error_kind = "error", "no_samples"
         error = "; ".join(sorted({s.error for s in results if s.error})) or "no sample succeeded"
 
@@ -487,7 +635,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
         "error_kind": error_kind,
         "error": error,
         "risk_class": risk_class,
-        "cross_family_present": any(s.ok and s.reviewer.startswith("cursor:") for s in results),
+        "cross_family_present": any(s.ok and s.reviewer.startswith(CROSS_PREFIX) for s in results),
         "samples": [
             {
                 "reviewer": s.reviewer,

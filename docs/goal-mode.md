@@ -4,7 +4,7 @@ Goal mode turns a plan in `docs/plans/` into a completion condition. The
 agent works until a **deterministic judge** says the plan is done; it
 cannot declare victory by itself. The judge is a Claude Code `Stop`
 hook, but every check it runs is a plain script, so the same gate works
-from Cursor or a headless runner.
+from a headless runner or any agent CLI driven in a loop.
 
 The roles follow a separation of powers
 ([ADR-39](adr/039-measurable-critic-deterministic-judge.md)): the
@@ -47,7 +47,7 @@ scripts/plan_goal.sh start ──► .claude/state/active-plan   (arms the gate)
 | `.claude/commands/implement-plan.md` | `/implement-plan <plan_id>` — the interactive entry point; also the prompt used by the runner |
 | `.claude/agents/reviewer.md` | interactive critic: the same questions, with explanations |
 | `scripts/plan_goal.sh` | `start / status / block / finish` — goal state in `.claude/state/` |
-| `scripts/review_gate.sh` → `scripts/harness/critic.py` | the critic: k samples answer the narrow questions in `docs/harness/critic-questions.toml`; writes `critic.json` (+ optional Cursor CLI sample) |
+| `scripts/review_gate.sh` → `scripts/harness/critic.py` | the critic: k samples answer the narrow questions in `docs/harness/critic-questions.toml`; writes `critic.json` (+ a local-model sample from another family) |
 | `scripts/plan_runner.sh` | headless queue consumer over `docs/plans/` |
 | `scripts/plan_archive.sh` | archive a merged plan (used by `.github/workflows/plan-archive.yml`) |
 | `.claude/state/` | runtime state, git-ignored: `active-plan`, `attempts`, `result`, `review-verdict.json`, `verify-last.log` |
@@ -154,20 +154,28 @@ scripts/review_gate.sh                    # k samples
 KALETA_CRITIC_SAMPLES=5 scripts/review_gate.sh
 ```
 
-One sample from another model family (hybrid setup with Cursor):
+One sample from **another model family** — a local model behind an
+OpenAI-compatible endpoint (Unsloth Studio, Ollama, llama.cpp server):
 
 ```bash
-export KALETA_CROSS_REVIEW=1
-export KALETA_CROSS_REVIEW_MODEL=gpt-5      # any model the Cursor CLI can use
+export KALETA_CROSS_REVIEW=1                              # required for high-risk changes anyway
+export KALETA_CROSS_REVIEW_URL=http://localhost:8888/v1   # Unsloth Studio (default); Ollama: http://localhost:11434/v1
+export KALETA_CROSS_REVIEW_API_KEY=sk-unsloth-…           # Unsloth Studio: Settings → API; Ollama: none
+export KALETA_CROSS_REVIEW_MODEL=unsloth/Qwen3.8-27B-GGUF # default: the first id GET /models lists
 scripts/review_gate.sh
 ```
 
-The cross sample counts toward k. Requires the Cursor CLI
-(`curl https://cursor.com/install -fsS | bash`, binary `agent`, older
-installs `cursor-agent`). If it was requested and cannot run, the critic
-fails (`status: error`, `error_kind: cross_unavailable`) instead of
-quietly continuing with Claude alone. Raw outputs land in
-`.claude/state/critic-raw-*.json` / `critic-raw-cross.txt`.
+The local sample counts toward k. It cannot open files or run tests, so
+it gets the plan and the diff in its prompt; every diff line carries its
+new-side line number, so its `file:line` evidence is checked exactly like
+Claude's. Large diffs are cut at `KALETA_CROSS_REVIEW_MAX_CHARS` (default
+120 000 characters, about 30k tokens) and the model is told to answer
+`na` for what it could not see. The request asks for JSON mode and falls
+back to plain output when the server refuses it; a `<think>` block is
+dropped before parsing. If the sample was required and the server is not
+up, the critic fails (`status: error`, `error_kind: cross_unavailable`)
+and the judge escalates instead of quietly continuing with Claude alone.
+Raw output lands in `.claude/state/critic-raw-cross.txt`.
 
 Model choices: `KALETA_REVIEW_MODEL` (default `sonnet`) for the Claude
 samples; `--model` on the runner for the implementer. The critic hash
@@ -304,32 +312,15 @@ The harness has its own tests, next to it and protected with it:
 - **Semantic drift.** Everything green, reviewer approved, behaviour
   still not what you meant. That is why merge stays human.
 
-## Cursor: the same gate, a different loop
+## Other agents: the same gate, a different loop
 
 Nothing here depends on Claude Code to *judge* a plan — the judge is
-`scripts/plan_goal.sh check` (plan hygiene, acceptance criteria,
-`verify.sh`, green-washing, review verdict). Claude Code only adds the
-`Stop` hook that calls it automatically and blocks the session.
-
-Cursor has no equivalent "block the stop and feed the reason back"
-hook, so the loop is Ralph-style instead — same judge, driven from
-outside:
-
-- **Interactive in Cursor**: arm the plan (`scripts/plan_goal.sh start <id>`),
-  tell the agent to implement the plan per AGENTS.md and to run
-  `scripts/plan_goal.sh check` before it stops, fixing whatever it
-  prints, until it passes. The rules in `.cursor/rules/kaleta.mdc` still
-  apply (no commits without asking).
-- **Headless with the Cursor CLI**: `scripts/plan_runner.sh --engine cursor --model <id> <plan_id>`
-  runs `agent -p` up to `--max-attempts` rounds, judges with
-  `plan_goal.sh check` after each, and feeds the verdict back. Any model
-  the Cursor CLI exposes works, Anthropic ones included.
-- **Cursor as second reviewer**: `KALETA_CROSS_REVIEW=1` (see above).
-
-Trade-off in one line: Cursor gives you one subscription and every model
-family; Claude Code gives you the native Stop hook (no external loop),
-`/goal`, subagents with their own context, and the Agent SDK for the
-Tekton stage. The gate is shared, so you can switch engines per plan.
+`scripts/plan_goal.sh check`. Claude Code only adds the `Stop` hook that
+calls it automatically and blocks the session. An agent without such a hook
+(a local one on Unsloth Studio or Ollama, for instance) can be driven
+Ralph-style: arm the plan, run the agent, run `scripts/plan_goal.sh check`,
+feed its output back, repeat up to the attempt limit. `plan_runner.sh` only
+ships the Claude Code engine today.
 
 ## Roadmap for this harness
 
@@ -337,7 +328,7 @@ Tekton stage. The gate is shared, so you can switch engines per plan.
   review → pr) with the same scripts inside a runner image; Flux keeps
   the pipeline manifests in sync. The scripts already avoid interactive
   git and take everything from env/args for that reason.
-- OpenRouter as a second reviewer backend when the Cursor CLI is not
-  available on the runner.
+- A homelab endpoint (the RTX 4080 box) as the cross-family critic for
+  runs where the laptop's local model is not up.
 - Ship `logs/plans/*.json` (turns, cost, result) to Loki/Grafana for a
   per-plan cost and success dashboard.

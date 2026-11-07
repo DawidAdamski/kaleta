@@ -151,9 +151,10 @@ Does **not** cover:
   blocks with "run the critic again" (`critic.no_answer.*`) rather than
   counting as clean.
 - **Cross-family required for high risk** (`cross_family_required =
-  ["high"]`): without the Cursor CLI, a high-risk plan ends escalated with
-  the reason, which is the owner's call by design. Remove `"high"` from the
-  list in the profile to relax it.
+  ["high"]`): the sample comes from a local model (Unsloth Studio or
+  Ollama, see `critic-narrow-questions`). If that server is not up, a
+  high-risk plan ends escalated with the reason, which is the owner's call
+  by design. Remove `"high"` from the list in the profile to relax it.
 - **Dry runs** (`plan_goal.sh check`) report "would be DONE in mode X" or
   "Would ESCALATE" without touching `result`.
 - **Labels.** `plan_runner.sh --pr` creates `autonomy:<mode>` (and
