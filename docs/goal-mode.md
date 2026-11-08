@@ -36,9 +36,9 @@ scripts/plan_goal.sh start ──► .claude/state/active-plan   (arms the gate)
 | `.claude/hooks/protect-files.sh` | **PreToolUse hook** — agent cannot edit the paths in `docs/harness/protected-paths.txt` (harness, owner's rules, archived plans, applied migrations) unless the session runs in maintainer mode |
 | `docs/harness/protected-paths.txt` | the one list of protected paths, read by the hook and by the gate |
 | `.claude/commands/implement-plan.md` | `/implement-plan <plan_id>` — the interactive entry point; also the prompt used by the runner |
-| `.claude/agents/reviewer.md` | interactive, explainable review (same rubric as CI) |
+| `.claude/agents/reviewer.md` | interactive critic: the same questions, with explanations |
 | `scripts/plan_goal.sh` | `start / status / block / finish` — goal state in `.claude/state/` |
-| `scripts/review_gate.sh` | independent headless reviewer (+ optional Cursor CLI second opinion); writes the verdict the gate requires |
+| `scripts/review_gate.sh` → `scripts/harness/critic.py` | the critic: k samples answer the narrow questions in `docs/harness/critic-questions.toml`; writes `critic.json` (+ optional Cursor CLI sample) |
 | `scripts/plan_runner.sh` | headless queue consumer over `docs/plans/` |
 | `scripts/plan_archive.sh` | archive a merged plan (used by `.github/workflows/plan-archive.yml`) |
 | `.claude/state/` | runtime state, git-ignored: `active-plan`, `attempts`, `result`, `review-verdict.json`, `verify-last.log` |
@@ -115,15 +115,36 @@ The gate disarms itself once the plan file lands in `archive/` (or when
 the result is `done` and you are no longer on the plan branch), so a
 forgotten `plan_goal.sh finish` cannot judge an unrelated session.
 
-## The reviewer(s)
+## The critic
 
-`scripts/review_gate.sh` spawns a read-only `claude -p` in a fresh context
-with `docs/review-checklist.md` as rubric and the plan as scope contract —
-the same instructions as the CI reviewer, so a local approve predicts the
-PR review. The verdict is bound to a hash of the diff; any further edit
-makes it stale and the gate demands a re-review.
+The critic is an expert witness, not a judge
+([ADR-39](adr/039-measurable-critic-deterministic-judge.md)).
+`scripts/review_gate.sh` runs `scripts/harness/critic.py`:
 
-Second opinion from another model family (hybrid setup with Cursor):
+1. picks the questions from `docs/harness/critic-questions.toml` whose
+   `applies_to` globs match the changed paths (scope, service tests, view
+   logic, tenant isolation, auth surface, migrations, `KAL-` scenarios,
+   truthful notes, secrets);
+2. runs **k samples** (default 3) — fresh, read-only `claude -p` contexts,
+   each answering every question `yes | no | na`;
+3. **checks the evidence**: a `yes` must cite `file:line` within five lines
+   of a changed line, otherwise that sample's answer is discarded as invalid
+   rather than counted as a violation;
+4. reports `p_violation` per question — the share of valid samples that
+   found the problem — in `.claude/state/critic.json` and the run log.
+
+There is no verdict. The gate blocks when a question reaches 2 of 3 and
+warns below that (until `judge-profile-and-autonomy` replaces this rule
+with the owner's profile). The result is bound to the diff hash; any
+further edit makes it stale.
+
+```bash
+scripts/review_gate.sh --dry-run          # which questions apply, critic hash, no model call
+scripts/review_gate.sh                    # k samples
+KALETA_CRITIC_SAMPLES=5 scripts/review_gate.sh
+```
+
+One sample from another model family (hybrid setup with Cursor):
 
 ```bash
 export KALETA_CROSS_REVIEW=1
@@ -131,14 +152,18 @@ export KALETA_CROSS_REVIEW_MODEL=gpt-5      # any model the Cursor CLI can use
 scripts/review_gate.sh
 ```
 
-Requires the Cursor CLI (`curl https://cursor.com/install -fsS | bash`,
-binary `agent`, older installs `cursor-agent`). Both reviewers must
-approve. The CLI flags (`-p`, `--model`, `--output-format`) are checked
-against `agent --help` if the call fails — the script logs raw output to
-`.claude/state/review-cross-raw.txt`.
+The cross sample counts toward k. Requires the Cursor CLI
+(`curl https://cursor.com/install -fsS | bash`, binary `agent`, older
+installs `cursor-agent`). If it was requested and cannot run, the critic
+fails (`status: error`, `error_kind: cross_unavailable`) instead of
+quietly continuing with Claude alone. Raw outputs land in
+`.claude/state/critic-raw-*.json` / `critic-raw-cross.txt`.
 
 Model choices: `KALETA_REVIEW_MODEL` (default `sonnet`) for the Claude
-reviewer; `--model` on the runner for the implementer.
+samples; `--model` on the runner for the implementer. The critic hash
+(prompt template + question file + models) identifies the critic a
+calibration report applies to. The interactive `reviewer` subagent asks
+the same questions and explains its answers.
 
 ## Run log
 
@@ -152,8 +177,9 @@ next to the code.
   tail and duration, changed paths, green-washing hits, the decision and the
   outcome (`block`, `done`, `exhausted`). `plan_goal.sh check` runs are
   marked `dry`.
-- **review** records: diff hash, reviewers, verdict, findings, cost in USD
-  and turns.
+- **review** records: the full critic result — diff hash, critic hash,
+  status, every sample (reviewer, model, cost, turns), `p_violation` with
+  evidence per question, advisory findings.
 - Every record carries `seq`, `prev` and `sha`: editing, deleting or
   reordering a line breaks the chain. `gate_log.py verify` runs in CI.
 - The log is excluded from the diff hash, so writing a record never makes a
@@ -190,9 +216,9 @@ KALETA_HARNESS_MAINTAINER=1 claude      # hooks inherit this; the agent cannot s
   review); the owner reads the diff before merging anyway.
 - Exhaustion is terminal: once `result` is `exhausted` the gate stays quiet
   until `scripts/plan_goal.sh start <plan_id>` re-arms the plan.
-- A requested cross-family review (`KALETA_CROSS_REVIEW=1`) that cannot run
-  makes `review_gate.sh` fail with `verdict: "error"` instead of silently
-  continuing with one reviewer.
+- A requested cross-family sample (`KALETA_CROSS_REVIEW=1`) that cannot run
+  makes the critic fail with `status: error` instead of silently continuing
+  with one model family.
 
 The harness has its own tests, next to it and protected with it:
 `uv run pytest scripts/harness/tests` (part of `verify.sh`).
@@ -203,10 +229,11 @@ The harness has its own tests, next to it and protected with it:
   `transactions-notes-field`) list criteria as sentences. The gate warns
   and relies on verify.sh + the reviewer. Rewrite criteria as backtick
   commands (`docs/plans/README.md`) before running a plan headless.
-- **Forged verdicts.** The agent may run Bash; a determined model could
-  write `.claude/state/review-verdict.json` by hand. The Edit/Write
-  tools are blocked on that path and the prompt forbids it, but this is a
-  personal repo, not a sandbox. In CI use `--bare` and a separate step.
+- **Forged critic results.** The agent may run Bash; a determined model
+  could write `.claude/state/critic.json` by hand. The Edit/Write tools are
+  blocked on that path, the prompt forbids it, and the run log would lack
+  the matching review record, but this is a personal repo, not a sandbox.
+  In CI use `--bare` and a separate step.
 - **Semantic drift.** Everything green, reviewer approved, behaviour
   still not what you meant. That is why merge stays human.
 

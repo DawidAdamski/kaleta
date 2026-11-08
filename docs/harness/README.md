@@ -8,6 +8,7 @@ it. See [goal-mode.md](../goal-mode.md) for how the loop uses it.
 | Path | What it is |
 |---|---|
 | `protected-paths.txt` | paths the agent may not change (hook and gate) |
+| `critic-questions.toml` | the narrow questions the critic answers, with evidence |
 | `runs/` | run logs, one hash-chained JSONL per plan, written by the gate and the critic |
 
 Changes here need maintainer mode (`KALETA_HARNESS_MAINTAINER=1 claude`).

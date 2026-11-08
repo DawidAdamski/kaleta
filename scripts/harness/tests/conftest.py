@@ -182,5 +182,64 @@ def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
     yield h
 
 
+def approve(repo: HarnessRepo, questions: list[dict] | None = None, **extra: object) -> None:
+    """A fresh critic result for the current diff; by default every question is clean."""
+    qs = (
+        questions
+        if questions is not None
+        else [
+            {
+                "id": "Q-SCOPE",
+                "p_violation": 0.0,
+                "violations": 0,
+                "k_valid": 3,
+                "evidence": [],
+                "notes": [],
+            }
+        ]
+    )
+    repo.write(
+        ".claude/state/critic.json",
+        json.dumps(
+            {
+                "version": 2,
+                "diff_hash": repo.diff_hash(),
+                "status": "ok",
+                "critic_hash": "test",
+                "cross_family_present": False,
+                "questions": qs,
+            }
+            | extra
+        ),
+    )
+
+
+def fake_samples(repo: HarnessRepo, samples: list[dict], cross: dict | None = None) -> str:
+    """Write canned critic samples; returns the directory for KALETA_CRITIC_FAKE."""
+    d = repo.root.parent / "fake-critic"
+    d.mkdir(exist_ok=True)
+    for f in d.glob("*.json"):
+        f.unlink()
+    for i, sample in enumerate(samples, start=1):
+        (d / f"sample-{i}.json").write_text(json.dumps(sample), encoding="utf-8")
+    if cross is not None:
+        (d / "cross.json").write_text(json.dumps(cross), encoding="utf-8")
+    return str(d)
+
+
+def answers(**by_id: str | tuple[str, str, int]) -> dict:
+    """answers(Q_SCOPE="no", Q_SERVICE_TEST=("yes", "src/app.py", 1)) -> a sample payload."""
+    out = []
+    for key, val in by_id.items():
+        qid = key.replace("_", "-")
+        if isinstance(val, tuple):
+            out.append(
+                {"id": qid, "answer": val[0], "evidence": [{"file": val[1], "line": val[2]}]}
+            )
+        else:
+            out.append({"id": qid, "answer": val})
+    return {"answers": out, "cost_usd": 0.1}
+
+
 def edit_payload(path: str) -> str:
     return json.dumps({"tool_name": "Edit", "tool_input": {"file_path": path}})

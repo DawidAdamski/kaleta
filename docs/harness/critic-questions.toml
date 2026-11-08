@@ -1,0 +1,88 @@
+# Critic questions (ADR-39) — the owner's, read-only for the agent.
+#
+# The critic answers every applicable question with yes / no / na. "yes"
+# means the problem IS present and must cite file:line on the new side of
+# the diff; scripts/harness/critic.py discards a "yes" whose evidence does not
+# point into the diff. The strength of an answer is p_violation: the share of
+# k independent samples that found the problem. The critic never returns a
+# verdict; the judge combines the answers with the thresholds in profile.toml.
+#
+# Fields:
+#   id          stable id, referenced by profile.toml thresholds and calibration
+#   section     review-checklist.md section the question comes from
+#   applies_to  path globs (`*` crosses `/`); empty = every change
+#   evidence    what a "yes" has to point at
+#   text        the question, phrased so that "yes" = a problem
+#
+# Changing a question changes the critic hash, so an existing calibration
+# report stops counting for it (critic-calibration-set).
+
+[[question]]
+id = "Q-SCOPE"
+section = "1. Scope"
+applies_to = []
+evidence = "a changed line that is outside the plan's Scope or inside its Not-in-scope list"
+text = '''Does the diff change something outside the plan's Scope, or something its "Not in scope" / "Does not cover" section excludes, without a reason recorded in Implementation notes? Drive-by refactors, repo-wide formatting and unrelated fixes count.'''
+
+[[question]]
+id = "Q-SERVICE-TEST"
+section = "4. Tests"
+applies_to = ["src/kaleta/services/*"]
+evidence = "the new or changed service function that no test exercises"
+text = '''Is there new or changed logic under src/kaleta/services/ that no unit or integration test in this diff or in the existing suite exercises? Read the tests; a test that only imports the module does not count.'''
+
+[[question]]
+id = "Q-REGRESSION-TEST"
+section = "4. Tests"
+applies_to = ["src/*"]
+evidence = "the fixed line that no test would catch if it were reverted"
+text = '''Is this change (or part of it) a bug fix that comes without a test which would fail if the fix were reverted? Answer "na" when nothing in the diff fixes a bug.'''
+
+[[question]]
+id = "Q-VIEW-LOGIC"
+section = "4. Tests"
+applies_to = ["src/kaleta/views/*"]
+evidence = "the query or business computation added to a view"
+text = '''Does the diff add database queries, money arithmetic or other business rules inside src/kaleta/views/ instead of calling a service (ADR-32: views call services directly)? Formatting values for display is not business logic.'''
+
+[[question]]
+id = "Q-TENANT-ISOLATION"
+section = "5a. Security"
+applies_to = ["src/*", "scripts/*"]
+evidence = "the query, session or SQL that can cross the family boundary"
+text = '''Can any new or changed query, session or raw SQL read or write data outside the current family's schema — for example a public()/registry session used for family data, raw SQL built from user input, or a schema identifier that is not validated?'''
+
+[[question]]
+id = "Q-AUTH-SURFACE"
+section = "5a. Security"
+applies_to = ["src/kaleta/api/*", "src/kaleta/views/*", "src/kaleta/auth/*", "src/kaleta/main.py"]
+evidence = "the route or handler that is reachable without the right guard"
+text = '''Does the diff add or change a route, page or handler that is reachable without authentication, outside the auth-gated v1_router, or that changes state on a cookie session alone where a bearer token is required? Also count new unauthenticated disclosure of versions, tenant ids or internal state.'''
+
+[[question]]
+id = "Q-MIGRATION"
+section = "5. Data & migrations"
+applies_to = ["src/kaleta/models/*", "alembic/*", "alembic_public/*"]
+evidence = "the model change without a migration, or the irreversible migration step"
+text = '''Does a model change come without a matching Alembic migration, or does a new migration lack a working downgrade, or does the diff rewrite an already-applied migration?'''
+
+[[question]]
+id = "Q-KAL-SCENARIO"
+section = "4. Tests"
+applies_to = ["src/kaleta/views/*", "src/kaleta/api/*", "src/kaleta/services/*"]
+evidence = "the user-facing behaviour that has no KAL- scenario"
+text = '''Does the diff add or change user-facing behaviour without a matching KAL- scenario in docs/bdd.md, or tag a scenario @automated without a test whose docstring says "Covers: KAL-…"?'''
+
+[[question]]
+id = "Q-NOTES-TRUTH"
+section = "6. Documentation & housekeeping"
+applies_to = []
+evidence = "the sentence in Implementation notes that the diff contradicts"
+text = '''Does the plan's Implementation notes section claim something the diff contradicts — a test, file, decision or behaviour that is not actually there, or a resolved open question that the code resolves differently?'''
+
+[[question]]
+id = "Q-SECRET-DATA"
+section = "5. Data & migrations"
+applies_to = []
+evidence = "the line with the secret, real personal or financial data, or the database dump"
+text = '''Does the diff contain a secret (API key, token, password, private key), real personal or financial data, or a database file or dump?'''
