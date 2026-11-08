@@ -28,8 +28,13 @@ if [ -f "docs/plans/archive/$plan_id.md" ] || { [ "$(cat "$state/result" 2>/dev/
   exit 0
 fi
 
-# Explicit escape hatch: scripts/plan_goal.sh block "<reason>"
-if [ "$(cat "$state/result" 2>/dev/null)" = "blocked" ]; then exit 0; fi
+# Terminal states: blocked (scripts/plan_goal.sh block "<reason>"), exhausted
+# (attempts used up). The gate stays quiet until scripts/plan_goal.sh start
+# re-arms the plan — a later green run must not flip `exhausted` to `done`.
+case "$(cat "$state/result" 2>/dev/null)" in
+  blocked) exit 0 ;;
+  exhausted) [ "${DOD_GATE_DRY:-0}" = 1 ] || exit 0 ;;
+esac
 
 max=$(cat "$state/max-attempts" 2>/dev/null || echo 6)
 attempt=$(( $(cat "$state/attempts" 2>/dev/null || echo 0) + 1 ))
@@ -43,6 +48,21 @@ note() { warn+=("$1"); }
 [ -f "$plan" ] || { echo "dod-gate: plan $plan missing, gate disabled" >&2; exit 0; }
 
 base=$(git merge-base HEAD main 2>/dev/null || echo main)
+
+# ── 0a. protected paths (ADR-39): the Edit guard does not see Bash edits ──
+# shellcheck source=../../scripts/harness/protected-lib.sh
+if . scripts/harness/protected-lib.sh 2>/dev/null; then
+  export HARNESS_ROOT=$root HARNESS_BASE=$base
+  touched=()
+  while IFS= read -r p; do
+    [ -n "$p" ] && harness_protected "$p" diff && touched+=("$p")
+  done < <({ git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u)
+  if [ ${#touched[@]} -gt 0 ] && [ "${KALETA_HARNESS_MAINTAINER:-0}" != 1 ]; then
+    add "Protected paths changed outside maintainer mode (docs/harness/protected-paths.txt): ${touched[*]}. Revert them — only the maintainer changes the harness."
+  fi
+else
+  add "scripts/harness/protected-lib.sh is missing — the gate cannot check protected paths."
+fi
 
 # ── 0. plan hygiene (Working Agreement 1, 7) ─────────────────────────────
 grep -q '^status: in-progress' "$plan" || add "Plan frontmatter must say 'status: in-progress' while work is ongoing ($plan)."

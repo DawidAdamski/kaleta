@@ -1,0 +1,42 @@
+# Paths the implementer agent may not change (ADR-39, plan harness-maintainer-mode).
+#
+# Read by .claude/hooks/protect-files.sh (blocks Edit/Write/MultiEdit) and by
+# the DoD gate (vetoes a diff that changed one of these outside maintainer
+# mode — this closes the `sed -i` / `cat >` route around the Edit guard).
+#
+# One glob per line, relative to the repo root. `*` matches any characters,
+# including `/` (bash `[[ == ]]` and Python fnmatch agree on this).
+# Prefixes:
+#   tracked:<glob>             protected only once git tracks the file
+#                              (existing migrations are immutable, new ones are fine)
+#   written-by-harness:<glob>  the hooks and harness scripts write here; the agent's
+#                              Edit/Write is blocked, the diff veto does not apply
+#                              (integrity comes from the hash chain, gate-audit-log)
+#
+# The first matching line wins, so exemptions come before broader globs.
+# Changing this file is itself a harness change: maintainer mode only.
+
+# Run logs: written by the gate and the critic, never by the agent
+written-by-harness:docs/harness/runs/*
+
+# The harness: hooks, their wiring, the goal-mode entry point, runtime state
+.claude/hooks/*
+.claude/settings.json
+.claude/state/*
+.claude/commands/implement-plan.md
+
+# The judge and its scripts
+scripts/verify.sh
+scripts/review_gate.sh
+scripts/plan_goal.sh
+scripts/plan_runner.sh
+scripts/harness/*
+
+# Legislation: profile, critic questions, checklist, calibration gold labels
+docs/harness/*
+docs/review-checklist.md
+tests/harness/critic_cases/*
+
+# Frozen history
+docs/plans/archive/*
+tracked:alembic/versions/*

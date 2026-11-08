@@ -75,10 +75,12 @@ claude_verdict=$(printf '%s' "$claude_verdict" | jq -c '.findings = [(.findings 
 reviewers='["claude"]'
 merged="$claude_verdict"
 
+cross_error=""
 if [ "${KALETA_CROSS_REVIEW:-0}" = "1" ]; then
   bin=$(command -v agent 2>/dev/null || command -v cursor-agent 2>/dev/null || true)
   if [ -z "$bin" ]; then
-    echo "review_gate: KALETA_CROSS_REVIEW=1 but Cursor CLI (agent / cursor-agent) not found — skipping" >&2
+    echo "review_gate: KALETA_CROSS_REVIEW=1 but Cursor CLI (agent / cursor-agent) not found" >&2
+    cross_error="cross reviewer requested but the Cursor CLI (agent / cursor-agent) is not installed"
   else
     model=${KALETA_CROSS_REVIEW_MODEL:-gpt-5}
     echo "review_gate: Cursor CLI reviewer ($model) …" >&2
@@ -95,9 +97,17 @@ print(json.dumps(json.loads(m.group(0))) if m else "")' "$state/review-cross-raw
           findings: ($a.findings + $b.findings)}')
       reviewers="[\"claude\",\"cursor:$model\"]"
     else
-      echo "review_gate: could not parse the Cursor reviewer output (see $state/review-cross-raw.txt) — ignoring it" >&2
+      echo "review_gate: could not parse the Cursor reviewer output (see $state/review-cross-raw.txt)" >&2
+      cross_error="cross reviewer output could not be parsed (see $state/review-cross-raw.txt)"
     fi
   fi
+fi
+
+# A requested second opinion that did not happen is an error, not a quiet
+# downgrade to one reviewer (ADR-39).
+if [ -n "$cross_error" ]; then
+  merged=$(jq -n -c --argjson a "$merged" --arg e "$cross_error" \
+    '{verdict: "error", findings: ($a.findings + [{file: "-", summary: $e, reviewer: "review_gate"}])}')
 fi
 
 jq -n -c --arg plan "$plan_id" --arg h "$diff_hash" --argjson v "$merged" --argjson r "$reviewers" \

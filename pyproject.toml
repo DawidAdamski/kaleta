@@ -144,6 +144,9 @@ ignore = [
 "tests/**" = ["S101", "S104", "S105", "S106", "S603", "S607", "S608", "SLF001"]
 # Operator scripts: demo password, subprocess calls, benchmark randomness.
 "scripts/**" = ["S105", "S310", "S311", "S603", "S607"]
+# Harness tests (ADR-39) live next to the harness so the agent cannot edit them;
+# they are tests, with the same allowances as tests/**.
+"scripts/harness/tests/**" = ["S101", "S105", "S603", "S607", "SLF001"]
 # Data migrations build statements from literal table names, and record the
 # historical schema verbatim — including the one legitimate Float column
 # (a 0..1 similarity score), so the money-guard (TID251) does not apply here.
