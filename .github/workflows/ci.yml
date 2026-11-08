@@ -52,6 +52,12 @@ jobs:
       - name: SPDX headers
         run: uv run python scripts/check_spdx_headers.py
 
+      - name: Harness tests (goal-mode judge, ADR-39)
+        run: uv run pytest scripts/harness/tests -q -p no:cacheprovider
+
+      - name: Harness run logs (hash chain)
+        run: uv run python scripts/harness/gate_log.py verify
+
   postgres:
     runs-on: ubuntu-latest
     services:

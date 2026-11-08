@@ -161,7 +161,9 @@ def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
     verify.chmod(0o755)
     (root / "src").mkdir()
     (root / "src" / "app.py").write_text("X = 1\n", encoding="utf-8")
-    (root / ".gitignore").write_text(".claude/state/\nlogs/\n.verify-fail\n", encoding="utf-8")
+    (root / ".gitignore").write_text(
+        ".claude/state/\nlogs/\n.verify-fail\n__pycache__/\n", encoding="utf-8"
+    )
     env = {
         k: v
         for k, v in os.environ.items()
