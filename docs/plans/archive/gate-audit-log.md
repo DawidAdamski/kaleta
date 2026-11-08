@@ -3,9 +3,10 @@ plan_id: gate-audit-log
 title: Append-only, tamper-evident run log for every gate and review run
 area: harness / goal mode
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-11-08
 harness: true
-roadmap_ref: ../roadmap.md#5-engineering-hygiene
+roadmap_ref: ../../roadmap.md#5-engineering-hygiene
 ---
 
 # Append-only, tamper-evident run log for every gate and review run
@@ -15,7 +16,7 @@ Nothing in the loop is measured today: `.claude/state/review-verdict.json`
 is overwritten on every run and git-ignored, and `logs/plans/` holds one
 aborted file. Without a record there is no reviewer miss rate, no cost per
 plan, no replay of a decision, and no data to calibrate a critic on
-([ADR-39](../adr/039-measurable-critic-deterministic-judge.md), principle 5).
+([ADR-39](../../adr/039-measurable-critic-deterministic-judge.md), principle 5).
 This plan records every judgement as data. It does not change any decision.
 
 ## Scope
@@ -105,3 +106,33 @@ Does **not** cover:
   `verdict: "error"`.
 - **`plan_runner.sh` summary** is unchanged. `gate_log.py report` is the
   cross-plan view.
+
+## Implementation
+
+Landed on 2026-11-08 (PR #391).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `56eec6fd` | Dawid Adamski | 2026-11-08 | Merge pull request #391 from DawidAdamski/plan/gate-audit-log |
+
+**Files changed:**
+- .claude/hooks/dod-gate.sh
+- .github/workflows/ci.yml
+- docs/goal-mode.md
+- docs/harness/README.md
+- docs/harness/runs/.gitkeep
+- docs/plans/gate-audit-log.md
+- scripts/harness/gate_log.py
+- scripts/harness/gate.py
+- scripts/harness/gitutil.py
+- scripts/harness/python.sh
+- scripts/harness/tests/conftest.py
+- scripts/harness/tests/test_gate_log.py
+- scripts/harness/tests/test_gate_writes_log.py
+- scripts/review_gate.sh
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
