@@ -3,15 +3,16 @@ plan_id: harness-maintainer-mode
 title: Maintainer mode for harness changes, one protected-paths list, terminal exhaustion
 area: harness / goal mode
 effort: small
-status: in-progress
+status: archived
+archived_at: 2026-11-08
 harness: true
-roadmap_ref: ../roadmap.md#5-engineering-hygiene
+roadmap_ref: ../../roadmap.md#5-engineering-hygiene
 ---
 
 # Maintainer mode for harness changes, one protected-paths list, terminal exhaustion
 
 ## Intent
-[ADR-39](../adr/039-measurable-critic-deterministic-judge.md) moves the
+[ADR-39](../../adr/039-measurable-critic-deterministic-judge.md) moves the
 review loop to a measurable critic plus a deterministic judge. Every
 follow-up plan edits harness files that `.claude/hooks/protect-files.sh`
 makes read-only for the agent, which is correct and must stay that way.
@@ -121,3 +122,43 @@ Does **not** cover:
   (`plan_goal.sh check`) still reports, so the owner can see what is left.
 - **Cross review.** A missing Cursor CLI or unparsable output yields
   `verdict: "error"` with the cause as a finding and a non-zero exit.
+
+## Implementation
+
+Landed on 2026-11-08 (PR #390).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1562b923` | Dawid Adamski | 2026-11-08 | Merge pull request #390 from DawidAdamski/plan/harness-maintainer-mode |
+
+**Files changed:**
+- .claude/commands/implement-plan.md
+- .claude/hooks/dod-gate.sh
+- .claude/hooks/protect-files.sh
+- docs/adr/039-measurable-critic-deterministic-judge.md
+- docs/goal-mode.md
+- docs/harness/protected-paths.txt
+- docs/plans/README.md
+- docs/plans/critic-calibration-set.md
+- docs/plans/critic-narrow-questions.md
+- docs/plans/fidelity-independent-critic.md
+- docs/plans/gate-audit-log.md
+- docs/plans/harness-maintainer-mode.md
+- docs/plans/judge-profile-and-autonomy.md
+- docs/plans/review-canary.md
+- pyproject.toml
+- scripts/harness/protected-lib.sh
+- scripts/harness/protected.py
+- scripts/harness/tests/conftest.py
+- scripts/harness/tests/test_gate_protected_and_exhaustion.py
+- scripts/harness/tests/test_protect_files.py
+- scripts/harness/tests/test_review_gate_cross_error.py
+- scripts/plan_runner.sh
+- scripts/review_gate.sh
+- scripts/verify.sh
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
