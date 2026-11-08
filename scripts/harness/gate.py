@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 import time
+import traceback
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -120,7 +121,11 @@ def pattern_hits(base: str, raw_profile: dict[str, Any]) -> tuple[list[dict], li
 
 
 def critic_evidence(
-    root: Path, plan_id: str, diff_hash: str, profile: judge.Profile | None
+    root: Path,
+    plan_id: str,
+    diff_hash: str,
+    profile: judge.Profile | None,
+    log_ok: bool = True,
 ) -> tuple[dict[str, Any], dict[str, int]]:
     """The critic's answers for this diff, pooled over every run on it, and prior uncertainty.
 
@@ -157,11 +162,15 @@ def critic_evidence(
             for q in latest.get("questions", [])
         ],
     }
-    reviews = [
-        r
-        for r in gate_log.records(root, plan_id)
-        if r["kind"] == "review" and r.get("status") == "ok" and r.get("version") == 2
-    ]
+    reviews = (
+        [
+            r
+            for r in gate_log.records(root, plan_id)
+            if r["kind"] == "review" and r.get("status") == "ok" and r.get("version") == 2
+        ]
+        if log_ok
+        else []  # a broken log is a veto; nothing in it is evidence
+    )
     same = [
         r
         for r in reviews
@@ -267,7 +276,8 @@ def collect(
     write_state("verify-last.log", vtext + "\n")
     checks.append(vcheck)
     green, secrets = pattern_hits(base, raw)
-    critic, prior = critic_evidence(root, plan_id, diff_hash, profile)
+    log_errors = gate_log.verify(root, plan_id)
+    critic, prior = critic_evidence(root, plan_id, diff_hash, profile, log_ok=not log_errors)
     return {
         "plan_id": plan_id,
         "plan": {k: meta[k] for k in ("harness", "title", "manual_criteria")}
@@ -278,6 +288,7 @@ def collect(
         "protected_touched": protected_in_diff(paths, root, base),
         "green_washing": green,
         "secret_hits": secrets,
+        "run_log_errors": log_errors[:5],
         "checks": checks,
         "critic": critic,
         "prior_uncertain": prior,
@@ -425,17 +436,33 @@ def main() -> int:
     return 0
 
 
+def crashed(exc: BaseException) -> int:
+    """The gate itself failed: never "done", never a block loop — the owner decides.
+
+    A block would repeat on every Stop without counting toward max-attempts,
+    so the run would spin until --max-turns. Escalating ends it with the cause.
+    """
+    frames = traceback.format_exc().strip().splitlines()[-8:]
+    msg = (
+        f"DoD gate crashed: {exc!r}. The harness is broken or was fed something it cannot"
+        " read; the gate will not decide this run.\n" + "\n".join(frames)
+    )
+    if os.environ.get("DOD_GATE_DRY") == "1":
+        print(json.dumps({"decision": "block", "reason": msg}))
+        return 0
+    try:
+        write_state("result", "escalated")
+        write_state("mode", "D")
+        write_state("escalated-reason", msg + "\n")
+        write_state("gate-crash.log", traceback.format_exc())
+    except OSError:
+        pass
+    print(f"dod-gate: ESCALATED — {msg}", file=sys.stderr)
+    return 0
+
+
 if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:  # the judge must never fail open silently
-        print(
-            json.dumps(
-                {
-                    "decision": "block",
-                    "reason": f"DoD gate crashed: {exc!r}."
-                    " Tell the maintainer; do not work around it.",
-                }
-            )
-        )
-        sys.exit(0)
+        sys.exit(crashed(exc))

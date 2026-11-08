@@ -260,6 +260,14 @@ def decide(inputs: dict[str, Any], profile: Profile) -> Decision:
                 + ". Only the maintainer changes the harness.",
             )
         )
+    if inputs.get("run_log_errors"):
+        vetoes.append(
+            _r(
+                "veto.run_log",
+                "The run log docs/harness/runs/ is broken (edited, deleted or reordered lines): "
+                + "; ".join(inputs["run_log_errors"]),
+            )
+        )
     vetoes.extend(
         _r("veto.secret", f"Secret pattern matched at {hit}.")
         for hit in inputs.get("secret_hits", [])

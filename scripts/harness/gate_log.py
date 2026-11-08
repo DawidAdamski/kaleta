@@ -61,13 +61,26 @@ def now() -> str:
     return dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _last_record(path: Path) -> dict[str, Any] | None:
+    """The last parsable record; a broken log still gets appended to (verify flags it)."""
+    if not path.exists():
+        return None
+    for line in reversed(path.read_text(encoding="utf-8", errors="replace").splitlines()):
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(rec, dict) and "sha" in rec and "seq" in rec:
+            return rec
+    return None
+
+
 def append(root: Path, plan_id: str, kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     if kind not in KINDS:
         raise ValueError(f"unknown record kind: {kind!r}")
     path = log_path(root, plan_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existing = read(path)
-    last = existing[-1] if existing else None
+    last = _last_record(path)
     record = {
         **payload,
         "kind": kind,

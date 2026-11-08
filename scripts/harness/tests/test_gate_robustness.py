@@ -91,3 +91,48 @@ def test_deleting_a_whole_test_file_is_flagged(repo: HarnessRepo) -> None:
     note = repo.state("decision.md") or ""
     assert "Assertions were removed" in note
     assert "tests/test_money.py" in note
+
+
+BROKEN_PLANFILE = """
+def section(text, heading):
+    return ""
+
+
+def plan_meta(text):
+    raise RuntimeError("boom in the harness")
+"""
+
+
+def test_a_crashing_gate_ends_the_run_instead_of_blocking_forever(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    (repo.root / "scripts/harness/planfile.py").write_text(BROKEN_PLANFILE, encoding="utf-8")
+    first = repo.gate()
+    assert first.stdout.strip() == ""  # not a block: the session may stop
+    assert repo.state("result") == "escalated"
+    assert repo.state("mode") == "D"
+    assert "boom in the harness" in (repo.state("escalated-reason") or "")
+    again = repo.gate()
+    assert again.stdout.strip() == ""
+
+
+def test_a_crash_in_a_dry_run_is_reported_not_recorded(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    (repo.root / "scripts/harness/planfile.py").write_text(BROKEN_PLANFILE, encoding="utf-8")
+    out = repo.gate(env={"DOD_GATE_DRY": "1"})
+    assert "crashed" in _reason(out)
+    assert repo.state("result") is None
+
+
+def test_a_broken_run_log_is_a_veto_not_a_crash(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("src/app.py", "X = 2\n")
+    repo.commit("work")
+    repo.gate()  # one valid record
+    log = repo.root / "docs/harness/runs/fixture.jsonl"
+    log.write_text(log.read_text() + "not json at all\n")
+    approve(repo)
+    repo.gate()
+    assert repo.state("result") == "escalated"
+    reason = repo.state("escalated-reason") or ""
+    assert "run log" in reason
+    assert "crashed" not in reason
