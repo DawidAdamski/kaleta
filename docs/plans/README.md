@@ -119,7 +119,7 @@ with `plan_runner.sh`.
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
 | 1 | [harness-maintainer-mode](harness-maintainer-mode.md) | small | draft | — (bootstrap by hand) |
-| 2 | [gate-audit-log](gate-audit-log.md) | medium | draft | 1 |
+| 2 | [gate-audit-log](archive/gate-audit-log.md) | archived | draft | 1 |
 | 3 | [critic-narrow-questions](critic-narrow-questions.md) | medium | draft | 2 |
 | 4 | [judge-profile-and-autonomy](judge-profile-and-autonomy.md) | large | draft | 3 |
 | 5 | [critic-calibration-set](critic-calibration-set.md) | large | draft | 3, 4 |
