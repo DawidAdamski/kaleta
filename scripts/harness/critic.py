@@ -305,6 +305,9 @@ def claude_sample(prompt: str, model: str, idx: int) -> Sample:
     if not shutil.which("claude"):
         return Sample("claude", model, False, error="claude CLI not found")
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")}
+    # The sample is a Claude Code session in this repo, so it loads the project's
+    # hooks; this tells the Stop hook it is the critic, not the implementer.
+    env["KALETA_CRITIC_SESSION"] = "1"
     cmd = [
         "claude", "-p", prompt,
         "--model", model,

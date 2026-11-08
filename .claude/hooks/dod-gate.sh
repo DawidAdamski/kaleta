@@ -20,6 +20,9 @@ set -uo pipefail
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 cd "$root" || exit 0
 if [ ! -f .claude/state/active-plan ]; then cat >/dev/null; exit 0; fi
+# The critic's own `claude -p` samples run in this repo and load these hooks too;
+# they are witnesses, not the implementer, so the gate does not judge them.
+if [ "${KALETA_CRITIC_SESSION:-0}" = 1 ]; then cat >/dev/null; exit 0; fi
 
 broken() {
   local msg="DoD gate could not run ($1) — the harness is broken. The owner must fix it; the gate will not decide this run."
