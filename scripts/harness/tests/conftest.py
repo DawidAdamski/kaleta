@@ -8,7 +8,7 @@ application, the database or a model: ``uv run pytest scripts/harness/tests``.
 
 from __future__ import annotations
 
-import hashlib
+import contextlib
 import json
 import os
 import shutil
@@ -23,6 +23,8 @@ import pytest
 REPO = Path(__file__).resolve().parents[3]
 HARNESS_DIR = REPO / "scripts" / "harness"
 sys.path.insert(0, str(HARNESS_DIR))
+
+import gitutil  # noqa: E402
 
 COPY = [
     ".claude/hooks",
@@ -113,10 +115,9 @@ class HarnessRepo:
         return self.git("merge-base", "HEAD", "main")
 
     def diff_hash(self) -> str:
-        out = self.run(
-            "git", "diff", self.base(), "--", ".", ":(exclude)docs/harness/runs/**", check=True
-        ).stdout
-        return hashlib.sha256(out.encode()).hexdigest()[:16]
+        """The gate's own diff hash (one definition: gitutil.diff_hash)."""
+        with contextlib.chdir(self.root):
+            return gitutil.diff_hash(self.base())
 
     def new_plan(
         self,

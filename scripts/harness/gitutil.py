@@ -48,7 +48,7 @@ def branch() -> str:
 
 
 def diff_text(base: str) -> str:
-    return git("diff", base, "--", ".", RUNS_PATHSPEC, check=False)
+    return git("diff", "--no-renames", base, "--", ".", RUNS_PATHSPEC, check=False)
 
 
 def diff_hash(base: str) -> str:
@@ -78,13 +78,14 @@ class Changed:
 def changed(base: str) -> list[Changed]:
     """Tracked changes against ``base`` plus untracked, non-ignored files."""
     out: dict[str, Changed] = {}
-    for line in git("diff", "--numstat", base, check=False).splitlines():
+    # --no-renames: a move is a deletion of the old path plus an addition of the
+    # new one, so both are judged (a protected file moved out, a file moved into
+    # a high-risk folder). Rename notation ("{a => b}") is never parsed.
+    for line in git("diff", "--no-renames", "--numstat", base, check=False).splitlines():
         parts = line.split("\t")
         if len(parts) != 3:
             continue
         a, r, path = parts
-        if " => " in path:  # rename: keep the new name
-            path = path.split(" => ")[-1].replace("{", "").replace("}", "")
         out[path] = Changed(path, None if a == "-" else int(a), None if r == "-" else int(r))
     for path in git("ls-files", "--others", "--exclude-standard", check=False).splitlines():
         if path and path not in out:
@@ -105,7 +106,7 @@ def diff_lines(base: str) -> tuple[list[DiffLine], list[DiffLine]]:
     removed: list[DiffLine] = []
     path = ""
     new_no = 0
-    for raw in git("diff", "-U0", base, check=False).splitlines():
+    for raw in git("diff", "--no-renames", "-U0", base, check=False).splitlines():
         if raw.startswith("+++ "):
             path = raw[6:] if raw.startswith("+++ b/") else ""
             continue
