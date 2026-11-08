@@ -2,9 +2,9 @@
 """Git helpers shared by the gate, the critic and the run log (ADR-39).
 
 The diff under judgement is ``git diff <merge-base>`` (working tree
-included). Run logs under ``docs/harness/runs/`` are written by the harness
-itself, so they are excluded from the diff hash: appending a log line must not
-make a review stale.
+included) plus every untracked, non-ignored file (``full_diff``). Run logs
+under ``docs/harness/runs/`` are written by the harness itself, so they are
+excluded from the diff hash: appending a log line must not make a review stale.
 """
 
 from __future__ import annotations
@@ -47,8 +47,34 @@ def branch() -> str:
         return ""
 
 
+def untracked() -> list[str]:
+    """Untracked, non-ignored files (minus the harness's own run logs)."""
+    return [
+        p
+        for p in git("ls-files", "--others", "--exclude-standard", check=False).splitlines()
+        if p and not p.startswith("docs/harness/runs/")
+    ]
+
+
+def full_diff(base: str, unified: int = 3) -> str:
+    """``git diff base`` plus every untracked file as a diff against /dev/null.
+
+    Untracked files are part of the change under judgement: the secret and
+    green-washing scans, the critic's freshness hash and the critic's own
+    prompt must see their content, not only their names.
+    """
+    tracked = git(
+        "diff", "--no-renames", f"-U{unified}", base, "--", ".", RUNS_PATHSPEC, check=False
+    )  # fmt: skip
+    extra = [
+        git("diff", "--no-index", f"-U{unified}", "--", "/dev/null", p, check=False)
+        for p in untracked()
+    ]
+    return tracked + "".join(extra)
+
+
 def diff_text(base: str) -> str:
-    return git("diff", "--no-renames", base, "--", ".", RUNS_PATHSPEC, check=False)
+    return full_diff(base)
 
 
 def diff_hash(base: str) -> str:
@@ -87,8 +113,8 @@ def changed(base: str) -> list[Changed]:
             continue
         a, r, path = parts
         out[path] = Changed(path, None if a == "-" else int(a), None if r == "-" else int(r))
-    for path in git("ls-files", "--others", "--exclude-standard", check=False).splitlines():
-        if path and path not in out:
+    for path in untracked():
+        if path not in out:
             out[path] = Changed(path, None, None, untracked=True)
     return sorted(out.values(), key=lambda c: c.path)
 
@@ -101,12 +127,12 @@ class DiffLine:
 
 
 def diff_lines(base: str) -> tuple[list[DiffLine], list[DiffLine]]:
-    """Added and removed lines of ``git diff base``, with their files."""
+    """Added and removed lines of the change (``full_diff``), with their files."""
     added: list[DiffLine] = []
     removed: list[DiffLine] = []
     path = ""
     new_no = 0
-    for raw in git("diff", "--no-renames", "-U0", base, check=False).splitlines():
+    for raw in full_diff(base, unified=0).splitlines():
         if raw.startswith("+++ "):
             path = raw[6:] if raw.startswith("+++ b/") else ""
             continue

@@ -533,7 +533,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
         print(f"critic: {plan} not found", file=sys.stderr)
         return 1
     base = gitutil.merge_base("main")
-    if not gitutil.diff_text(base).strip() and not any(c.untracked for c in gitutil.changed(base)):
+    if not gitutil.diff_text(base).strip():
         print(f"critic: no diff against {base} — nothing to review", file=sys.stderr)
         return 1
     changed = gitutil.changed(base)
@@ -593,7 +593,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
                     plan_id,
                     plan.read_text(encoding="utf-8"),
                     questions,
-                    gitutil.git("diff", "-U3", base, "--", ".", gitutil.RUNS_PATHSPEC, check=False),
+                    gitutil.full_diff(base),
                     max_chars,
                 )
                 if truncated:

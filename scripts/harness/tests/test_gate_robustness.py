@@ -52,3 +52,29 @@ def test_a_file_moved_into_auth_is_high_risk(repo: HarnessRepo) -> None:
     approve(repo, cross_family_present=True)
     out = repo.gate()
     assert repo.state("mode") == "C", _reason(out)
+
+
+def test_untracked_file_content_is_judged_secret(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("src/app.py", "X = 2\n")
+    repo.commit("work")
+    repo.write("src/settings_local.py", 'AWS_KEY = "AKIAABCDEFGHIJKLMNOP"\n')  # never git-added
+    approve(repo)
+    repo.gate()
+    assert repo.state("result") == "escalated"
+    assert "src/settings_local.py" in (repo.state("escalated-reason") or "")
+
+
+def test_untracked_file_content_is_judged_green_washing(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("tests/test_new.py", "import pytest\n\n@pytest.mark.skip\ndef test_x():\n    pass\n")
+    approve(repo)
+    assert "New skip/xfail" in _reason(repo.gate())
+
+
+def test_editing_an_untracked_file_makes_the_critic_stale(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("src/new_module.py", "X = 1\n")
+    approve(repo)
+    repo.write("src/new_module.py", "X = 2  # changed after the review\n")
+    assert "stale" in _reason(repo.gate())
