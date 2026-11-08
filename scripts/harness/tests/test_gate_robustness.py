@@ -171,3 +171,21 @@ def test_canned_critic_answers_outside_the_tests_are_a_veto(repo: HarnessRepo) -
     repo.gate(env={"KALETA_HARNESS_TEST": "0"})  # a real hook: not the test suite
     assert repo.state("result") == "escalated"
     assert "canned" in (repo.state("escalated-reason") or "")
+
+
+def test_an_import_failure_in_the_judge_ends_the_run(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    (repo.root / "scripts/harness/judge.py").write_text("this is not python(\n", encoding="utf-8")
+    out = repo.gate()
+    assert out.returncode == 0  # a hook error code is not a block in Claude Code
+    assert out.stdout.strip() == ""
+    assert repo.state("result") == "escalated"
+    assert "could not run" in (repo.state("escalated-reason") or "")
+
+
+def test_a_missing_gate_ends_the_run_instead_of_blocking(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    (repo.root / "scripts/harness/gate.py").unlink()
+    out = repo.gate()
+    assert out.stdout.strip() == ""
+    assert repo.state("result") == "escalated"
