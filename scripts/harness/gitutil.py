@@ -130,13 +130,15 @@ def diff_lines(base: str) -> tuple[list[DiffLine], list[DiffLine]]:
     """Added and removed lines of the change (``full_diff``), with their files."""
     added: list[DiffLine] = []
     removed: list[DiffLine] = []
-    path = ""
+    path = old_path = ""
     new_no = 0
     for raw in full_diff(base, unified=0).splitlines():
-        if raw.startswith("+++ "):
-            path = raw[6:] if raw.startswith("+++ b/") else ""
-            continue
         if raw.startswith("--- "):
+            old_path = raw[6:] if raw.startswith("--- a/") else ""
+            continue
+        if raw.startswith("+++ "):
+            # a deleted file has "+++ /dev/null": its removed lines belong to the old path
+            path = raw[6:] if raw.startswith("+++ b/") else old_path
             continue
         if raw.startswith("@@"):
             # @@ -a,b +c,d @@

@@ -78,3 +78,16 @@ def test_editing_an_untracked_file_makes_the_critic_stale(repo: HarnessRepo) -> 
     approve(repo)
     repo.write("src/new_module.py", "X = 2  # changed after the review\n")
     assert "stale" in _reason(repo.gate())
+
+
+def test_deleting_a_whole_test_file_is_flagged(repo: HarnessRepo) -> None:
+    repo.write("tests/test_money.py", "def test_sum():\n    assert 1 + 1 == 2\n")
+    repo.commit("a test on main")
+    repo.new_plan()
+    repo.git("rm", "-q", "tests/test_money.py")
+    repo.commit("drop the test")
+    approve(repo)
+    repo.gate()
+    note = repo.state("decision.md") or ""
+    assert "Assertions were removed" in note
+    assert "tests/test_money.py" in note
