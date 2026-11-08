@@ -281,5 +281,5 @@ def test_note_for_the_owner() -> None:
     note = judge.render_note(judge.decide(i, PROFILE), i, PROFILE.raw["meta"])
     assert "**Done — mode C**" in note
     assert "Risk class: **high** (src/kaleta/auth/session.py)" in note
-    assert "| Q-SCOPE | 0.00 | 0 / 3 | - |" in note
+    assert "| Q-SCOPE | 0.00 | 0 / 3 | - | - |" in note
     assert "Profile v1" in note

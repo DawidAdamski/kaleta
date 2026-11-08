@@ -78,7 +78,10 @@ The change: the working-tree diff against merge-base {base}
   git diff {base} --stat
   git diff {base}
 The scope contract: docs/plans/{plan_id}.md (Scope, "Not in scope", Acceptance
-criteria, Implementation notes). Context: docs/review-checklist.md and the
+criteria, Implementation notes). The workflow itself edits that plan file
+(status: in-progress, Implementation notes, ticked chores) and the harness writes
+docs/harness/runs/: those edits are expected and never out of scope; that the
+plan file changed is not a finding. Context: docs/review-checklist.md and the
 Working Agreement in AGENTS.md. You may run `uv run pytest <path> -q` to check a claim.
 
 Answer EVERY question below with exactly one of:
@@ -148,6 +151,9 @@ You did NOT write this code. You cannot open files or run commands: everything y
 may use is below — the plan (the scope contract) and the diff. You do not decide
 whether the change is merged: you answer narrow questions, and a deterministic
 judge combines your answers with thresholds the owner has set.
+The workflow itself edits the plan file (status: in-progress, Implementation
+notes, ticked chores) and the harness writes docs/harness/runs/: those edits are
+expected and never out of scope; that the plan file changed is not a finding.
 
 Answer EVERY question with exactly one of:
   "yes"  the problem described IS present in this diff. You MUST cite evidence: the
@@ -181,6 +187,7 @@ class Question:
     section: str = ""
     applies_to: tuple[str, ...] = ()
     evidence: str = ""
+    evidence_exclude: tuple[str, ...] = ()
 
 
 def load_questions(root: Path) -> list[Question]:
@@ -192,6 +199,7 @@ def load_questions(root: Path) -> list[Question]:
             section=q.get("section", ""),
             applies_to=tuple(q.get("applies_to", [])),
             evidence=q.get("evidence", ""),
+            evidence_exclude=tuple(q.get("evidence_exclude", [])),
         )
         for q in data.get("question", [])
     ]
@@ -441,8 +449,14 @@ def evidence_ok(ev: dict[str, Any], changed: set[str], new_lines: dict[str, set[
 
 
 def validate(
-    sample: Sample, qids: list[str], changed: set[str], new_lines: dict[str, set[int]]
+    sample: Sample,
+    qids: list[str],
+    changed: set[str],
+    new_lines: dict[str, set[int]],
+    exclude: dict[str, tuple[str, ...]] | None = None,
 ) -> dict[str, Answer]:
+    """Check each answer; a "yes" needs evidence in the diff, outside the question's exclusions."""
+    exclude = exclude or {}
     by_id: dict[str, dict[str, Any]] = {}
     for a in sample.answers:
         if isinstance(a, dict) and a.get("id") in qids and a["id"] not in by_id:
@@ -458,22 +472,37 @@ def validate(
         if value not in ("yes", "no", "na"):
             out[qid] = Answer(None, note=note, invalid_reason=f"answer {value!r}")
         elif value == "yes":
-            good = [
+            in_diff = [
                 {"file": str(e.get("file")).removeprefix("./"), "line": e.get("line")}
                 for e in (a.get("evidence") or [])
                 if isinstance(e, dict) and evidence_ok(e, changed, new_lines)
             ]
-            out[qid] = (
-                Answer("yes", good, note)
-                if good
-                else Answer(None, note=note, invalid_reason="evidence does not point into the diff")
-            )
+            globs = exclude.get(qid, ())
+            good = [e for e in in_diff if not any(fnmatchcase(e["file"], g) for g in globs)]
+            if good:
+                out[qid] = Answer("yes", good, note)
+            elif in_diff:
+                out[qid] = Answer(
+                    None,
+                    note=note,
+                    invalid_reason="evidence only in paths this question excludes"
+                    " (the plan file and run logs are the workflow's)",
+                )
+            else:
+                out[qid] = Answer(
+                    None, note=note, invalid_reason="evidence does not point into the diff"
+                )
         else:
             out[qid] = Answer(value, note=note)
     return out
 
 
-def aggregate(questions: list[Question], answers: list[dict[str, Answer]]) -> list[dict[str, Any]]:
+def aggregate(
+    questions: list[Question],
+    answers: list[dict[str, Answer]],
+    reviewers: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    names = reviewers or ["?"] * len(answers)
     out = []
     for q in questions:
         per = [a[q.id] for a in answers]
@@ -499,6 +528,11 @@ def aggregate(questions: list[Question], answers: list[dict[str, Answer]]) -> li
                 else None,
                 "evidence": evidence[:10],
                 "notes": [a.note for a in yes if a.note][:3],
+                # who said what: the raw material for calibration and for "which model cried wolf"
+                "answers": [
+                    {"reviewer": n, "answer": a.value or "invalid"}
+                    for n, a in zip(names, per, strict=True)
+                ],
             }
         )
     return out
@@ -634,8 +668,12 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
     diff_hash = gitutil.diff_hash(base)
     new_lines = gitutil.new_side_lines(base)
     qids = [q.id for q in questions]
-    validated = [validate(s, qids, set(paths), new_lines) for s in ok_samples]
-    qresults = aggregate(questions, validated)
+    plan_path = plan.as_posix()
+    exclude = {
+        q.id: tuple(g.replace("{plan}", plan_path) for g in q.evidence_exclude) for q in questions
+    }
+    validated = [validate(s, qids, set(paths), new_lines, exclude) for s in ok_samples]
+    qresults = aggregate(questions, validated, [s.reviewer for s in ok_samples])
     findings = [
         {**f, "reviewer": s.reviewer} for s in ok_samples for f in s.findings if isinstance(f, dict)
     ][:30]
@@ -681,7 +719,12 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
     for q in qresults:
         p = "-" if q["p_violation"] is None else f"{q['p_violation']:.2f}"
         ev = ", ".join(f"{e['file']}:{e['line']}" for e in q["evidence"][:3])
-        print(f"  {q['id']:20} p={p} ({q['violations']}/{q['k_valid']}){'  ' + ev if ev else ''}")
+        who = ", ".join(a["reviewer"] for a in q["answers"] if a["answer"] == "yes")
+        print(
+            f"  {q['id']:20} p={p} ({q['violations']}/{q['k_valid']})"
+            + (f" [yes: {who}]" if who else "")
+            + (f"  {ev}" if ev else "")
+        )
     return 0 if status == "ok" else 1
 
 

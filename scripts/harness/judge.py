@@ -450,14 +450,17 @@ def render_note(decision: Decision, inputs: dict[str, Any], profile_meta: dict[s
     critic = inputs.get("critic") or {}
     if critic.get("questions"):
         out.append("## Critic")
-        out.append("| Question | p | yes / valid | Evidence |")
-        out.append("|---|---|---|---|")
+        out.append("| Question | p | yes / valid | Yes from | Evidence |")
+        out.append("|---|---|---|---|---|")
         for q in critic["questions"]:
             p = q.get("p_violation")
             ev = ", ".join(f"`{e['file']}:{e['line']}`" for e in (q.get("evidence") or [])[:3])
+            who = ", ".join(
+                a["reviewer"] for a in (q.get("answers") or []) if a.get("answer") == "yes"
+            )
             out.append(
                 f"| {q['id']} | {'-' if p is None else f'{p:.2f}'} |"
-                f" {q.get('violations', 0)} / {q.get('k_valid', 0)} | {ev or '-'} |"
+                f" {q.get('violations', 0)} / {q.get('k_valid', 0)} | {who or '-'} | {ev or '-'} |"
             )
         out.append("")
     checks = inputs.get("checks", [])

@@ -165,7 +165,15 @@ def critic_evidence(
         "questions": [
             {
                 k: q.get(k)
-                for k in ("id", "p_violation", "violations", "k_valid", "evidence", "notes")
+                for k in (
+                    "id",
+                    "p_violation",
+                    "violations",
+                    "k_valid",
+                    "evidence",
+                    "notes",
+                    "answers",
+                )
             }
             for q in latest.get("questions", [])
         ],
@@ -196,6 +204,7 @@ def critic_evidence(
                 acc["k_valid"] += q.get("k_valid") or 0
                 acc["evidence"] += [e for e in q.get("evidence") or [] if e not in acc["evidence"]]
                 acc["notes"] += q.get("notes") or []
+                acc.setdefault("answers", []).extend(q.get("answers") or [])
         for acc in pooled.values():
             acc["p_violation"] = (
                 round(acc["violations"] / acc["k_valid"], 4) if acc["k_valid"] else None

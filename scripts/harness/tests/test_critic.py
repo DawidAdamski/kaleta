@@ -9,7 +9,7 @@ from pathlib import Path
 import critic
 import gate_log
 import pytest
-from conftest import HarnessRepo, answers, fake_samples
+from conftest import HarnessRepo, answers, clean, fake_samples
 
 QS = [
     critic.Question("Q-SCOPE", "scope?"),
@@ -191,3 +191,44 @@ def test_dry_run_lists_questions_without_calling_anything(repo: HarnessRepo) -> 
     assert "Q-SCOPE" in out.stdout
     assert "Q-SERVICE-TEST" not in out.stdout  # no service changed
     assert repo.state("critic.json") is None
+
+
+def test_workflow_edits_to_the_plan_file_are_not_scope_evidence(repo: HarnessRepo) -> None:
+    """plan_goal.sh start flips the status and the implementer fills the notes: expected."""
+    _work(repo)
+    plan_yes = clean(Q_SCOPE=("yes", "docs/plans/fixture.md", 6))
+    fake = fake_samples(repo, [plan_yes, clean(), clean()])
+    assert repo.run("scripts/review_gate.sh", env={"KALETA_CRITIC_FAKE": fake}).returncode == 0
+    c = json.loads(repo.state("critic.json") or "{}")
+    scope = next(q for q in c["questions"] if q["id"] == "Q-SCOPE")
+    assert scope["violations"] == 0
+    assert scope["k_valid"] == 2
+    assert any("plan file" in r for r in scope["invalid"])
+
+
+def test_every_samples_answer_is_recorded_per_question(repo: HarnessRepo) -> None:
+    _work(repo)
+    fake = fake_samples(
+        repo,
+        [clean(), clean()],
+        cross=clean(Q_SCOPE=("yes", "src/app.py", 1)),
+    )
+    out = repo.run(
+        "scripts/review_gate.sh", env={"KALETA_CRITIC_FAKE": fake, "KALETA_CROSS_REVIEW": "1"}
+    )
+    assert out.returncode == 0, out.stderr
+    c = json.loads(repo.state("critic.json") or "{}")
+    scope = next(q for q in c["questions"] if q["id"] == "Q-SCOPE")
+    assert scope["answers"] == [
+        {"reviewer": "claude", "answer": "no"},
+        {"reviewer": "claude", "answer": "no"},
+        {"reviewer": "local:fake", "answer": "yes"},
+    ]
+    assert "yes: local:fake" in out.stdout  # who raised it, in the summary
+    repo.gate()
+    assert "| local:fake |" in (repo.state("decision.md") or "")
+
+
+def test_both_prompts_say_plan_file_edits_are_part_of_the_workflow() -> None:
+    for template in (critic.TEMPLATE, critic.LOCAL_TEMPLATE):
+        assert "never out of scope" in template
