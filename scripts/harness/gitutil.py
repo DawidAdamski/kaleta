@@ -18,7 +18,9 @@ RUNS_PATHSPEC = ":(exclude)docs/harness/runs/**"
 
 
 def git(*args: str, check: bool = True, cwd: Path | None = None) -> str:
-    out = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=False)
+    out = subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, errors="replace", check=False
+    )
     if check and out.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout

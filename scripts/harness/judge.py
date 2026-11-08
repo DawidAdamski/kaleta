@@ -125,6 +125,7 @@ def load_profile(root: Path, base: str | None = None) -> Profile:
             ["git", "-C", str(root), "show", f"{base}:{PROFILE.as_posix()}"],
             capture_output=True,
             text=True,
+            errors="replace",
             check=False,
         )
         text = out.stdout if out.returncode == 0 else None

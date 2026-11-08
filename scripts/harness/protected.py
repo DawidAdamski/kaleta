@@ -39,6 +39,7 @@ def load_rules(root: Path, base: str | None = None) -> list[Rule]:
             ["git", "-C", str(root), "show", f"{base}:{LIST.as_posix()}"],
             capture_output=True,
             text=True,
+            errors="replace",
             check=False,
         )
         text = out.stdout if out.returncode == 0 else ""

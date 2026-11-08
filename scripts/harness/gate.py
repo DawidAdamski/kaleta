@@ -65,7 +65,9 @@ def write_state(name: str, value: str) -> None:
 # ── evidence ─────────────────────────────────────────────────────────────
 def run_check(name: str, kind: str, cmd: str, tail: int) -> tuple[dict[str, Any], str]:
     t0 = time.monotonic()
-    out = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, check=False)
+    out = subprocess.run(
+        ["bash", "-c", cmd], capture_output=True, text=True, errors="replace", check=False
+    )
     text = (out.stdout + out.stderr).rstrip()
     check = {
         "name": name,

@@ -313,7 +313,9 @@ def claude_sample(prompt: str, model: str, idx: int) -> Sample:
         "--output-format", "json",
         "--json-schema", json.dumps(SCHEMA),
     ]  # fmt: skip
-    out = subprocess.run(cmd, capture_output=True, text=True, env=env, check=False)
+    out = subprocess.run(
+        cmd, capture_output=True, text=True, errors="replace", env=env, check=False
+    )
     (STATE / f"critic-raw-{idx}.json").write_text(out.stdout or out.stderr, encoding="utf-8")
     raw = _first_json_object(out.stdout) or {}
     payload = raw.get("structured_output")
