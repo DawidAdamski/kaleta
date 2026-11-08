@@ -25,13 +25,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
+
+import gitutil
 
 PROFILE = Path("docs/harness/profile.toml")
 MODES = ("A", "B", "C", "D")
@@ -119,21 +120,9 @@ def load_profile(root: Path, base: str | None = None) -> Profile:
     the diff under judgement says it is. Maintainer sessions read the working
     tree (they may be changing the profile on purpose).
     """
-    text = None
-    if base:
-        out = subprocess.run(
-            ["git", "-C", str(root), "show", f"{base}:{PROFILE.as_posix()}"],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            check=False,
-        )
-        text = out.stdout if out.returncode == 0 else None
+    text = gitutil.read_at(root, base, PROFILE)
     if text is None:
-        path = root / PROFILE
-        if not path.exists():
-            raise ProfileError(f"{PROFILE} is missing")
-        text = path.read_text(encoding="utf-8")
+        raise ProfileError(f"{PROFILE} is missing")
     try:
         raw = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:

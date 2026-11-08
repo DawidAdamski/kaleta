@@ -17,6 +17,8 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Literal
 
+import gitutil
+
 LIST = Path("docs/harness/protected-paths.txt")
 Kind = Literal["plain", "tracked", "harness"]
 Mode = Literal["edit", "diff"]
@@ -34,20 +36,8 @@ def load_rules(root: Path, base: str | None = None) -> list[Rule]:
     The gate reads the list as it is on the merge-base, so a diff that edits
     the list cannot exempt itself.
     """
-    if base:
-        out = subprocess.run(
-            ["git", "-C", str(root), "show", f"{base}:{LIST.as_posix()}"],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            check=False,
-        )
-        text = out.stdout if out.returncode == 0 else ""
-        if not text and (root / LIST).exists():
-            text = (root / LIST).read_text(encoding="utf-8")  # the list is new in this diff
-    elif (root / LIST).exists():
-        text = (root / LIST).read_text(encoding="utf-8")
-    else:
+    text = gitutil.read_at(root, base, LIST)
+    if text is None:
         return []
     rules: list[Rule] = []
     for raw in text.splitlines():

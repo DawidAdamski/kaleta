@@ -81,6 +81,27 @@ def diff_hash(base: str) -> str:
     return hashlib.sha256(diff_text(base).encode()).hexdigest()[:16]
 
 
+def read_at(root: Path, base: str | None, rel: str | Path) -> str | None:
+    """``rel`` as it is on ``base``; the working tree only when ``base`` lacks it.
+
+    The one way the harness reads the owner's law (profile, protected paths) for
+    a diff: what is merged wins, even when it is empty. The working tree counts
+    only for a file that is new in the diff, or when no ``base`` is given
+    (maintainer sessions). ``None`` when neither has it.
+    """
+    rel = Path(rel).as_posix()
+    if base:
+        out = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "-e", f"{base}:{rel}"],
+            capture_output=True,
+            check=False,
+        )
+        if out.returncode == 0:
+            return git("show", f"{base}:{rel}", cwd=root)
+    path = root / rel
+    return path.read_text(encoding="utf-8", errors="replace") if path.exists() else None
+
+
 def file_sha(path: Path) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16] if path.exists() else None
 

@@ -7,6 +7,7 @@ import contextlib
 import json
 
 import gitutil
+import protected
 from conftest import HarnessRepo, approve, clean, fake_samples
 
 
@@ -189,3 +190,31 @@ def test_a_missing_gate_ends_the_run_instead_of_blocking(repo: HarnessRepo) -> N
     out = repo.gate()
     assert out.stdout.strip() == ""
     assert repo.state("result") == "escalated"
+
+
+def test_the_law_on_main_wins_even_when_it_is_empty(repo: HarnessRepo) -> None:
+    """An empty protected-paths list on main is the law; the diff's version is not."""
+    repo.write("docs/harness/protected-paths.txt", "# nothing protected\n")
+    repo.commit("owner empties the list on main")
+    repo.new_plan()
+    repo.write("docs/harness/protected-paths.txt", "src/*\n")
+    repo.write("src/app.py", "X = 2\n")
+    repo.commit("the diff writes its own list")
+    with contextlib.chdir(repo.root):
+        base = repo.base()
+        assert (
+            gitutil.read_at(repo.root, base, "docs/harness/protected-paths.txt")
+            == "# nothing protected\n"
+        )
+        assert gitutil.read_at(repo.root, base, "docs/new-file.md") is None
+    assert protected.load_rules(repo.root, base=base) == []
+
+
+def test_read_at_falls_back_to_the_working_tree_only_for_files_new_in_the_diff(
+    repo: HarnessRepo,
+) -> None:
+    repo.new_plan()
+    repo.write("docs/brand-new.md", "new\n")
+    base = repo.base()
+    assert gitutil.read_at(repo.root, base, "docs/brand-new.md") == "new\n"
+    assert gitutil.read_at(repo.root, None, "docs/brand-new.md") == "new\n"
