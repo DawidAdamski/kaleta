@@ -120,7 +120,7 @@ with `plan_runner.sh`.
 |---|---|---|---|---|
 | 1 | [harness-maintainer-mode](archive/harness-maintainer-mode.md) | archived | small | — (bootstrap by hand) |
 | 2 | [gate-audit-log](archive/gate-audit-log.md) | archived | medium | 1 |
-| 3 | [critic-narrow-questions](critic-narrow-questions.md) | draft | medium | 2 |
+| 3 | [critic-narrow-questions](archive/critic-narrow-questions.md) | archived | medium | 2 |
 | 4 | [judge-profile-and-autonomy](judge-profile-and-autonomy.md) | draft | large | 3 |
 | 5 | [critic-calibration-set](critic-calibration-set.md) | draft | large | 3, 4 |
 | 6 | [fidelity-independent-critic](fidelity-independent-critic.md) | draft | medium | 1, 2 |
