@@ -3,9 +3,10 @@ plan_id: judge-profile-and-autonomy
 title: Deterministic judge over an owner-signed profile, autonomy chosen per change, escalation as an outcome
 area: harness / goal mode
 effort: large
-status: in-progress
+status: archived
+archived_at: 2026-11-08
 harness: true
-roadmap_ref: ../roadmap.md#5-engineering-hygiene
+roadmap_ref: ../../roadmap.md#5-engineering-hygiene
 ---
 
 # Deterministic judge over an owner-signed profile, autonomy chosen per change, escalation as an outcome
@@ -14,7 +15,7 @@ roadmap_ref: ../roadmap.md#5-engineering-hygiene
 The gate today is an AND of checks, and every plan ends in the same mode: the
 gate passes and the owner merges. A change to `alembic/` and auth is treated
 like a change to locale files. Uncertainty never reaches the owner; only
-exhaustion does. Per [ADR-39](../adr/039-measurable-critic-deterministic-judge.md)
+exhaustion does. Per [ADR-39](../../adr/039-measurable-critic-deterministic-judge.md)
 the decision becomes a pure, replayable function of the evidence and of a
 profile that only the owner writes. It picks the autonomy mode for *this*
 change and can hand the change to the owner with reasons.
@@ -172,3 +173,50 @@ Does **not** cover:
   one helper (`gitutil.read_at`), so what is merged wins even when empty.
 - **Defaults taken:** `uncertain_rounds = 1`, highest class wins for mixed
   changes, only the profile can change a class's mode.
+
+## Implementation
+
+Landed on 2026-11-08 (PR #393).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `72538857` | Dawid Adamski | 2026-11-08 | Merge pull request #393 from DawidAdamski/plan/judge-profile-and-autonomy |
+
+**Files changed:**
+- .claude/commands/implement-plan.md
+- .claude/hooks/dod-gate.sh
+- .github/workflows/ci.yml
+- docs/adr/039-measurable-critic-deterministic-judge.md
+- docs/goal-mode.md
+- docs/harness/README.md
+- docs/harness/critic-questions.toml
+- docs/harness/profile.toml
+- docs/plans/critic-narrow-questions.md
+- docs/plans/judge-profile-and-autonomy.md
+- docs/review-checklist.md
+- scripts/harness/critic.py
+- scripts/harness/gate.py
+- scripts/harness/gate_log.py
+- scripts/harness/gitutil.py
+- scripts/harness/judge.py
+- scripts/harness/planfile.py
+- scripts/harness/protected.py
+- scripts/harness/tests/conftest.py
+- scripts/harness/tests/test_critic.py
+- scripts/harness/tests/test_critic_local.py
+- scripts/harness/tests/test_critic_session.py
+- scripts/harness/tests/test_fixture_isolation.py
+- scripts/harness/tests/test_gate_critic.py
+- scripts/harness/tests/test_gate_judge.py
+- scripts/harness/tests/test_gate_protected_and_exhaustion.py
+- scripts/harness/tests/test_gate_robustness.py
+- scripts/harness/tests/test_gate_writes_log.py
+- scripts/harness/tests/test_judge.py
+- scripts/plan_goal.sh
+- scripts/plan_runner.sh
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
