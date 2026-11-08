@@ -150,8 +150,8 @@ def _copy(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst)
 
 
-@pytest.fixture
-def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
+def make_repo(tmp_path: Path, base_env: dict[str, str]) -> HarnessRepo:
+    """A throwaway repo with the real harness in it, isolated from the caller's git config."""
     root = tmp_path / "repo"
     root.mkdir()
     for rel in COPY:
@@ -166,10 +166,16 @@ def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
     )
     env = {
         k: v
-        for k, v in os.environ.items()
+        for k, v in base_env.items()
         if not k.startswith(("KALETA_", "CLAUDE", "GIT_", "DOD_GATE"))
     }
+    # Ignore the developer's ~/.gitconfig and /etc/gitconfig (gpgsign, hooksPath,
+    # defaultBranch …): verify.sh runs these tests for every plan.
+    empty_config = tmp_path / "gitconfig"
+    empty_config.write_text("", encoding="utf-8")
     env.update(
+        GIT_CONFIG_GLOBAL=str(empty_config),
+        GIT_CONFIG_NOSYSTEM="1",
         GIT_AUTHOR_NAME="t",
         GIT_AUTHOR_EMAIL="t@example.invalid",
         GIT_COMMITTER_NAME="t",
@@ -179,7 +185,12 @@ def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
     h = HarnessRepo(root, env)
     h.run("git", "init", "-q", "-b", "main", check=True)
     h.commit("base")
-    yield h
+    return h
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
+    yield make_repo(tmp_path, dict(os.environ))
 
 
 def approve(repo: HarnessRepo, questions: list[dict] | None = None, **extra: object) -> None:
