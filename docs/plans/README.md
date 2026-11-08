@@ -116,15 +116,15 @@ picks the autonomy mode per change. All plans are `harness: true`: implement
 them interactively in a `KALETA_HARNESS_MAINTAINER=1 claude` session, never
 with `plan_runner.sh`.
 
-| # | Plan | Effort | Status | Depends on |
+| # | Plan | Status | Effort | Depends on |
 |---|---|---|---|---|
-| 1 | [harness-maintainer-mode](harness-maintainer-mode.md) | small | draft | — (bootstrap by hand) |
-| 2 | [gate-audit-log](gate-audit-log.md) | medium | draft | 1 |
-| 3 | [critic-narrow-questions](critic-narrow-questions.md) | medium | draft | 2 |
-| 4 | [judge-profile-and-autonomy](judge-profile-and-autonomy.md) | large | draft | 3 |
-| 5 | [critic-calibration-set](critic-calibration-set.md) | large | draft | 3, 4 |
-| 6 | [fidelity-independent-critic](fidelity-independent-critic.md) | medium | draft | 1, 2 |
-| 7 | [review-canary](review-canary.md) | medium | draft | 5 |
+| 1 | [harness-maintainer-mode](harness-maintainer-mode.md) | draft | small | — (bootstrap by hand) |
+| 2 | [gate-audit-log](gate-audit-log.md) | draft | medium | 1 |
+| 3 | [critic-narrow-questions](critic-narrow-questions.md) | draft | medium | 2 |
+| 4 | [judge-profile-and-autonomy](judge-profile-and-autonomy.md) | draft | large | 3 |
+| 5 | [critic-calibration-set](critic-calibration-set.md) | draft | large | 3, 4 |
+| 6 | [fidelity-independent-critic](fidelity-independent-critic.md) | draft | medium | 1, 2 |
+| 7 | [review-canary](review-canary.md) | draft | medium | 5 |
 
 Nothing here merges automatically: mode A is a label until the owner sets
 `allow_auto_merge = true` on the strength of a calibration report.
