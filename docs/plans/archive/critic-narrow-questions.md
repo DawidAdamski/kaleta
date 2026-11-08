@@ -3,9 +3,10 @@ plan_id: critic-narrow-questions
 title: Critic answers narrow typed questions with evidence and a sampled probability, never a verdict
 area: harness / review
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-11-08
 harness: true
-roadmap_ref: ../roadmap.md#5-engineering-hygiene
+roadmap_ref: ../../roadmap.md#5-engineering-hygiene
 ---
 
 # Critic answers narrow typed questions with evidence and a sampled probability, never a verdict
@@ -14,7 +15,7 @@ roadmap_ref: ../roadmap.md#5-engineering-hygiene
 Today one LLM returns `approve` / `changes`, and the gate obeys it. That
 makes the reviewer the judge, and its uncertainty disappears into a binary
 answer (`hosted-supabase-rollout`: `approve` with three findings about
-missing tests). Per [ADR-39](../adr/039-measurable-critic-deterministic-judge.md)
+missing tests). Per [ADR-39](../../adr/039-measurable-critic-deterministic-judge.md)
 the critic becomes an expert witness. It answers narrow questions, backs
 every "violation" with `file:line` evidence that code can check, and its
 strength is the agreement of *k* independent samples. Verbalised
@@ -137,3 +138,36 @@ Does **not** cover:
   until calibration shows which questions it should ask.
 - **Open questions taken by default:** k=3, `sonnet`, `na` counts as a valid
   "no violation", free-form findings are advisory only.
+
+## Implementation
+
+Landed on 2026-11-08 (PR #392).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `a510a436` | Dawid Adamski | 2026-11-08 | Merge pull request #392 from DawidAdamski/plan/critic-narrow-questions |
+
+**Files changed:**
+- .claude/agents/reviewer.md
+- .claude/commands/implement-plan.md
+- docs/goal-mode.md
+- docs/harness/README.md
+- docs/harness/critic-questions.toml
+- docs/plans/critic-narrow-questions.md
+- scripts/harness/critic.py
+- scripts/harness/gate.py
+- scripts/harness/tests/conftest.py
+- scripts/harness/tests/test_critic.py
+- scripts/harness/tests/test_gate_critic.py
+- scripts/harness/tests/test_gate_protected_and_exhaustion.py
+- scripts/harness/tests/test_gate_writes_log.py
+- scripts/harness/tests/test_review_gate_cross_error.py
+- scripts/plan_goal.sh
+- scripts/plan_runner.sh
+- scripts/review_gate.sh
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
