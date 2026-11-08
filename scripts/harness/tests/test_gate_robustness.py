@@ -7,7 +7,7 @@ import contextlib
 import json
 
 import gitutil
-from conftest import HarnessRepo, approve
+from conftest import HarnessRepo, approve, clean, fake_samples
 
 
 def _reason(out) -> str:
@@ -136,3 +136,26 @@ def test_a_broken_run_log_is_a_veto_not_a_crash(repo: HarnessRepo) -> None:
     reason = repo.state("escalated-reason") or ""
     assert "run log" in reason
     assert "crashed" not in reason
+
+
+def test_the_implementer_cannot_lower_k_below_the_profile(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("src/app.py", "X = 2\n")
+    repo.commit("work")
+    fake = fake_samples(repo, [clean()] * 3)
+    for env in ({"KALETA_CRITIC_SAMPLES": "1"}, {}):
+        args = ["scripts/review_gate.sh"] + (["--samples", "1"] if not env else [])
+        out = repo.run(*args, env={"KALETA_CRITIC_FAKE": fake, **env})
+        assert out.returncode == 0, out.stderr
+        c = json.loads(repo.state("critic.json") or "{}")
+        assert len(c["samples"]) == 3  # medium risk: critic_samples = 3
+
+
+def test_the_gate_blocks_a_critic_run_with_too_few_samples(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("src/app.py", "X = 2\n")
+    repo.commit("work")
+    approve(repo, samples_ok=1)  # e.g. a critic.json from an older or hand-run critic
+    reason = _reason(repo.gate())
+    assert "1 sample" in reason
+    assert repo.state("result") is None

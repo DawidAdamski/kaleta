@@ -341,6 +341,17 @@ def decide(inputs: dict[str, Any], profile: Profile) -> Decision:
                 )
             )
 
+    required = int(profile.autonomy.get("critic_samples", {}).get(cls) or 1)
+    if usable and int(critic.get("samples_ok", 0)) < required:
+        blocks.append(
+            _r(
+                "critic.too_few_samples",
+                f"The critic ran {critic.get('samples_ok', 0)} sample(s); risk class {cls} needs"
+                f" {required}. Run ./scripts/review_gate.sh without lowering --samples or"
+                " KALETA_CRITIC_SAMPLES.",
+            )
+        )
+
     prior = inputs.get("prior_uncertain", {})
     for q in questions:
         if q["id"] == sq:

@@ -120,6 +120,12 @@ def pattern_hits(base: str, raw_profile: dict[str, Any]) -> tuple[list[dict], li
     return hits, secrets[:10]
 
 
+def _samples_ok(record: dict[str, Any]) -> int:
+    if "samples_ok" in record:
+        return int(record["samples_ok"] or 0)
+    return sum(1 for s in record.get("samples", []) if s.get("ok"))
+
+
 def critic_evidence(
     root: Path,
     plan_id: str,
@@ -154,6 +160,7 @@ def critic_evidence(
         "critic_hash": latest.get("critic_hash"),
         "cross_family_present": bool(latest.get("cross_family_present")),
         "runs_pooled": 1,
+        "samples_ok": _samples_ok(latest),
         "questions": [
             {
                 k: q.get(k)
@@ -196,6 +203,7 @@ def critic_evidence(
         latest_ids = [q["id"] for q in status["questions"]]
         status["questions"] = [pooled[i] for i in latest_ids if i in pooled]
         status["runs_pooled"] = len(same)
+        status["samples_ok"] = sum(_samples_ok(r) for r in same)
         status["cross_family_present"] = any(r.get("cross_family_present") for r in same)
 
     # prior uncertainty: earlier diffs on which a question sat in the uncertain band

@@ -56,6 +56,7 @@ def inputs(
             "status": "ok",
             "critic_hash": "c1",
             "cross_family_present": False,
+            "samples_ok": 3,
             "questions": questions if questions is not None else [q()],
         },
         "prior_uncertain": {},

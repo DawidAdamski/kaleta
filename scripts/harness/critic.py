@@ -544,6 +544,15 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
         root, paths, plan.read_text(encoding="utf-8")
     )
     k = samples or int(os.environ.get("KALETA_CRITIC_SAMPLES") or prof_samples or DEFAULT_SAMPLES)
+    if prof_samples and k < prof_samples:
+        # The owner's profile sets the floor; --samples and KALETA_CRITIC_SAMPLES
+        # may only raise it.
+        print(
+            f"critic: k={k} is below the profile's {prof_samples} for {risk_class} risk"
+            f" — using {prof_samples}",
+            file=sys.stderr,
+        )
+        k = prof_samples
     cross = os.environ.get("KALETA_CROSS_REVIEW") == "1" or cross_required
     model = os.environ.get("KALETA_REVIEW_MODEL", "sonnet")
     cross_url = os.environ.get("KALETA_CROSS_REVIEW_URL", DEFAULT_CROSS_URL)
@@ -650,6 +659,8 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
             for s in results
         ],
         "cost_usd": round(sum(s.cost_usd for s in results), 4),
+        "samples_ok": len(ok_samples),
+        "k_required": prof_samples,
         "questions": qresults,
         "findings": findings,
     }

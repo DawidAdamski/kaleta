@@ -176,12 +176,12 @@ def test_real_claude_output_is_parsed(repo: HarnessRepo) -> None:
     claude.chmod(0o755)
     out = repo.run(
         "scripts/review_gate.sh",
-        env={"PATH": f"{bindir}:/usr/bin:/bin", "KALETA_CRITIC_SAMPLES": "2"},
+        env={"PATH": f"{bindir}:/usr/bin:/bin", "KALETA_CRITIC_SAMPLES": "4"},
     )
     assert out.returncode == 0, out.stderr
     c = json.loads(repo.state("critic.json") or "{}")
-    assert [s["turns"] for s in c["samples"]] == [4, 4]
-    assert c["cost_usd"] == pytest.approx(0.04)
+    assert [s["turns"] for s in c["samples"]] == [4, 4, 4, 4]  # env may raise k
+    assert c["cost_usd"] == pytest.approx(0.08)
 
 
 def test_dry_run_lists_questions_without_calling_anything(repo: HarnessRepo) -> None:

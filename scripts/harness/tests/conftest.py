@@ -218,6 +218,7 @@ def approve(repo: HarnessRepo, questions: list[dict] | None = None, **extra: obj
                 "diff_hash": repo.diff_hash(),
                 "status": "ok",
                 "critic_hash": "test",
+                "samples_ok": 3,
                 "cross_family_present": False,
                 "questions": qs,
             }
