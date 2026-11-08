@@ -182,6 +182,7 @@ def make_repo(tmp_path: Path, base_env: dict[str, str]) -> HarnessRepo:
         GIT_COMMITTER_NAME="t",
         GIT_COMMITTER_EMAIL="t@example.invalid",
         KALETA_HARNESS_PY=sys.executable,
+        KALETA_HARNESS_TEST="1",  # canned critic samples are allowed in this suite only
     )
     h = HarnessRepo(root, env)
     h.run("git", "init", "-q", "-b", "main", check=True)

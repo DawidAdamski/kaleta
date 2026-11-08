@@ -161,6 +161,7 @@ def critic_evidence(
         "cross_family_present": bool(latest.get("cross_family_present")),
         "runs_pooled": 1,
         "samples_ok": _samples_ok(latest),
+        "fake": bool(latest.get("fake")),
         "questions": [
             {
                 k: q.get(k)
@@ -204,6 +205,7 @@ def critic_evidence(
         status["questions"] = [pooled[i] for i in latest_ids if i in pooled]
         status["runs_pooled"] = len(same)
         status["samples_ok"] = sum(_samples_ok(r) for r in same)
+        status["fake"] = any(r.get("fake") for r in same)
         status["cross_family_present"] = any(r.get("cross_family_present") for r in same)
 
     # prior uncertainty: earlier diffs on which a question sat in the uncertain band
@@ -293,6 +295,8 @@ def collect(
         "changed": [c.as_dict() for c in changed],
         "diff_hash": diff_hash,
         "maintainer": os.environ.get("KALETA_HARNESS_MAINTAINER") == "1",
+        # the hook's environment, which the implementer cannot set (like maintainer mode)
+        "test_mode": os.environ.get("KALETA_HARNESS_TEST") == "1",
         "protected_touched": protected_in_diff(paths, root, base),
         "green_washing": green,
         "secret_hits": secrets,

@@ -260,6 +260,14 @@ def decide(inputs: dict[str, Any], profile: Profile) -> Decision:
                 + ". Only the maintainer changes the harness.",
             )
         )
+    if critic.get("fake") and not inputs.get("test_mode"):
+        vetoes.append(
+            _r(
+                "veto.fake_critic",
+                "The critic result came from canned answers (KALETA_CRITIC_FAKE), which only"
+                " the harness tests may use.",
+            )
+        )
     if inputs.get("run_log_errors"):
         vetoes.append(
             _r(

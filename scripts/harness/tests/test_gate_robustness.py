@@ -159,3 +159,15 @@ def test_the_gate_blocks_a_critic_run_with_too_few_samples(repo: HarnessRepo) ->
     reason = _reason(repo.gate())
     assert "1 sample" in reason
     assert repo.state("result") is None
+
+
+def test_canned_critic_answers_outside_the_tests_are_a_veto(repo: HarnessRepo) -> None:
+    repo.new_plan()
+    repo.write("src/app.py", "X = 2\n")
+    repo.commit("work")
+    fake = fake_samples(repo, [clean()] * 3)
+    assert repo.run("scripts/review_gate.sh", env={"KALETA_CRITIC_FAKE": fake}).returncode == 0
+    assert json.loads(repo.state("critic.json") or "{}")["fake"] is True
+    repo.gate(env={"KALETA_HARNESS_TEST": "0"})  # a real hook: not the test suite
+    assert repo.state("result") == "escalated"
+    assert "canned" in (repo.state("escalated-reason") or "")

@@ -23,7 +23,8 @@ Env:
     KALETA_CROSS_REVIEW_API_KEY bearer key, if the server wants one (Unsloth Studio: sk-unsloth-…)
     KALETA_CROSS_REVIEW_TIMEOUT seconds for the local reply (default: 900)
     KALETA_CROSS_REVIEW_MAX_CHARS  diff budget in the local prompt (default: 120000)
-    KALETA_CRITIC_FAKE=<dir>    read canned samples (sample-<i>.json, cross.json) — tests only
+    KALETA_CRITIC_FAKE=<dir>    read canned samples (sample-<i>.json, cross.json) — tests only;
+                                the run is marked fake and the gate vetoes it outside the tests
 
 Writes ``.claude/state/critic.json`` and a ``review`` record in the run log.
 Exit 0 when the critic ran (whatever it found), 1 when it could not.
@@ -660,6 +661,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
         ],
         "cost_usd": round(sum(s.cost_usd for s in results), 4),
         "samples_ok": len(ok_samples),
+        "fake": bool(fake),
         "k_required": prof_samples,
         "questions": qresults,
         "findings": findings,
