@@ -58,18 +58,18 @@ def test_a_majority_blocks_with_the_evidence(repo: HarnessRepo) -> None:
     assert "touches an unrelated module" in reason
 
 
-def test_a_single_sample_only_warns(repo: HarnessRepo) -> None:
+def test_a_single_sample_asks_for_stronger_evidence_first(repo: HarnessRepo) -> None:
     _work(repo)
     approve(repo, [_q(0.3333, 1)])
-    out = repo.gate()
-    assert out.stdout.strip() == ""  # done, with a warning on stderr
-    assert "Critic is unsure: Q-SCOPE" in out.stderr
+    reason = _reason(repo.gate())
+    assert "The critic is unsure — strengthen the evidence" in reason
+    assert "Q-SCOPE" in reason
 
 
 def test_critic_error_blocks(repo: HarnessRepo) -> None:
     _work(repo)
-    approve(repo, status="error", error="cross-family sample required but failed")
-    assert "Critic could not run: cross-family sample required" in _reason(repo.gate())
+    approve(repo, status="error", error="output could not be parsed", error_kind="no_samples")
+    assert "Critic could not run: output could not be parsed" in _reason(repo.gate())
 
 
 def test_end_to_end_with_fake_samples(repo: HarnessRepo) -> None:

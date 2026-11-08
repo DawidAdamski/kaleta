@@ -70,7 +70,7 @@ case "$cmd" in
     echo "plan:      $(cat "$state/active-plan")"
     echo "branch:    $(git rev-parse --abbrev-ref HEAD)"
     echo "attempts:  $(cat "$state/attempts" 2>/dev/null || echo 0)/$(cat "$state/max-attempts")"
-    echo "result:    $(cat "$state/result" 2>/dev/null || echo '-')"
+    echo "result:    $(cat "$state/result" 2>/dev/null || echo '-')$( [ -f "$state/mode" ] && printf ' (mode %s)' "$(cat "$state/mode")")"
     if [ -f "$state/critic.json" ]; then
       echo "critic:    $(jq -r '.status + " (diff " + .diff_hash + ", critic " + .critic_hash + ", " + (.cost_usd|tostring) + " USD)"' "$state/critic.json")"
       jq -r '.questions[] | "           \(.id) p=\(.p_violation // "-") (\(.violations)/\(.k_valid))"' "$state/critic.json"
@@ -78,6 +78,8 @@ case "$cmd" in
       echo "critic:    none yet (scripts/review_gate.sh)"
     fi
     [ -f "$state/blocked-reason" ] && echo "blocked:   $(cat "$state/blocked-reason")"
+    [ -f "$state/escalated-reason" ] && { echo "escalated:"; sed 's/^/           /' "$state/escalated-reason"; }
+    [ -f "$state/decision.md" ] && echo "decision:  $state/decision.md"
     ;;
   block)
     reason=${2:?usage: plan_goal.sh block "<reason>"}

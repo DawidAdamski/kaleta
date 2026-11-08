@@ -58,6 +58,14 @@ jobs:
       - name: Harness run logs (hash chain)
         run: uv run python scripts/harness/gate_log.py verify
 
+      - name: Harness profile and decision replay
+        run: |
+          uv run python scripts/harness/judge.py check-profile
+          for f in docs/harness/runs/*.jsonl; do
+            [ -e "$f" ] || continue
+            uv run python scripts/harness/judge.py replay "$f"
+          done
+
   postgres:
     runs-on: ubuntu-latest
     services:

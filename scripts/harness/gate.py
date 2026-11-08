@@ -2,13 +2,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The DoD gate behind the Stop hook ``.claude/hooks/dod-gate.sh`` (ADR-39).
 
-Active only while ``.claude/state/active-plan`` exists. Collects the evidence
-for the armed plan, decides, writes a ``gate`` record to the run log
-(``gate_log.py``) and answers Claude Code: nothing on stdout lets the session
-stop; ``{"decision": "block", "reason": ...}`` makes it keep working.
+Active only while ``.claude/state/active-plan`` exists. It collects the
+evidence for the armed plan (checks, green-washing, protected paths, the
+critic's answers pooled over every run on this diff, calibration), asks the
+judge (``judge.decide``, a pure function of that evidence and the owner's
+profile), writes a ``gate`` record with inputs, profile and decision to the
+run log, writes ``.claude/state/decision.md``, and answers Claude Code:
 
-``DOD_GATE_DRY=1`` (``scripts/plan_goal.sh check``) judges without counting an
-attempt; the record is marked ``dry``.
+- block     -> ``{"decision": "block", "reason": ...}``: keep working
+- done      -> nothing on stdout; ``result=done``, ``mode=<A-C>``
+- escalate  -> nothing on stdout; ``result=escalated``: the owner decides
+- exhausted -> the last allowed attempt blocked; ``result=exhausted``
+
+``DOD_GATE_DRY=1`` (``scripts/plan_goal.sh check``) judges without counting
+an attempt or changing ``result``; the record is marked ``dry``.
 """
 
 from __future__ import annotations
@@ -19,6 +26,8 @@ import re
 import subprocess
 import sys
 import time
+import traceback
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
 
@@ -27,51 +36,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gate_log  # noqa: E402
 import gitutil  # noqa: E402
+import judge  # noqa: E402
+from planfile import plan_meta  # noqa: E402
 from protected import protected_in_diff  # noqa: E402
 
 STATE = Path(".claude/state")
 DEFAULT_MAX = 6
 CHECK_TAIL = 15
-TRANSITIONAL_BLOCK = 0.66  # 2 of 3 samples (0.667); replaced by profile thresholds (plan 4)
 VERIFY_TAIL = 40
-
-GREEN_WASHING = [
-    # id, pattern, applies to, outcome, message
-    (
-        "skip-xfail",
-        r"pytest\.mark\.(skip|xfail)|pytest\.skip\(|@unittest\.skip",
-        "added",
-        "block",
-        "New skip/xfail in the diff — forbidden (rule 4). Fix the root cause instead.",
-    ),
-    (
-        "ignore-imports",
-        r"^\s*ignore_imports",
-        "added",
-        "block",
-        "New ignore_imports entry — forbidden (rule 6). The import-linter contract is law.",
-    ),
-    (
-        "type-ignore",
-        r"#\s*type:\s*ignore",
-        "added",
-        "warn",
-        (
-            "New '# type: ignore' in the diff — justify it in Implementation notes"
-            " or remove (rule 10)."
-        ),
-    ),
-    (
-        "removed-assert",
-        r"^\s*assert",
-        "removed-tests",
-        "warn",
-        (
-            "Assertions were removed from existing tests — explain this in"
-            " Implementation notes (rule 4)."
-        ),
-    ),
-]
 
 RULES_FOOTER = (
     "\nRules: do not ask questions — resolve open questions with the plan defaults and record "
@@ -91,95 +63,201 @@ def write_state(name: str, value: str) -> None:
     (STATE / name).write_text(value, encoding="utf-8")
 
 
-# ── plan ─────────────────────────────────────────────────────────────────
-def section(text: str, heading: str) -> str:
-    m = re.search(rf"^## {re.escape(heading)}[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
-    return m.group(1) if m else ""
-
-
-def plan_meta(text: str) -> dict[str, Any]:
-    crit = section(text, "Acceptance criteria")
-    commands = [
-        m.group(1)
-        for m in re.finditer(r"^- `([^`]*)`", crit, re.M)
-        if not m.group(1).startswith("[manual]")
-    ]
-    title = re.search(r"^title:\s*(.*)$", text, re.M)
-    return {
-        "status_in_progress": bool(re.search(r"^status: in-progress", text, re.M)),
-        "notes_filled": "_Filled in as work progresses._" not in text,
-        "harness": bool(re.search(r"^harness:\s*true", text, re.M)),
-        "title": title.group(1).strip() if title else "",
-        "criteria": commands,
-        "manual_criteria": len(re.findall(r"^- `?\[manual\]", crit, re.M)),
-    }
-
-
-# ── checks ───────────────────────────────────────────────────────────────
-def run_check(name: str, kind: str, cmd: str, tail: int) -> dict[str, Any]:
+# ── evidence ─────────────────────────────────────────────────────────────
+def run_check(name: str, kind: str, cmd: str, tail: int) -> tuple[dict[str, Any], str]:
     t0 = time.monotonic()
-    out = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, check=False)
+    out = subprocess.run(
+        ["bash", "-c", cmd], capture_output=True, text=True, errors="replace", check=False
+    )
     text = (out.stdout + out.stderr).rstrip()
-    return {
+    check = {
         "name": name,
         "kind": kind,
         "cmd": cmd,
         "ok": out.returncode == 0,
         "seconds": round(time.monotonic() - t0, 2),
         "tail": "\n".join(text.splitlines()[-tail:]) if out.returncode else "",
-        "_full": text,
     }
+    return check, text
 
 
-def green_washing(base: str) -> list[dict[str, Any]]:
+def _in(path: str, globs: list[str]) -> bool:
+    return any(fnmatchcase(path, g) for g in globs)
+
+
+def pattern_hits(base: str, raw_profile: dict[str, Any]) -> tuple[list[dict], list[str]]:
+    """Green-washing hits and secret-pattern hits on the changed lines."""
     added, removed = gitutil.diff_lines(base)
-    added_code = [d for d in added if d.path and not d.path.startswith("docs/")]
-    removed_tests = [d for d in removed if d.path.startswith("tests/")]
     hits = []
-    for gid, pattern, scope, outcome, message in GREEN_WASHING:
-        rx = re.compile(pattern)
-        pool = added_code if scope == "added" else removed_tests
-        found = [f"{d.path}:{d.new_line or '-'}" for d in pool if rx.search(d.text)]
+    for g in raw_profile.get("green_washing", []):
+        rx = re.compile(g["pattern"])
+        pool = added if g["lines"] == "added" else removed
+        found = [
+            f"{d.path}:{d.new_line or '-'}"
+            for d in pool
+            if d.path
+            and _in(d.path, g.get("paths", ["*"]))
+            and not _in(d.path, g.get("exclude", []))
+            and rx.search(d.text)
+        ]
         if found:
-            hits.append({"id": gid, "outcome": outcome, "message": message, "where": found[:10]})
-    return hits
+            hits.append(
+                {
+                    "id": g["id"],
+                    "outcome": g["outcome"],
+                    "message": g["message"],
+                    "where": found[:10],
+                }
+            )
+    vetoes = raw_profile.get("vetoes", {})
+    secret_rx = [re.compile(p) for p in vetoes.get("secret_patterns", [])]
+    skip = vetoes.get("secret_exclude", [])
+    secrets = [
+        f"{d.path}:{d.new_line}"
+        for d in added
+        if d.path and not _in(d.path, skip) and any(rx.search(d.text) for rx in secret_rx)
+    ]
+    return hits, secrets[:10]
 
 
-def critic_status(diff_hash: str) -> dict[str, Any]:
-    """What the critic (scripts/review_gate.sh -> critic.py) said about this diff."""
+def _samples_ok(record: dict[str, Any]) -> int:
+    if "samples_ok" in record:
+        return int(record["samples_ok"] or 0)
+    return sum(1 for s in record.get("samples", []) if s.get("ok"))
+
+
+def critic_evidence(
+    root: Path,
+    plan_id: str,
+    diff_hash: str,
+    profile: judge.Profile | None,
+    log_ok: bool = True,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """The critic's answers for this diff, pooled over every run on it, and prior uncertainty.
+
+    Pooling means re-running the critic on an unchanged diff adds samples to
+    one estimate instead of offering a fresh draw: re-rolling until a lucky
+    sample comes up does not work.
+    """
     path = STATE / "critic.json"
     if not path.exists():
-        return {"present": False}
+        return {"present": False}, {}
     try:
-        c = json.loads(path.read_text(encoding="utf-8"))
+        latest = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {
             "present": True,
             "fresh": False,
             "status": "error",
             "error": "critic.json unreadable",
-        }
-    return {
+        }, {}
+    status = {
         "present": True,
-        "fresh": c.get("diff_hash") == diff_hash,
-        "status": c.get("status"),
-        "error_kind": c.get("error_kind", ""),
-        "error": c.get("error", ""),
-        "critic_hash": c.get("critic_hash"),
-        "risk_class": c.get("risk_class"),
-        "cross_family_present": bool(c.get("cross_family_present")),
+        "fresh": latest.get("diff_hash") == diff_hash,
+        "status": latest.get("status"),
+        "error_kind": latest.get("error_kind", ""),
+        "error": latest.get("error", ""),
+        "critic_hash": latest.get("critic_hash"),
+        "cross_family_present": bool(latest.get("cross_family_present")),
+        "runs_pooled": 1,
+        "samples_ok": _samples_ok(latest),
+        "fake": bool(latest.get("fake")),
         "questions": [
             {
                 k: q.get(k)
-                for k in ("id", "p_violation", "violations", "k_valid", "evidence", "notes")
+                for k in (
+                    "id",
+                    "p_violation",
+                    "violations",
+                    "k_valid",
+                    "evidence",
+                    "notes",
+                    "answers",
+                )
             }
-            for q in c.get("questions", [])
+            for q in latest.get("questions", [])
         ],
     }
+    reviews = (
+        [
+            r
+            for r in gate_log.records(root, plan_id)
+            if r["kind"] == "review" and r.get("status") == "ok" and r.get("version") == 2
+        ]
+        if log_ok
+        else []  # a broken log is a veto; nothing in it is evidence
+    )
+    same = [
+        r
+        for r in reviews
+        if r.get("diff_hash") == diff_hash and r.get("critic_hash") == latest.get("critic_hash")
+    ]
+    if status["fresh"] and status["status"] == "ok" and len(same) > 1:
+        pooled: dict[str, dict[str, Any]] = {}
+        for r in same:
+            for q in r.get("questions", []):
+                acc = pooled.setdefault(
+                    q["id"],
+                    {"id": q["id"], "violations": 0, "k_valid": 0, "evidence": [], "notes": []},
+                )
+                acc["violations"] += q.get("violations") or 0
+                acc["k_valid"] += q.get("k_valid") or 0
+                acc["evidence"] += [e for e in q.get("evidence") or [] if e not in acc["evidence"]]
+                acc["notes"] += q.get("notes") or []
+                acc.setdefault("answers", []).extend(q.get("answers") or [])
+        for acc in pooled.values():
+            acc["p_violation"] = (
+                round(acc["violations"] / acc["k_valid"], 4) if acc["k_valid"] else None
+            )
+            acc["evidence"], acc["notes"] = acc["evidence"][:10], acc["notes"][:3]
+        latest_ids = [q["id"] for q in status["questions"]]
+        status["questions"] = [pooled[i] for i in latest_ids if i in pooled]
+        status["runs_pooled"] = len(same)
+        status["samples_ok"] = sum(_samples_ok(r) for r in same)
+        status["fake"] = any(r.get("fake") for r in same)
+        status["cross_family_present"] = any(r.get("cross_family_present") for r in same)
+
+    # prior uncertainty: earlier diffs on which a question sat in the uncertain band
+    prior: dict[str, int] = {}
+    if profile is not None:
+        seen: dict[str, set[str]] = {}
+        for r in reviews:
+            if r.get("diff_hash") == diff_hash:
+                continue
+            for q in r.get("questions", []):
+                p = q.get("p_violation")
+                block_t, unsure_t = profile.threshold(q["id"])
+                if p is not None and unsure_t <= p < block_t:
+                    seen.setdefault(q["id"], set()).add(r["diff_hash"])
+        prior = {qid: len(hashes) for qid, hashes in seen.items()}
+    return status, prior
 
 
-# ── collect ──────────────────────────────────────────────────────────────
-def collect(root: Path, plan_id: str, plan_text: str, base: str) -> dict[str, Any]:
+def calibration(
+    root: Path, profile: judge.Profile | None, critic_hash: str | None
+) -> dict[str, Any]:
+    if profile is None:
+        return {"report": "", "calibrated": []}
+    cal = profile.raw.get("calibration", {})
+    report = cal.get("report") or ""
+    out: dict[str, Any] = {"report": report, "calibrated": [], "critic_hash_match": False}
+    if not report or not (root / report).exists():
+        return out
+    data = json.loads((root / report).read_text(encoding="utf-8"))
+    target = float(cal.get("miss_rate_target", 0.10))
+    out["critic_hash_match"] = data.get("critic_hash") == critic_hash
+    if out["critic_hash_match"]:
+        out["calibrated"] = sorted(
+            qid
+            for qid, m in data.get("questions", {}).items()
+            if m.get("miss_rate_upper") is not None and float(m["miss_rate_upper"]) <= target
+        )
+    return out
+
+
+def collect(
+    root: Path, plan_id: str, plan_text: str, base: str, profile: judge.Profile | None, raw: dict
+) -> dict[str, Any]:
     meta = plan_meta(plan_text)
     changed = gitutil.changed(base)
     paths = [c.path for c in changed]
@@ -208,19 +286,17 @@ def collect(root: Path, plan_id: str, plan_text: str, base: str) -> dict[str, An
             ),
         },
     ]
-    for cmd in meta["criteria"]:
-        c = run_check(f"criterion: {cmd}", "criterion", cmd, CHECK_TAIL)
-        c.pop("_full")
-        checks.append(c)
-    e2e = any(p.startswith("src/kaleta/views/") for p in paths)
-    v = run_check(
-        "verify.sh" + (" --e2e" if e2e else ""),
-        "verify",
-        "./scripts/verify.sh" + (" --e2e" if e2e else ""),
-        VERIFY_TAIL,
+    checks.extend(
+        run_check(f"criterion: {cmd}", "criterion", cmd, CHECK_TAIL)[0] for cmd in meta["criteria"]
     )
-    write_state("verify-last.log", v.pop("_full") + "\n")
-    checks.append(v)
+    e2e = any(p.startswith("src/kaleta/views/") for p in paths)
+    vcmd = "./scripts/verify.sh" + (" --e2e" if e2e else "")
+    vcheck, vtext = run_check(vcmd.removeprefix("./scripts/"), "verify", vcmd, VERIFY_TAIL)
+    write_state("verify-last.log", vtext + "\n")
+    checks.append(vcheck)
+    green, secrets = pattern_hits(base, raw)
+    log_errors = gate_log.verify(root, plan_id)
+    critic, prior = critic_evidence(root, plan_id, diff_hash, profile, log_ok=not log_errors)
     return {
         "plan_id": plan_id,
         "plan": {k: meta[k] for k in ("harness", "title", "manual_criteria")}
@@ -228,81 +304,29 @@ def collect(root: Path, plan_id: str, plan_text: str, base: str) -> dict[str, An
         "changed": [c.as_dict() for c in changed],
         "diff_hash": diff_hash,
         "maintainer": os.environ.get("KALETA_HARNESS_MAINTAINER") == "1",
+        # the hook's environment, which the implementer cannot set (like maintainer mode)
+        "test_mode": os.environ.get("KALETA_HARNESS_TEST") == "1",
         "protected_touched": protected_in_diff(paths, root, base),
-        "green_washing": green_washing(base),
+        "green_washing": green,
+        "secret_hits": secrets,
+        "run_log_errors": log_errors[:5],
         "checks": checks,
-        "critic": critic_status(diff_hash),
+        "critic": critic,
+        "prior_uncertain": prior,
+        "calibration": calibration(root, profile, critic.get("critic_hash")),
     }
 
 
-# ── decide ───────────────────────────────────────────────────────────────
-def decide(inputs: dict[str, Any]) -> dict[str, Any]:
-    reasons: list[str] = []
-    warnings: list[str] = []
-    if inputs["protected_touched"] and not inputs["maintainer"]:
-        reasons.append(
-            "Protected paths changed outside maintainer mode (docs/harness/protected-paths.txt): "
-            + " ".join(inputs["protected_touched"])
-            + ". Revert them — only the maintainer changes the harness."
-        )
-    for c in inputs["checks"]:
-        if c["ok"]:
-            continue
-        if c["kind"] == "hygiene":
-            reasons.append(c["tail"])
-        elif c["kind"] == "criterion":
-            reasons.append(f"Acceptance criterion failed: `{c['cmd']}`\n{c['tail']}")
-        else:
-            reasons.append(f"./scripts/{c['cmd'].removeprefix('./scripts/')} failed:\n{c['tail']}")
-    for g in inputs["green_washing"]:
-        (reasons if g["outcome"] == "block" else warnings).append(
-            f"{g['message']} ({', '.join(g['where'])})"
-        )
-    if inputs["plan"]["exec_criteria"] == 0:
-        warnings.append(
-            "Plan has no executable acceptance criteria (backtick commands) — "
-            "the gate relies on verify.sh and the reviewer only."
-        )
-    # Transitional rule until judge-profile-and-autonomy: block on a majority.
-    c = inputs["critic"]
-    if not c["present"]:
-        reasons.append(
-            "No critic run yet. Run ./scripts/review_gate.sh (independent critic)"
-            " and fix what it finds."
-        )
-    elif not c["fresh"]:
-        reasons.append(
-            "Critic run is stale — the diff changed since. Run ./scripts/review_gate.sh again."
-        )
-    elif c["status"] != "ok":
-        reasons.append(f"Critic could not run: {c.get('error') or c['status']}.")
-    else:
-        for q in c["questions"]:
-            p = q["p_violation"]
-            ev = ", ".join(f"{e['file']}:{e['line']}" for e in q["evidence"]) or "-"
-            notes = " / ".join(q["notes"])
-            line = f"{q['id']} p={p} ({q['violations']}/{q['k_valid']}) at {ev}" + (
-                f" — {notes}" if notes else ""
-            )
-            if p is None:
-                warnings.append(f"{q['id']}: no valid critic answer (evidence missing or invalid).")
-            elif p >= TRANSITIONAL_BLOCK:
-                reasons.append(f"Critic found a problem: {line}")
-            elif p > 0:
-                warnings.append(f"Critic is unsure: {line}")
-    return {"outcome": "block" if reasons else "done", "reasons": reasons, "warnings": warnings}
-
-
-# ── main ─────────────────────────────────────────────────────────────────
-def block_json(attempt: int, max_attempts: int, decision: dict[str, Any]) -> str:
+# ── answer ───────────────────────────────────────────────────────────────
+def block_json(attempt: int, max_attempts: int, decision: judge.Decision) -> str:
     text = (
         f"DoD gate — attempt {attempt}/{max_attempts} — NOT done yet."
         " Fix everything below, then finish your turn again.\n\n"
     )
-    text += "".join(f"- {r}\n\n" for r in decision["reasons"])
-    if decision["warnings"]:
+    text += "".join(f"- {r['message']}\n\n" for r in decision.reasons)
+    if decision.warnings:
         text += "Warnings (not blocking, but address or justify):\n"
-        text += "".join(f"- {w}\n" for w in decision["warnings"])
+        text += "".join(f"- {w}\n" for w in decision.warnings)
     text += RULES_FOOTER
     return json.dumps({"decision": "block", "reason": text})
 
@@ -343,39 +367,81 @@ def main() -> int:
         write_state("attempts", str(attempt))
 
     base = gitutil.merge_base("main")
-    inputs = collect(root, plan_id, plan.read_text(encoding="utf-8"), base)
-    decision = decide(inputs)
+    maintainer = os.environ.get("KALETA_HARNESS_MAINTAINER") == "1"
+    profile_source = "worktree" if maintainer else "base"
+    profile: judge.Profile | None
+    profile_error = ""
+    try:
+        profile = judge.load_profile(root, base=None if maintainer else base)
+        raw = profile.raw
+    except judge.ProfileError as exc:
+        profile, raw, profile_error = None, {}, str(exc)
 
-    outcome = decision["outcome"]
+    inputs = collect(root, plan_id, plan.read_text(encoding="utf-8"), base, profile, raw)
+    decision = (
+        judge.decide(inputs, profile) if profile else judge.profile_error_decision(profile_error)
+    )
+
+    outcome = decision.outcome
     if outcome == "block" and not dry and attempt >= max_attempts:
         outcome = "exhausted"
-    gate_log.append(
-        root,
-        plan_id,
-        "gate",
-        {
-            "dry": dry,
-            "attempt": attempt,
-            "max_attempts": max_attempts,
-            "branch": branch,
-            "base": base,
-            "diff_hash": inputs["diff_hash"],
-            "plan_sha": gitutil.file_sha(plan),
-            "checklist_sha": gitutil.file_sha(Path("docs/review-checklist.md")),
-            "protected_sha": gitutil.file_sha(Path("docs/harness/protected-paths.txt")),
-            "inputs": inputs,
-            "decision": decision,
-            "outcome": outcome,
-        },
-    )
+    note = judge.render_note(decision, inputs, raw.get("meta", {}))
+    write_state("decision.md", note)
+    record: dict[str, Any] = {
+        "dry": dry,
+        "attempt": attempt,
+        "max_attempts": max_attempts,
+        "branch": branch,
+        "base": base,
+        "diff_hash": inputs["diff_hash"],
+        "plan_sha": gitutil.file_sha(plan),
+        "checklist_sha": gitutil.file_sha(Path("docs/review-checklist.md")),
+        "protected_sha": gitutil.file_sha(Path("docs/harness/protected-paths.txt")),
+        "profile": profile.raw if profile else None,
+        "profile_source": profile_source,
+        "inputs": inputs,
+        "decision": decision.as_dict(),
+        "outcome": outcome,
+    }
+    if profile_error:
+        record["profile_error"] = profile_error
+    gate_log.append(root, plan_id, "gate", record)
+
+    if dry and outcome != "block":
+        # plan_goal.sh check: report, change nothing
+        if outcome == "done":
+            print(f"dod-gate: would be DONE in mode {decision.mode}", file=sys.stderr)
+            return 0
+        reasons = "\n".join(f"- {r['message']}" for r in decision.reasons)
+        print(
+            json.dumps({"decision": "block", "reason": f"Would ESCALATE to the owner:\n{reasons}"})
+        )
+        return 0
 
     if outcome == "done":
         write_state("result", "done")
+        write_state("mode", decision.mode or "")
         manual = inputs["plan"]["manual_criteria"]
-        msg = f"dod-gate: DONE for plan {plan_id} (manual criteria left for the owner: {manual})"
-        print(msg, file=sys.stderr)
-        for w in decision["warnings"]:
+        print(
+            f"dod-gate: DONE for plan {plan_id} — mode {decision.mode}"
+            f" ({decision.risk_class} risk);"
+            f" manual criteria left for the owner: {manual}. See .claude/state/decision.md",
+            file=sys.stderr,
+        )
+        for w in decision.warnings:
             print(f"warning: {w}", file=sys.stderr)
+        return 0
+    if outcome == "escalate":
+        write_state("result", "escalated")
+        write_state("mode", decision.mode or "")
+        write_state("escalated-reason", "\n".join(r["message"] for r in decision.reasons) + "\n")
+        print(
+            f"dod-gate: ESCALATED to the owner (mode {decision.mode}). The gate will not decide"
+            " this; stop and report. See .claude/state/decision.md",
+            file=sys.stderr,
+        )
+        for r in decision.reasons:
+            print(f"- {r['message']}", file=sys.stderr)
         return 0
     if outcome == "exhausted":
         write_state("result", "exhausted")
@@ -384,10 +450,35 @@ def main() -> int:
             " Open failures:",
             file=sys.stderr,
         )
-        for r in decision["reasons"]:
-            print(f"- {r}", file=sys.stderr)
+        for r in decision.reasons:
+            print(f"- {r['message']}", file=sys.stderr)
         return 0
     print(block_json(attempt, max_attempts, decision))
+    return 0
+
+
+def crashed(exc: BaseException) -> int:
+    """The gate itself failed: never "done", never a block loop — the owner decides.
+
+    A block would repeat on every Stop without counting toward max-attempts,
+    so the run would spin until --max-turns. Escalating ends it with the cause.
+    """
+    frames = traceback.format_exc().strip().splitlines()[-8:]
+    msg = (
+        f"DoD gate crashed: {exc!r}. The harness is broken or was fed something it cannot"
+        " read; the gate will not decide this run.\n" + "\n".join(frames)
+    )
+    if os.environ.get("DOD_GATE_DRY") == "1":
+        print(json.dumps({"decision": "block", "reason": msg}))
+        return 0
+    try:
+        write_state("result", "escalated")
+        write_state("mode", "D")
+        write_state("escalated-reason", msg + "\n")
+        write_state("gate-crash.log", traceback.format_exc())
+    except OSError:
+        pass
+    print(f"dod-gate: ESCALATED — {msg}", file=sys.stderr)
     return 0
 
 
@@ -395,13 +486,4 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:  # the judge must never fail open silently
-        print(
-            json.dumps(
-                {
-                    "decision": "block",
-                    "reason": f"DoD gate crashed: {exc!r}."
-                    " Tell the maintainer; do not work around it.",
-                }
-            )
-        )
-        sys.exit(0)
+        sys.exit(crashed(exc))

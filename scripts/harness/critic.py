@@ -4,9 +4,10 @@
 
 Answers the narrow questions in ``docs/harness/critic-questions.toml`` about
 the current diff. Each of *k* independent samples (fresh ``claude -p``
-contexts, optionally one from another model family via the Cursor CLI)
-answers ``yes | no | na`` per question; a ``yes`` must cite ``file:line``
-evidence on the new side of the diff, and this script checks that evidence
+contexts, optionally one from another model family: a local model behind an
+OpenAI-compatible endpoint such as Unsloth Studio or Ollama) answers
+``yes | no | na`` per question; a ``yes`` must cite ``file:line`` evidence on
+the new side of the diff, and this script checks that evidence
 deterministically. ``p_violation`` is the share of valid samples that found
 the problem. There is no verdict: ``scripts/harness/gate.py`` decides.
 
@@ -15,9 +16,15 @@ the problem. There is no verdict: ``scripts/harness/gate.py`` decides.
 Env:
     KALETA_CRITIC_SAMPLES       k (default: profile, else 3)
     KALETA_REVIEW_MODEL         Claude model for the samples (default: sonnet)
-    KALETA_CROSS_REVIEW=1       one of the k samples from the Cursor CLI (required)
-    KALETA_CROSS_REVIEW_MODEL   Cursor model id (default: gpt-5)
-    KALETA_CRITIC_FAKE=<dir>    read canned samples (sample-<i>.json, cross.json) — tests only
+    KALETA_CROSS_REVIEW=1       one of the k samples from a local model (then required)
+    KALETA_CROSS_REVIEW_URL     OpenAI-compatible base URL (default: http://localhost:8888/v1,
+                                Unsloth Studio; Ollama: http://localhost:11434/v1)
+    KALETA_CROSS_REVIEW_MODEL   model id (default: the first one GET /models lists)
+    KALETA_CROSS_REVIEW_API_KEY bearer key, if the server wants one (Unsloth Studio: sk-unsloth-…)
+    KALETA_CROSS_REVIEW_TIMEOUT seconds for the local reply (default: 900)
+    KALETA_CROSS_REVIEW_MAX_CHARS  diff budget in the local prompt (default: 120000)
+    KALETA_CRITIC_FAKE=<dir>    read canned samples (sample-<i>.json, cross.json) — tests only;
+                                the run is marked fake and the gate vetoes it outside the tests
 
 Writes ``.claude/state/critic.json`` and a ``review`` record in the run log.
 Exit 0 when the critic ran (whatever it found), 1 when it could not.
@@ -34,6 +41,8 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
@@ -45,7 +54,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gate_log  # noqa: E402
 import gitutil  # noqa: E402
+import judge  # noqa: E402
+from planfile import plan_meta  # noqa: E402
 
+DEFAULT_CROSS_URL = "http://localhost:8888/v1"
+CROSS_PREFIX = "local:"
 QUESTIONS = Path("docs/harness/critic-questions.toml")
 PROFILE = Path("docs/harness/profile.toml")
 STATE = Path(".claude/state")
@@ -65,7 +78,10 @@ The change: the working-tree diff against merge-base {base}
   git diff {base} --stat
   git diff {base}
 The scope contract: docs/plans/{plan_id}.md (Scope, "Not in scope", Acceptance
-criteria, Implementation notes). Context: docs/review-checklist.md and the
+criteria, Implementation notes). The workflow itself edits that plan file
+(status: in-progress, Implementation notes, ticked chores) and the harness writes
+docs/harness/runs/: those edits are expected and never out of scope; that the
+plan file changed is not a finding. Context: docs/review-checklist.md and the
 Working Agreement in AGENTS.md. You may run `uv run pytest <path> -q` to check a claim.
 
 Answer EVERY question below with exactly one of:
@@ -130,6 +146,39 @@ SCHEMA = {
 }
 
 
+LOCAL_TEMPLATE = """You are an independent expert witness reviewing a code change in a repository.
+You did NOT write this code. You cannot open files or run commands: everything you
+may use is below — the plan (the scope contract) and the diff. You do not decide
+whether the change is merged: you answer narrow questions, and a deterministic
+judge combines your answers with thresholds the owner has set.
+The workflow itself edits the plan file (status: in-progress, Implementation
+notes, ticked chores) and the harness writes docs/harness/runs/: those edits are
+expected and never out of scope; that the plan file changed is not a finding.
+
+Answer EVERY question with exactly one of:
+  "yes"  the problem described IS present in this diff. You MUST cite evidence: the
+         file and the NEW-side line number. In the diff below every added or context
+         line starts with its new-side line number, e.g. "  42 + code" -> line 42.
+         A "yes" whose evidence does not point into the diff is discarded.
+  "no"   you checked, and it is not present.
+  "na"   the question does not apply, or you cannot see enough to answer.
+Answer the question as asked, not a broader one. Do not guess "yes".{truncated_note}
+
+Questions:
+{questions}
+
+=== PLAN: docs/plans/{plan_id}.md ===
+{plan}
+
+=== DIFF: git diff {base} (new-side line numbers on the left) ===
+{diff}
+
+Return ONLY a JSON object, no prose around it:
+{{"answers": [{{"id": "Q-…", "answer": "yes|no|na",
+               "evidence": [{{"file": "…", "line": 1}}], "note": "…"}}]}}
+"""
+
+
 # ── questions ────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class Question:
@@ -138,6 +187,7 @@ class Question:
     section: str = ""
     applies_to: tuple[str, ...] = ()
     evidence: str = ""
+    evidence_exclude: tuple[str, ...] = ()
 
 
 def load_questions(root: Path) -> list[Question]:
@@ -149,6 +199,7 @@ def load_questions(root: Path) -> list[Question]:
             section=q.get("section", ""),
             applies_to=tuple(q.get("applies_to", [])),
             evidence=q.get("evidence", ""),
+            evidence_exclude=tuple(q.get("evidence_exclude", [])),
         )
         for q in data.get("question", [])
     ]
@@ -174,9 +225,61 @@ def render_prompt(base: str, plan_id: str, questions: list[Question]) -> str:
     return TEMPLATE.format(base=base, plan_id=plan_id, questions=qtext)
 
 
+def annotate_diff(diff: str) -> str:
+    """Prefix added and context lines with their new-side line number.
+
+    A model without tools cannot count hunk offsets reliably; with the number
+    in front of every line its ``file:line`` evidence can be checked like Claude's.
+    """
+    out: list[str] = []
+    new_no = 0
+    for raw in diff.splitlines():
+        if raw.startswith("@@"):
+            new = raw.split("+", 1)[1].split(" ", 1)[0]
+            new_no = int(new.split(",")[0])
+            out.append(raw)
+        elif raw.startswith(
+            ("+++", "---", "diff ", "index ", "new file", "deleted file", "similarity", "rename ")
+        ):
+            out.append(raw)
+        elif raw.startswith("+"):
+            out.append(f"{new_no:>5} {raw}")
+            new_no += 1
+        elif raw.startswith("-"):
+            out.append(f"{'':>5} {raw}")
+        elif raw.startswith(" "):
+            out.append(f"{new_no:>5} {raw}")
+            new_no += 1
+        else:
+            out.append(raw)
+    return "\n".join(out)
+
+
+def render_local_prompt(
+    base: str, plan_id: str, plan_text: str, questions: list[Question], diff: str, max_chars: int
+) -> tuple[str, bool]:
+    annotated = annotate_diff(diff)
+    truncated = len(annotated) > max_chars
+    if truncated:
+        annotated = annotated[:max_chars] + "\n... [TRUNCATED]"
+    note = (
+        '\nThe diff was TRUNCATED: answer "na" for anything you could not see.' if truncated else ""
+    )
+    qtext = "\n".join(
+        f"- {q.id}: {q.text}" + (f"\n  (evidence for yes: {q.evidence})" if q.evidence else "")
+        for q in questions
+    )
+    prompt = LOCAL_TEMPLATE.format(
+        base=base, plan_id=plan_id, plan=plan_text, diff=annotated, questions=qtext,
+        truncated_note=note,
+    )  # fmt: skip
+    return prompt, truncated
+
+
 def critic_hash(root: Path, models: list[str]) -> str:
     h = hashlib.sha256()
     h.update(TEMPLATE.encode())
+    h.update(LOCAL_TEMPLATE.encode())
     h.update((root / QUESTIONS).read_bytes())
     h.update("|".join(models).encode())
     return h.hexdigest()[:16]
@@ -210,6 +313,9 @@ def claude_sample(prompt: str, model: str, idx: int) -> Sample:
     if not shutil.which("claude"):
         return Sample("claude", model, False, error="claude CLI not found")
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")}
+    # The sample is a Claude Code session in this repo, so it loads the project's
+    # hooks; this tells the Stop hook it is the critic, not the implementer.
+    env["KALETA_CRITIC_SESSION"] = "1"
     cmd = [
         "claude", "-p", prompt,
         "--model", model,
@@ -219,7 +325,9 @@ def claude_sample(prompt: str, model: str, idx: int) -> Sample:
         "--output-format", "json",
         "--json-schema", json.dumps(SCHEMA),
     ]  # fmt: skip
-    out = subprocess.run(cmd, capture_output=True, text=True, env=env, check=False)
+    out = subprocess.run(
+        cmd, capture_output=True, text=True, errors="replace", env=env, check=False
+    )
     (STATE / f"critic-raw-{idx}.json").write_text(out.stdout or out.stderr, encoding="utf-8")
     raw = _first_json_object(out.stdout) or {}
     payload = raw.get("structured_output")
@@ -244,29 +352,60 @@ def claude_sample(prompt: str, model: str, idx: int) -> Sample:
     )
 
 
-def cursor_sample(prompt: str, model: str) -> Sample:
-    binary = shutil.which("agent") or shutil.which("cursor-agent")
-    reviewer = f"cursor:{model}"
-    if not binary:
-        return Sample(
-            reviewer, model, False, error="Cursor CLI (agent / cursor-agent) is not installed"
-        )
-    out = subprocess.run(
-        [binary, "-p", prompt, "--model", model, "--output-format", "text"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    (STATE / "critic-raw-cross.txt").write_text(out.stdout + out.stderr, encoding="utf-8")
-    payload = _first_json_object(out.stdout)
+def _strip_thinking(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.S)
+
+
+def _http_json(
+    url: str, payload: dict[str, Any] | None, key: str, timeout: float
+) -> dict[str, Any]:
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST" if data else "GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
+def local_sample(prompt: str, url: str, model: str, key: str, timeout: float) -> Sample:
+    """One sample from a local model behind an OpenAI-compatible endpoint."""
+    url = url.rstrip("/")
+    try:
+        if not model:
+            listed = _http_json(f"{url}/models", None, key, 30).get("data") or []
+            if not listed:
+                return Sample(f"{CROSS_PREFIX}?", "", False, error=f"{url}/models lists no model")
+            model = str(listed[0]["id"])
+        reviewer = f"{CROSS_PREFIX}{model}"
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            reply = _http_json(f"{url}/chat/completions", body, key, timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (400, 422):
+                raise
+            body.pop("response_format")  # a server that cannot constrain JSON
+            reply = _http_json(f"{url}/chat/completions", body, key, timeout)
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError) as exc:
+        reviewer = f"{CROSS_PREFIX}{model or '?'}"
+        return Sample(reviewer, model, False, error=f"local model at {url} unavailable: {exc}")
+    content = str(((reply.get("choices") or [{}])[0].get("message") or {}).get("content") or "")
+    (STATE / "critic-raw-cross.txt").write_text(content, encoding="utf-8")
+    payload = _first_json_object(_strip_thinking(content))
     if not payload or "answers" not in payload:
-        return Sample(reviewer, model, False, error="Cursor reviewer output could not be parsed")
+        return Sample(reviewer, model, False, error="local model output could not be parsed")
     return Sample(
         reviewer,
         model,
         True,
         answers=list(payload["answers"]),
         findings=list(payload.get("findings") or []),
+        turns=1,
     )
 
 
@@ -310,8 +449,14 @@ def evidence_ok(ev: dict[str, Any], changed: set[str], new_lines: dict[str, set[
 
 
 def validate(
-    sample: Sample, qids: list[str], changed: set[str], new_lines: dict[str, set[int]]
+    sample: Sample,
+    qids: list[str],
+    changed: set[str],
+    new_lines: dict[str, set[int]],
+    exclude: dict[str, tuple[str, ...]] | None = None,
 ) -> dict[str, Answer]:
+    """Check each answer; a "yes" needs evidence in the diff, outside the question's exclusions."""
+    exclude = exclude or {}
     by_id: dict[str, dict[str, Any]] = {}
     for a in sample.answers:
         if isinstance(a, dict) and a.get("id") in qids and a["id"] not in by_id:
@@ -327,22 +472,37 @@ def validate(
         if value not in ("yes", "no", "na"):
             out[qid] = Answer(None, note=note, invalid_reason=f"answer {value!r}")
         elif value == "yes":
-            good = [
+            in_diff = [
                 {"file": str(e.get("file")).removeprefix("./"), "line": e.get("line")}
                 for e in (a.get("evidence") or [])
                 if isinstance(e, dict) and evidence_ok(e, changed, new_lines)
             ]
-            out[qid] = (
-                Answer("yes", good, note)
-                if good
-                else Answer(None, note=note, invalid_reason="evidence does not point into the diff")
-            )
+            globs = exclude.get(qid, ())
+            good = [e for e in in_diff if not any(fnmatchcase(e["file"], g) for g in globs)]
+            if good:
+                out[qid] = Answer("yes", good, note)
+            elif in_diff:
+                out[qid] = Answer(
+                    None,
+                    note=note,
+                    invalid_reason="evidence only in paths this question excludes"
+                    " (the plan file and run logs are the workflow's)",
+                )
+            else:
+                out[qid] = Answer(
+                    None, note=note, invalid_reason="evidence does not point into the diff"
+                )
         else:
             out[qid] = Answer(value, note=note)
     return out
 
 
-def aggregate(questions: list[Question], answers: list[dict[str, Answer]]) -> list[dict[str, Any]]:
+def aggregate(
+    questions: list[Question],
+    answers: list[dict[str, Answer]],
+    reviewers: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    names = reviewers or ["?"] * len(answers)
     out = []
     for q in questions:
         per = [a[q.id] for a in answers]
@@ -368,26 +528,41 @@ def aggregate(questions: list[Question], answers: list[dict[str, Answer]]) -> li
                 else None,
                 "evidence": evidence[:10],
                 "notes": [a.note for a in yes if a.note][:3],
+                # who said what: the raw material for calibration and for "which model cried wolf"
+                "answers": [
+                    {"reviewer": n, "answer": a.value or "invalid"}
+                    for n, a in zip(names, per, strict=True)
+                ],
             }
         )
     return out
 
 
-# ── profile (judge-profile-and-autonomy) ─────────────────────────────────
-def profile_settings(root: Path, risk_class: str | None) -> tuple[int | None, bool]:
-    """(samples, cross_family_required) for the change's risk class, if a profile exists."""
-    path = root / PROFILE
-    if not path.exists() or risk_class is None:
-        return None, False
-    data = tomllib.loads(path.read_text(encoding="utf-8"))
-    autonomy = data.get("autonomy", {})
-    samples = autonomy.get("critic_samples", {}).get(risk_class)
-    required = risk_class in autonomy.get("cross_family_required", [])
-    return (int(samples) if samples else None), required
+# ── profile: how many samples, and whether another model family must be one ──
+def profile_settings(
+    root: Path, paths: list[str], plan_text: str
+) -> tuple[str | None, int | None, bool]:
+    """(risk class, samples, cross_family_required) from the owner's profile, if it is usable."""
+    try:
+        maintainer = os.environ.get("KALETA_HARNESS_MAINTAINER") == "1"
+        profile = judge.load_profile(root, base=None if maintainer else gitutil.merge_base("main"))
+    except judge.ProfileError:
+        return None, None, False
+    meta = plan_meta(plan_text)
+    cls, _ = judge.risk_class(
+        paths, {"exec_criteria": len(meta["criteria"]), "harness": meta["harness"]}, profile
+    )
+    autonomy = profile.autonomy
+    samples = autonomy.get("critic_samples", {}).get(cls)
+    return (
+        cls,
+        (int(samples) if samples else None),
+        cls in autonomy.get("cross_family_required", []),
+    )
 
 
 # ── main ─────────────────────────────────────────────────────────────────
-def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = None) -> int:
+def run(plan_id: str, samples: int | None, dry: bool) -> int:
     root = gitutil.toplevel()
     os.chdir(root)
     STATE.mkdir(parents=True, exist_ok=True)
@@ -396,28 +571,43 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
         print(f"critic: {plan} not found", file=sys.stderr)
         return 1
     base = gitutil.merge_base("main")
-    if not gitutil.diff_text(base).strip() and not any(c.untracked for c in gitutil.changed(base)):
+    if not gitutil.diff_text(base).strip():
         print(f"critic: no diff against {base} — nothing to review", file=sys.stderr)
         return 1
     changed = gitutil.changed(base)
     paths = [c.path for c in changed if not c.path.startswith("docs/harness/runs/")]
     questions = applicable(load_questions(root), paths)
 
-    prof_samples, cross_required = profile_settings(root, risk_class)
+    risk_class, prof_samples, cross_required = profile_settings(
+        root, paths, plan.read_text(encoding="utf-8")
+    )
     k = samples or int(os.environ.get("KALETA_CRITIC_SAMPLES") or prof_samples or DEFAULT_SAMPLES)
+    if prof_samples and k < prof_samples:
+        # The owner's profile sets the floor; --samples and KALETA_CRITIC_SAMPLES
+        # may only raise it.
+        print(
+            f"critic: k={k} is below the profile's {prof_samples} for {risk_class} risk"
+            f" — using {prof_samples}",
+            file=sys.stderr,
+        )
+        k = prof_samples
     cross = os.environ.get("KALETA_CROSS_REVIEW") == "1" or cross_required
     model = os.environ.get("KALETA_REVIEW_MODEL", "sonnet")
-    cross_model = os.environ.get("KALETA_CROSS_REVIEW_MODEL", "gpt-5")
-    models = [model] + ([f"cursor:{cross_model}"] if cross else [])
+    cross_url = os.environ.get("KALETA_CROSS_REVIEW_URL", DEFAULT_CROSS_URL)
+    cross_model = os.environ.get("KALETA_CROSS_REVIEW_MODEL", "")
+    cross_key = os.environ.get("KALETA_CROSS_REVIEW_API_KEY", "")
+    cross_timeout = float(os.environ.get("KALETA_CROSS_REVIEW_TIMEOUT") or 900)
+    max_chars = int(os.environ.get("KALETA_CROSS_REVIEW_MAX_CHARS") or 120_000)
+    models = [model] + ([f"{CROSS_PREFIX}{cross_model or 'auto'}"] if cross else [])
     chash = critic_hash(root, models)
     prompt = render_prompt(base, plan_id, questions)
     n_claude = max(k - 1, 1) if cross else k
 
     if dry:
-        print(f"critic: plan {plan_id}, base {base[:12]}, critic hash {chash}")
+        print(f"critic: plan {plan_id}, base {base[:12]}, critic hash {chash}, risk {risk_class}")
         print(
             f"critic: {n_claude} Claude sample(s) ({model})"
-            + (f" + 1 cross ({cross_model})" if cross else "")
+            + (f" + 1 local ({cross_model or 'first model'} at {cross_url})" if cross else "")
         )
         for q in questions:
             print(f"  {q.id:20} {q.section}")
@@ -432,14 +622,35 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
             ]
             cross_future = (
                 pool.submit(
-                    fake_sample, Path(fake), "cross.json", f"cursor:{cross_model}", cross_model
+                    fake_sample,
+                    Path(fake),
+                    "cross.json",
+                    f"{CROSS_PREFIX}{cross_model or 'fake'}",
+                    cross_model or "fake",
                 )
                 if cross
                 else None
             )
         else:
             futures = [pool.submit(claude_sample, prompt, model, i) for i in range(1, n_claude + 1)]
-            cross_future = pool.submit(cursor_sample, prompt, cross_model) if cross else None
+            cross_future = None
+            if cross:
+                local_prompt, truncated = render_local_prompt(
+                    base,
+                    plan_id,
+                    plan.read_text(encoding="utf-8"),
+                    questions,
+                    gitutil.full_diff(base),
+                    max_chars,
+                )
+                if truncated:
+                    print(
+                        f"critic: diff truncated to {max_chars} chars for the local model",
+                        file=sys.stderr,
+                    )
+                cross_future = pool.submit(
+                    local_sample, local_prompt, cross_url, cross_model, cross_key, cross_timeout
+                )
         results = [f.result() for f in futures]
         cross_result = cross_future.result() if cross_future else None
 
@@ -450,15 +661,19 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
             status, error_kind = "error", "cross_unavailable"
             error = f"cross-family sample required but failed: {cross_result.error}"
     ok_samples = [s for s in results if s.ok]
-    if not any(s.ok and not s.reviewer.startswith("cursor:") for s in results):
+    if not any(s.ok and not s.reviewer.startswith(CROSS_PREFIX) for s in results):
         status, error_kind = "error", "no_samples"
         error = "; ".join(sorted({s.error for s in results if s.error})) or "no sample succeeded"
 
     diff_hash = gitutil.diff_hash(base)
     new_lines = gitutil.new_side_lines(base)
     qids = [q.id for q in questions]
-    validated = [validate(s, qids, set(paths), new_lines) for s in ok_samples]
-    qresults = aggregate(questions, validated)
+    plan_path = plan.as_posix()
+    exclude = {
+        q.id: tuple(g.replace("{plan}", plan_path) for g in q.evidence_exclude) for q in questions
+    }
+    validated = [validate(s, qids, set(paths), new_lines, exclude) for s in ok_samples]
+    qresults = aggregate(questions, validated, [s.reviewer for s in ok_samples])
     findings = [
         {**f, "reviewer": s.reviewer} for s in ok_samples for f in s.findings if isinstance(f, dict)
     ][:30]
@@ -473,7 +688,7 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
         "error_kind": error_kind,
         "error": error,
         "risk_class": risk_class,
-        "cross_family_present": any(s.ok and s.reviewer.startswith("cursor:") for s in results),
+        "cross_family_present": any(s.ok and s.reviewer.startswith(CROSS_PREFIX) for s in results),
         "samples": [
             {
                 "reviewer": s.reviewer,
@@ -486,6 +701,9 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
             for s in results
         ],
         "cost_usd": round(sum(s.cost_usd for s in results), 4),
+        "samples_ok": len(ok_samples),
+        "fake": bool(fake),
+        "k_required": prof_samples,
         "questions": qresults,
         "findings": findings,
     }
@@ -501,7 +719,12 @@ def run(plan_id: str, samples: int | None, dry: bool, risk_class: str | None = N
     for q in qresults:
         p = "-" if q["p_violation"] is None else f"{q['p_violation']:.2f}"
         ev = ", ".join(f"{e['file']}:{e['line']}" for e in q["evidence"][:3])
-        print(f"  {q['id']:20} p={p} ({q['violations']}/{q['k_valid']}){'  ' + ev if ev else ''}")
+        who = ", ".join(a["reviewer"] for a in q["answers"] if a["answer"] == "yes")
+        print(
+            f"  {q['id']:20} p={p} ({q['violations']}/{q['k_valid']})"
+            + (f" [yes: {who}]" if who else "")
+            + (f"  {ev}" if ev else "")
+        )
     return 0 if status == "ok" else 1
 
 
@@ -510,7 +733,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("plan_id", nargs="?")
     ap.add_argument("--samples", type=int)
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--risk-class", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     plan_id = args.plan_id
     if not plan_id:
@@ -522,7 +744,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    return run(plan_id, args.samples, args.dry_run, args.risk_class)
+    return run(plan_id, args.samples, args.dry_run)
 
 
 if __name__ == "__main__":

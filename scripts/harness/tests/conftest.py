@@ -8,7 +8,7 @@ application, the database or a model: ``uv run pytest scripts/harness/tests``.
 
 from __future__ import annotations
 
-import hashlib
+import contextlib
 import json
 import os
 import shutil
@@ -23,6 +23,8 @@ import pytest
 REPO = Path(__file__).resolve().parents[3]
 HARNESS_DIR = REPO / "scripts" / "harness"
 sys.path.insert(0, str(HARNESS_DIR))
+
+import gitutil  # noqa: E402
 
 COPY = [
     ".claude/hooks",
@@ -113,10 +115,9 @@ class HarnessRepo:
         return self.git("merge-base", "HEAD", "main")
 
     def diff_hash(self) -> str:
-        out = self.run(
-            "git", "diff", self.base(), "--", ".", ":(exclude)docs/harness/runs/**", check=True
-        ).stdout
-        return hashlib.sha256(out.encode()).hexdigest()[:16]
+        """The gate's own diff hash (one definition: gitutil.diff_hash)."""
+        with contextlib.chdir(self.root):
+            return gitutil.diff_hash(self.base())
 
     def new_plan(
         self,
@@ -150,8 +151,8 @@ def _copy(src: Path, dst: Path) -> None:
         shutil.copy2(src, dst)
 
 
-@pytest.fixture
-def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
+def make_repo(tmp_path: Path, base_env: dict[str, str]) -> HarnessRepo:
+    """A throwaway repo with the real harness in it, isolated from the caller's git config."""
     root = tmp_path / "repo"
     root.mkdir()
     for rel in COPY:
@@ -166,20 +167,32 @@ def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
     )
     env = {
         k: v
-        for k, v in os.environ.items()
+        for k, v in base_env.items()
         if not k.startswith(("KALETA_", "CLAUDE", "GIT_", "DOD_GATE"))
     }
+    # Ignore the developer's ~/.gitconfig and /etc/gitconfig (gpgsign, hooksPath,
+    # defaultBranch …): verify.sh runs these tests for every plan.
+    empty_config = tmp_path / "gitconfig"
+    empty_config.write_text("", encoding="utf-8")
     env.update(
+        GIT_CONFIG_GLOBAL=str(empty_config),
+        GIT_CONFIG_NOSYSTEM="1",
         GIT_AUTHOR_NAME="t",
         GIT_AUTHOR_EMAIL="t@example.invalid",
         GIT_COMMITTER_NAME="t",
         GIT_COMMITTER_EMAIL="t@example.invalid",
         KALETA_HARNESS_PY=sys.executable,
+        KALETA_HARNESS_TEST="1",  # canned critic samples are allowed in this suite only
     )
     h = HarnessRepo(root, env)
     h.run("git", "init", "-q", "-b", "main", check=True)
     h.commit("base")
-    yield h
+    return h
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Iterator[HarnessRepo]:
+    yield make_repo(tmp_path, dict(os.environ))
 
 
 def approve(repo: HarnessRepo, questions: list[dict] | None = None, **extra: object) -> None:
@@ -206,6 +219,7 @@ def approve(repo: HarnessRepo, questions: list[dict] | None = None, **extra: obj
                 "diff_hash": repo.diff_hash(),
                 "status": "ok",
                 "critic_hash": "test",
+                "samples_ok": 3,
                 "cross_family_present": False,
                 "questions": qs,
             }
@@ -239,6 +253,17 @@ def answers(**by_id: str | tuple[str, str, int]) -> dict:
         else:
             out.append({"id": qid, "answer": val})
     return {"answers": out, "cost_usd": 0.1}
+
+
+def clean(**overrides: str | tuple[str, str, int]) -> dict:
+    """A sample that answers every question in the repo's set: "no", unless overridden."""
+    import tomllib
+
+    data = tomllib.loads((REPO / "docs/harness/critic-questions.toml").read_text(encoding="utf-8"))
+    base: dict[str, str | tuple[str, str, int]] = {
+        q["id"].replace("-", "_"): "no" for q in data["question"]
+    }
+    return answers(**(base | overrides))
 
 
 def edit_payload(path: str) -> str:

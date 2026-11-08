@@ -12,6 +12,7 @@
 #   section     review-checklist.md section the question comes from
 #   applies_to  path globs (`*` crosses `/`); empty = every change
 #   evidence    what a "yes" has to point at
+#   evidence_exclude  path globs a "yes" may not rest on ({plan} = the plan's own file)
 #   text        the question, phrased so that "yes" = a problem
 #
 # Changing a question changes the critic hash, so an existing calibration
@@ -22,7 +23,8 @@ id = "Q-SCOPE"
 section = "1. Scope"
 applies_to = []
 evidence = "a changed line that is outside the plan's Scope or inside its Not-in-scope list"
-text = '''Does the diff change something outside the plan's Scope, or something its "Not in scope" / "Does not cover" section excludes, without a reason recorded in Implementation notes? Drive-by refactors, repo-wide formatting and unrelated fixes count.'''
+evidence_exclude = ["{plan}", "docs/harness/runs/*"]
+text = '''Does the diff change something outside the plan's Scope, or something its "Not in scope" / "Does not cover" section excludes, without a reason recorded in Implementation notes? Drive-by refactors, repo-wide formatting and unrelated fixes count. Edits the workflow makes to the plan file itself (status, Implementation notes) and run logs never count.'''
 
 [[question]]
 id = "Q-SERVICE-TEST"
@@ -78,7 +80,7 @@ id = "Q-NOTES-TRUTH"
 section = "6. Documentation & housekeeping"
 applies_to = []
 evidence = "the sentence in Implementation notes that the diff contradicts"
-text = '''Does the plan's Implementation notes section claim something the diff contradicts — a test, file, decision or behaviour that is not actually there, or a resolved open question that the code resolves differently?'''
+text = '''Does the plan's Implementation notes section claim something the diff contradicts — a test, file, decision or behaviour that is not actually there, or a resolved open question that the code resolves differently? That the plan file itself was edited is not a contradiction.'''
 
 [[question]]
 id = "Q-SECRET-DATA"

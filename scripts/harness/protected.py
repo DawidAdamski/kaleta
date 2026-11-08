@@ -17,6 +17,8 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Literal
 
+import gitutil
+
 LIST = Path("docs/harness/protected-paths.txt")
 Kind = Literal["plain", "tracked", "harness"]
 Mode = Literal["edit", "diff"]
@@ -28,12 +30,17 @@ class Rule:
     glob: str
 
 
-def load_rules(root: Path) -> list[Rule]:
-    path = root / LIST
-    if not path.exists():
+def load_rules(root: Path, base: str | None = None) -> list[Rule]:
+    """The rules from the working tree, or — for judging a diff — from ``base``.
+
+    The gate reads the list as it is on the merge-base, so a diff that edits
+    the list cannot exempt itself.
+    """
+    text = gitutil.read_at(root, base, LIST)
+    if text is None:
         return []
     rules: list[Rule] = []
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in text.splitlines():
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
@@ -72,6 +79,6 @@ def is_protected(
 
 
 def protected_in_diff(paths: list[str], root: Path, base: str) -> list[str]:
-    """The changed paths that veto a diff made outside maintainer mode."""
-    rules = load_rules(root)
+    """The changed paths that veto a diff made outside maintainer mode (rules from ``base``)."""
+    rules = load_rules(root, base=base)
     return [p for p in paths if is_protected(p, "diff", root, base=base, rules=rules)]

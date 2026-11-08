@@ -7,7 +7,7 @@ import json
 
 import gate_log
 import pytest
-from conftest import HarnessRepo, answers, fake_samples
+from conftest import HarnessRepo, clean, fake_samples
 
 
 def _records(repo: HarnessRepo, plan_id: str = "fixture") -> list[dict]:
@@ -45,7 +45,7 @@ def test_review_is_recorded_and_log_lines_do_not_stale_it(repo: HarnessRepo) -> 
     repo.new_plan()
     repo.write("src/app.py", "X = 2\n")
     repo.commit("work")
-    fake = fake_samples(repo, [answers(Q_SCOPE="no")] * 3)
+    fake = fake_samples(repo, [clean()] * 3)
     out = repo.run("scripts/review_gate.sh", env={"KALETA_CRITIC_FAKE": fake})
     assert out.returncode == 0, out.stderr
     reviews = [r for r in _records(repo) if r["kind"] == "review"]
