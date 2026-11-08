@@ -200,11 +200,15 @@ sessions read the working tree.
 Order of the decision:
 
 1. **Vetoes → escalate, mode D**: protected paths changed outside maintainer
-   mode, a secret pattern on an added line, the critic reporting secret data.
-   The session ends; there are no further attempts.
+   mode (a move counts as both paths), a secret pattern on an added line
+   (untracked files included), the critic reporting secret data, a broken
+   run log, critic answers from canned test samples. The session ends;
+   there are no further attempts.
 2. **Block** (the implementer fixes it): failed hygiene, criteria or
    `verify.sh`; a blocking green-washing pattern; no, stale or broken critic
-   run; a question with `p >= block`; a question with
+   run; fewer successful critic samples than the risk class needs (the
+   profile's `critic_samples` is a floor `--samples` cannot lower); a
+   question with `p >= block`; a question with
    `uncertain <= p < block` for the first `uncertain_rounds` diffs
    ("strengthen the evidence").
 3. **Escalate, mode C**: a question that stayed uncertain across more review
@@ -222,6 +226,11 @@ Order of the decision:
 | B | the owner merges after reading the decision note (today's behaviour) |
 | C | owner approval required; a cross-family critic sample; PR labelled `needs-owner-review` |
 | D | stop — a veto was hit |
+
+If the gate itself crashes, or cannot even start (missing file, interpreter
+or import failure), the run ends as escalated in mode D with the cause in
+`.claude/state/escalated-reason` — never as done, and never as a block that
+repeats without counting toward `max-attempts`.
 
 Every run writes `.claude/state/decision.md` in plain English: the outcome,
 the mode and why not a freer one, what would change it, the critic's table

@@ -160,5 +160,15 @@ Does **not** cover:
 - **Labels.** `plan_runner.sh --pr` creates `autonomy:<mode>` (and
   `needs-owner-review` for C) with `gh label create --force` and adds them
   after the PR exists, so a missing label never fails the PR.
+- **Ultrareview follow-ups (2026-11-08)**, one commit each with a
+  regression test: the harness tests ignore the developer's global git
+  config; non-UTF-8 diffs no longer crash the gate; moves are judged as
+  deletion plus addition (`--no-renames`); untracked files' content is part
+  of the judged diff; a deleted test file's removed asserts are seen; a gate
+  crash or a hook that cannot start escalates (mode D) instead of looping;
+  a broken run log is a veto; the profile's `critic_samples` is a floor the
+  implementer cannot lower and the judge enforces it; canned critic answers
+  outside the tests are a veto; profile and protected list are read through
+  one helper (`gitutil.read_at`), so what is merged wins even when empty.
 - **Defaults taken:** `uncertain_rounds = 1`, highest class wins for mixed
   changes, only the profile can change a class's mode.
