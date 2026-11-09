@@ -53,7 +53,7 @@ jobs:
       # needed. The vuln DB is cached between runs so the nightly download is not
       # repeated; the script writes it under ~/.cache/trivy.
       - name: Cache Trivy vulnerability DB
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/trivy
           key: trivy-db-${{ github.run_id }}
