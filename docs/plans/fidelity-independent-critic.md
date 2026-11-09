@@ -144,8 +144,12 @@ Without this the plan's own `shoot` criterion could not run.
 **Working Agreement §12 and the restyle README.** These are not in
 Touchpoints, but §12 told the implementer to *write* the report, which the
 Scope bullet "it does not write reports" (and now the protect hook) forbids.
-Only §12's procedure sentence and the README's command block were changed,
-to shoot → critique → check.
+In AGENTS.md only §12's procedure sentence changed. In
+`docs/design/restyle/README.md` the "Look at it" paragraph changed: the
+intro sentence (it now says the script measures the difference and gates on
+a critic-written comparison), the command block (`critique` added), and the
+"Reports live in" sentence (reports are written only by `shoot` and
+`critique`). All of it now reads shoot → critique → check.
 
 **Manual criterion: state on the current code.** `shoot 2a && critique 2a`
 works end to end, and the header shows `author: critic`, `critic_run`,
