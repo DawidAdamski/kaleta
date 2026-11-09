@@ -147,7 +147,7 @@ with `plan_runner.sh`.
 | 3 | [critic-narrow-questions](archive/critic-narrow-questions.md) | archived | medium | 2 |
 | 4 | [judge-profile-and-autonomy](archive/judge-profile-and-autonomy.md) | archived | large | 3 |
 | 5 | [critic-calibration-set](critic-calibration-set.md) | draft | large | 3, 4 |
-| 6 | [fidelity-independent-critic](fidelity-independent-critic.md) | draft | medium | 1, 2 |
+| 6 | [fidelity-independent-critic](archive/fidelity-independent-critic.md) | archived | medium | 1, 2 |
 | 7 | [review-canary](review-canary.md) | draft | medium | 5 |
 
 Nothing here merges automatically: mode A is a label until the owner sets

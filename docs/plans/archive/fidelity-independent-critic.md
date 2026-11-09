@@ -3,9 +3,10 @@ plan_id: fidelity-independent-critic
 title: Restyle fidelity reports written by an independent critic, with a measured screenshot difference
 area: harness / restyle
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-11-09
 harness: true
-roadmap_ref: ../roadmap.md#5-engineering-hygiene
+roadmap_ref: ../../roadmap.md#5-engineering-hygiene
 ---
 
 # Restyle fidelity reports written by an independent critic, with a measured screenshot difference
@@ -15,7 +16,7 @@ roadmap_ref: ../roadmap.md#5-engineering-hygiene
 current code, has no `open` row, and gives a reason for every `deviation`.
 But the report is written by the implementer that built the screen. That is
 self-assessment, which
-[ADR-39](../adr/039-measurable-critic-deterministic-judge.md) rules out, and
+[ADR-39](../../adr/039-measurable-critic-deterministic-judge.md) rules out, and
 it is part of why screens kept drifting from the artboards. This plan moves
 the report to a separate critic process and adds a number that does not
 depend on anyone's eyes.
@@ -180,3 +181,45 @@ observations for the owner:
 - *2d* named its worst tile (D4) in an `open` row but in no `deviation`
   row, so `check` also reports the tile. That is the specified behaviour
   (the prompt asks for both), and it is left as is.
+
+## Implementation
+
+Landed on 2026-11-09 (PR #400).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `172b23f2` | Dawid Adamski | 2026-11-09 | Merge pull request #400 from DawidAdamski/plan/fidelity-independent-critic |
+
+**Files changed:**
+- AGENTS.md
+- docs/design/restyle/README.md
+- docs/design/restyle/fidelity/1c.md
+- docs/design/restyle/fidelity/1d.md
+- docs/design/restyle/fidelity/1f.md
+- docs/design/restyle/fidelity/2a.md
+- docs/design/restyle/fidelity/2b.md
+- docs/design/restyle/fidelity/2c.md
+- docs/design/restyle/fidelity/2d.md
+- docs/design/restyle/fidelity/3a.md
+- docs/design/restyle/fidelity/3b.md
+- docs/design/restyle/fidelity/3c.md
+- docs/design/restyle/fidelity/3d.md
+- docs/design/restyle/fidelity/3e.md
+- docs/design/restyle/fidelity/3f.md
+- docs/harness/profile.toml
+- docs/harness/protected-paths.txt
+- docs/plans/README.md
+- docs/plans/fidelity-independent-critic.md
+- docs/review-checklist.md
+- scripts/harness/tests/test_judge.py
+- scripts/restyle_fidelity.py
+- tests/unit/harness/__init__.py
+- tests/unit/harness/conftest.py
+- tests/unit/harness/test_fidelity_check_author.py
+- tests/unit/harness/test_fidelity_tiles.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
