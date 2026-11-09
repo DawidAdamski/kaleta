@@ -30,15 +30,18 @@ radii, colours) in NiceGUI + `theme.py` tokens. The screen descriptions below
 explain *why* a screen changed; they leave out most of *what it looks like*.
 
 **Look at it.** `scripts/restyle_fidelity.py` puts the running app next to its
-artboard and gates on a written comparison:
+artboard, measures the difference on a 4x4 grid, and gates on a comparison
+written by an independent critic:
 
 ```bash
-uv run python scripts/restyle_fidelity.py split      # regenerate artboards/
-uv run python scripts/restyle_fidelity.py shoot 2a   # .fidelity/2a/index.html
-uv run python scripts/restyle_fidelity.py check 2a   # acceptance criterion
+uv run python scripts/restyle_fidelity.py split        # regenerate artboards/
+uv run python scripts/restyle_fidelity.py shoot 2a     # .fidelity/2a/index.html + tiles
+uv run python scripts/restyle_fidelity.py critique 2a  # critic writes fidelity/2a.md
+uv run python scripts/restyle_fidelity.py check 2a     # acceptance criterion
 ```
 
-Reports live in `fidelity/<id>.md`. AGENTS.md, Working Agreement §12.
+Reports live in `fidelity/<id>.md` and are written only by `shoot` and
+`critique`. AGENTS.md, Working Agreement §12.
 
 ## Overview
 

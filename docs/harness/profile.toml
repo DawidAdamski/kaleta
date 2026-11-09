@@ -8,9 +8,9 @@
 # Bump `version` and `signed` on every change.
 
 [meta]
-version = 1
+version = 2
 owner = "Dawid Adamski"
-signed = 2026-11-07
+signed = 2026-11-09
 note = "Provisional: thresholds are not calibrated yet (plan critic-calibration-set). Until a calibration report exists, every change is capped at mode B."
 
 # ── Green-washing: patterns on changed lines ─────────────────────────────
@@ -122,3 +122,13 @@ high = 3
 [calibration]
 report = ""
 miss_rate_target = 0.10
+
+# ── Restyle fidelity (plan fidelity-independent-critic) ──────────────────
+# `restyle_fidelity.py check` requires every tile whose mean absolute
+# difference (percent of full scale, 4x4 grid, artboard vs app) is above
+# tile_threshold to be named by a `deviation` row. Unset until the owner has
+# observed values on screens they accept (seed text differs from the
+# artboards' sample text, so there is a floor); while unset, `check` requires
+# the three worst tiles to be named.
+[fidelity]
+# tile_threshold = 8.0

@@ -227,11 +227,12 @@ Every task, no exceptions:
     value — and prose about it is commentary. Read it whole before writing
     view code. The plan's criterion is
     `uv run python scripts/restyle_fidelity.py check <id>`, never
-    `[manual]`: `shoot <id>`, open both pictures, write the comparison in
-    `docs/design/restyle/fidelity/<id>.md` with the values observed on each
-    side, fix what is `open`, shoot again. `deviation` needs a reason that
-    is not "close enough". Marking a row `match` without having looked at
-    the screenshots is green-washing (rule 4).
+    `[manual]`: `shoot <id>`, open both pictures, then `critique <id>` — an
+    independent critic session writes the comparison in
+    `docs/design/restyle/fidelity/<id>.md`; the implementer never writes or
+    edits that report. Fix what is `open`, shoot and critique again.
+    `deviation` needs a reason that is not "close enough", and `check`
+    requires the tiles that differ most to be named by one.
 
 ## Available Subagents
 
