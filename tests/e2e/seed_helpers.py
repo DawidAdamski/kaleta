@@ -482,6 +482,20 @@ def seed_subscription(
     return _run_async_worker(_create)
 
 
+def get_subscription(subscription_id: int) -> dict[str, Any]:
+    """A subscription as the service returns it (JSON-ready)."""
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.schemas.subscription import SubscriptionResponse
+    from kaleta.services import SubscriptionService
+
+    async def _get() -> dict[str, Any]:
+        async with AsyncSessionFactory() as session:
+            sub = await SubscriptionService(session).get(subscription_id)
+            return SubscriptionResponse.model_validate(sub).model_dump(mode="json")
+
+    return _run_async_worker(_get)
+
+
 def seed_gift(person: str, occasion: str, amount: float) -> int:
     """Create a planned gift via the service layer; return its ID."""
     from decimal import Decimal

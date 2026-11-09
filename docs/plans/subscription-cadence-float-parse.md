@@ -186,4 +186,41 @@ None.
 
 ## Implementation notes
 
+- **Where the plan came from.** The plan was committed on
+  `docs/subscription-cadence-bug` (worktree `../kaleta-subs-bug`) and never
+  reached `main`. Its commit (plan + four chores) was cherry-picked onto
+  `plan/subscription-cadence-float-parse`, so this PR carries the plan and its
+  implementation together. The `docs/subscription-cadence-bug` branch is now
+  redundant.
+- **Toast.** `save_sub` shows `resolve_toast_text(exc)` as a `warning` toast
+  instead of `notify_kaleta_error`. The plan allowed either helper. A form
+  validation miss is not an incident: `notify_kaleta_error` would capture an
+  event and toast it as `negative` with an event id. `resolve_toast_text`
+  translates by `message_key` and falls back to `.message`, which is the
+  KAL-ERR-001 behaviour the plan asks for.
+- **`SubscriptionFormError`** now subclasses `ValidationError` and has no
+  `__init__` of its own (`KaletaError`'s takes `message`, `message_key`,
+  `params`). The existing raises (`"Name required"`, `"Amount must be > 0"`,
+  date/category parse errors) are unchanged and still English-only. Only the
+  two new cadence raises carry keys, as scoped.
+- **`_parse_cadence_days`** keeps the bounds as module constants
+  (`CADENCE_MIN_DAYS = 1`, `CADENCE_MAX_DAYS = 400`, `DEFAULT_CADENCE_DAYS =
+  30`), which match the schema and the widget. `float("inf")` and `Decimal`
+  inputs are covered as well as the cases the plan lists. The bounds 1 and 400
+  are accepted.
+- **E2E: "the monthly total shows 49.99".** The e2e app's database is shared
+  by the whole session, so the header total includes other tests'
+  subscriptions, and the absolute literal cannot be asserted there.
+  `test_edit_subscription_cadence` asserts the equivalent: the header total is
+  identical before the edit (49.99 monthly) and after it (599.90 / 12 =
+  49.99). Saving it as 30 days would add 549.91. It also reads the stored row
+  back: `cadence_days == 365`, `amount == "599.90"`. Both e2e tests blur the
+  cadence field before saving, so the widget really holds `365.0`. Checked:
+  with the service fix reverted, both e2e tests fail (dialog stays open).
+- **Personal loans** (`parse_repayment_form`): no change, as the plan says.
+  Its three link values come from `ui.select` integer keys, and its only
+  `ui.number` goes through `Decimal(str(...))`.
+- Test helper `tests/e2e/seed_helpers.get_subscription` was added to read a
+  subscription back.
+
 ## Implementation (filled by plan-archiver)

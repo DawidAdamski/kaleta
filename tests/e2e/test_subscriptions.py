@@ -12,6 +12,7 @@ import re
 from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import (
+    get_subscription,
     list_planned_transactions,
     seed_account,
     seed_category,
@@ -182,3 +183,79 @@ def test_cancel_as_of_future_date_keeps_row_active(page: Page, base_url: str) ->
         timeout=5000
     )
     expect(current.get_by_text("Domain SUB004 E2E", exact=True)).to_be_visible(timeout=5000)
+
+
+def _monthly_header(page: Page) -> str:
+    header = page.get_by_text(re.compile(r"^.+ / month$")).first
+    expect(header).to_be_visible(timeout=5000)
+    return header.inner_text()
+
+
+def _expect_saved_without_warning(page: Page) -> None:
+    """A failed save keeps the dialog open behind a warning toast; a good one reloads."""
+    expect(page.get_by_role("dialog")).to_be_hidden(timeout=5000)
+    expect(page.locator(".q-notification").filter(has_text="invalid literal")).to_have_count(0)
+    expect(page.locator(".q-notification.bg-warning")).to_have_count(0)
+
+
+def test_add_yearly_subscription(page: Page, base_url: str) -> None:
+    """Covers: KAL-SUB-011
+
+    A new subscription saved with cadence 365 - typed into the field, so the
+    widget holds 365.0 - is created and listed as yearly.
+    """
+    page.goto(f"{base_url}/wizard/subscriptions")
+    page.get_by_role("button", name="Add subscription").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog.get_by_text("New subscription", exact=True)).to_be_visible(timeout=5000)
+    dialog.get_by_label("Name", exact=True).fill("Domain renewal SUB011 E2E")
+    dialog.get_by_label("Amount", exact=True).fill("120.00")
+    cadence = dialog.get_by_label("Cadence (days)", exact=True)
+    cadence.fill("365")
+    cadence.blur()  # NiceGUI sanitises on blur: the value becomes the float 365.0
+    dialog.get_by_role("button", name="Save").click()
+
+    _expect_saved_without_warning(page)
+    expect(page.get_by_text(re.compile(r"Domain renewal SUB011 E2E.*Yearly"))).to_be_visible(
+        timeout=5000
+    )
+
+
+def test_edit_subscription_cadence(page: Page, base_url: str) -> None:
+    """Covers: KAL-SUB-011
+
+    "Disney+" of 49.99 every 30 days, edited to 599.90 every 365 days, saves
+    without a warning, is listed as yearly, and still counts 49.99 a month.
+    The e2e database is shared by the session, so the header's total holds
+    other tests' subscriptions too: 49.99 a month before the edit and
+    599.90 / 12 = 49.99 after it leave the header exactly where it was.
+    """
+    sub_id = seed_subscription("Disney+ SUB011 E2E", 49.99, cadence_days=30)
+    page.goto(f"{base_url}/wizard/subscriptions")
+    before = _monthly_header(page)
+
+    current = page.locator(".q-card").filter(has_text="All subscriptions")
+    row = (
+        current.locator(".nicegui-row")
+        .filter(has=page.get_by_text("Disney+ SUB011 E2E", exact=True))
+        .last
+    )
+    expect(row).to_be_visible(timeout=5000)
+    # Icon-only button: Quasar marks the icon aria-hidden, so match the glyph.
+    row.locator("button").filter(
+        has=page.locator(".q-icon", has_text=re.compile(r"^edit$"))
+    ).click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog.get_by_text("Edit subscription", exact=True)).to_be_visible(timeout=5000)
+    dialog.get_by_label("Amount", exact=True).fill("599.90")
+    cadence = dialog.get_by_label("Cadence (days)", exact=True)
+    cadence.fill("365")
+    cadence.blur()
+    dialog.get_by_role("button", name="Save").click()
+
+    _expect_saved_without_warning(page)
+    expect(page.get_by_text(re.compile(r"Disney\+ SUB011 E2E.*Yearly"))).to_be_visible(timeout=5000)
+    saved = get_subscription(sub_id)
+    assert saved["cadence_days"] == 365
+    assert saved["amount"] == "599.90"
+    assert _monthly_header(page) == before
