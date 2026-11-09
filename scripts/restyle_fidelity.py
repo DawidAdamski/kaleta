@@ -954,7 +954,7 @@ class EphemeralApp:
             if self._proc is not None and self._proc.poll() is not None:
                 break
             try:
-                with urllib.request.urlopen(f"{self.base_url}/api-docs", timeout=2) as response:
+                with urllib.request.urlopen(f"{self.base_url}/health", timeout=2) as response:
                     if response.status == 200:
                         return
             except (urllib.error.URLError, OSError):
