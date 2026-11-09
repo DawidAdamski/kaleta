@@ -202,5 +202,17 @@ None blocking. Decided:
     no reload, is a transfer back to file 1's account, whose number only file
     1's import stored. Run against `main`'s `src/`, that e2e test fails
     (`Transfers: 1` never appears).
+- **Gate attempt 2: e2e failures outside this change, not reproduced.**
+  The gate's `verify.sh --e2e` run had 7 failures, all in the ledger e2e tests
+  (`test_transactions.py` ×6, where the token search found 3 rows instead of 2,
+  and `test_transactions_keep_place.py` ×1, a `409 Conflict` seeding a
+  category). None of them touch the import page or this diff. On the same
+  commit they pass:
+  - on their own (17 passed);
+  - after `test_transfer_detection.py` (21 passed) and after every `test_s*.py`
+    file (48 passed);
+  - in a full `pytest tests/e2e/` run (273 passed, 0 failed).
+  Recorded as an order-dependent flake in `docs/plans/chores.md`, not fixed
+  here (scope).
 
 ## Implementation (filled by plan-archiver)
