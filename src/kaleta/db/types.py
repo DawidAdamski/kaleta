@@ -436,6 +436,26 @@ def account_suffix_index(value: str | None) -> str | None:
     return blind_index_digits(value, last=ACCOUNT_SUFFIX_DIGITS)
 
 
+def account_number_matches(stored: str | None, statement: str | None) -> bool:
+    """Whether a statement's counterparty account is the account ``stored`` names.
+
+    ``stored`` is what Kaleta keeps for an own account: the full number, or an
+    older 10-digit tail - anything of at least ``ACCOUNT_SUFFIX_DIGITS`` digits
+    (the blind-index width). ``statement`` is the counterparty number on a bank
+    row; it must be a full account number - at least 26 digits, a Polish NRB or
+    the body of most EU IBANs - so that references, masked card numbers and
+    stray generic-CSV columns never match. Shorter IBANs (some EEA countries)
+    therefore never match either; accepted. Both sides are reduced to their
+    digits, and it matches when the statement number ends with the stored one
+    (equal when both are full).
+    """
+    stored_digits = digits_only(stored or "")
+    statement_digits = digits_only(statement or "")
+    if len(stored_digits) < ACCOUNT_SUFFIX_DIGITS or len(statement_digits) < 26:
+        return False
+    return statement_digits.endswith(stored_digits)
+
+
 class EncryptedJSON(TypeDecorator[Any]):
     """A JSON document stored as ``EncryptedText`` — for snapshots that carry user text."""
 

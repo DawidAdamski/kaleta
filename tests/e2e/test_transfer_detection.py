@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for transfer detection and recognition.
 
-Covers: KAL-CSV-004, KAL-TRF-001, KAL-TRF-002
+Covers: KAL-CSV-004, KAL-CSV-039, KAL-TRF-001, KAL-TRF-002
 
 Maps internal transfer detection between two registered accounts, manual
 pairing of two ledger rows, and the transfer-pair suggestions on the
@@ -20,6 +20,7 @@ from playwright.sync_api import Page, expect
 from tests.e2e.ledger import pick_open_menu_option, search_ledger
 from tests.e2e.seed_helpers import (
     get_transaction,
+    list_transactions,
     seed_account,
     seed_account_with_external,
     seed_category,
@@ -29,6 +30,8 @@ from tests.e2e.seed_helpers import (
 
 MBANK_CSV = Path(__file__).resolve().parent / "fixtures" / "mbank_transfer.csv"
 PAIRS_CSV = Path(__file__).resolve().parent / "fixtures" / "mbank_transfer_pairs.csv"
+SUFFIX_OUT_CSV = Path(__file__).resolve().parent / "fixtures" / "mbank_transfer_suffix_out.csv"
+SUFFIX_BACK_CSV = Path(__file__).resolve().parent / "fixtures" / "mbank_transfer_suffix_back.csv"
 
 MAIN_ACCOUNT = "mBank PLN Transfer E2E"
 SAVINGS_ACCOUNT = "mBank Savings Transfer E2E"
@@ -124,6 +127,66 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     search_ledger(page, "Salary Transfer E2E")
     income_row = page.locator(".q-table tbody tr").filter(has_text="Salary Transfer E2E").first
     expect(income_row.get_by_role("cell", name="Income", exact=True)).to_be_visible(timeout=5000)
+
+
+def _import_mbank_file(page: Page, csv: Path, account: str, expense: str, income: str) -> None:
+    """Upload one mBank statement, point it at *account*, stop on the preview."""
+    page.locator('input[type="file"]').set_input_files(str(csv))
+    expect(page.locator("[data-page-eyebrow]")).to_contain_text(csv.name, timeout=10000)
+    _step(page, 4)
+    _pick_import_option(page, "Target account", _account_option(account))
+    _pick_import_option(page, "Default expense category", expense)
+    _pick_import_option(page, "Default income category", income)
+    _step(page, 5)
+
+
+def test_mbank_transfer_detected_against_stored_suffix_and_earlier_file(
+    page: Page, base_url: str
+) -> None:
+    """Covers: KAL-CSV-039
+
+    Production stores an own account's number as its last 10 digits; the
+    statement names the counterparty by the full 26. The first file moves
+    money to such an account and is a transfer. The second file, imported on
+    the same page without a reload, moves money back to the first file's
+    account, whose number only that first import has stored - and is a
+    transfer too.
+    """
+    expense_cat = "AAA CSV039 Expense"
+    income_cat = "AAA CSV039 Income"
+    main_name = "AAA mBank CSV039 Main E2E"
+    savings_name = "AAA mBank CSV039 Savings E2E"
+    main_id = seed_account(main_name)
+    savings_id = seed_account_with_external(savings_name, "0222220392")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    _import_mbank_file(page, SUFFIX_OUT_CSV, main_name, expense_cat, income_cat)
+    preview = page.locator(".q-table")
+    expect(page.get_by_text(re.compile(r"Transfers: 1$"))).to_be_visible(timeout=5000)
+    expect(preview.get_by_role("cell", name="Transfer", exact=True)).to_have_count(1)
+    page.locator("[data-import-run]").click()
+    expect(page.locator('[data-step-panel="6"]')).to_contain_text(
+        re.compile(r"\b2 imported"), timeout=10000
+    )
+
+    _import_mbank_file(page, SUFFIX_BACK_CSV, savings_name, expense_cat, income_cat)
+    expect(page.get_by_text(re.compile(r"Transfers: 1$"))).to_be_visible(timeout=5000)
+    page.locator("[data-import-run]").click()
+    expect(page.locator('[data-step-panel="6"]')).to_contain_text(
+        re.compile(r"\b1 imported"), timeout=10000
+    )
+
+    main_rows = {t["description"]: t for t in list_transactions(main_id)}
+    out_leg = main_rows["Jan Kowalski — Oszczednosci CSV039 E2E"]
+    assert out_leg["type"] == "transfer"
+    assert out_leg["is_internal_transfer"] is True
+    assert main_rows["Biedronka CSV039 E2E"]["type"] == "expense"
+    [back_leg] = list_transactions(savings_id)
+    assert back_leg["description"] == "Jan Kowalski — Powrot CSV039 E2E"
+    assert back_leg["type"] == "transfer"
+    assert back_leg["is_internal_transfer"] is True
 
 
 def test_manually_pair_two_rows_as_a_transfer(page: Page, base_url: str) -> None:

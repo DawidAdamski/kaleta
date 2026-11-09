@@ -79,7 +79,7 @@ async def test_mbank_preview_and_stored_row_read_the_same_description(
     )
 
     parsed = ImportService(session).parse_queued_file(STATEMENT, "mbank")
-    preview = build_preview_table_rows(parsed.rows, set())
+    preview = build_preview_table_rows(parsed.rows, set(), profile="mbank")
     assert [p["description"] for p in preview] == [
         "LIDL KASPROWICZA 01/INOWROCLAW",
         "JAN NOWAK UL. DŁUGA 1 — Czynsz 10/2026",

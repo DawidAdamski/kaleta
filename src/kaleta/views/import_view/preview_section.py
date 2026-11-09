@@ -25,8 +25,17 @@ class PreviewSection:
     stats_row: ui.row
     preview_table: ui.table
 
-    def render(self, rows: list[ParsedRow], known_digits: set[str]) -> None:
-        counts = count_row_types(rows, known_digits)
+    def render(
+        self,
+        rows: list[ParsedRow],
+        known_digits: set[str],
+        *,
+        profile: str,
+        target_digits: str | None = None,
+    ) -> None:
+        # Transfers are counted for an mBank file only: no other profile's
+        # commit stores one (KAL-CSV-039).
+        counts = count_row_types(rows, known_digits, profile=profile, target_digits=target_digits)
         self.stats_row.clear()
         with self.stats_row:
             ui.label(f"\U0001f4e5 {t('import.stats_expense')}: {counts.expense}").classes(
@@ -40,7 +49,11 @@ class PreviewSection:
             )
         # Grouped the way `2d` writes it, at the point it is drawn: the
         # service's string is read by the API too.
-        preview_rows = space_amounts(build_preview_table_rows(rows, known_digits))
+        preview_rows = space_amounts(
+            build_preview_table_rows(
+                rows, known_digits, profile=profile, target_digits=target_digits
+            )
+        )
         for row in preview_rows:
             row["type_label"] = t(f"common.{row['type']}")
         self.preview_table.rows = preview_rows

@@ -102,7 +102,21 @@ async def import_page() -> None:
     income_cat_opts = CategoryService.build_option_labels(
         [c for c in categories if c.type.value == "income"]
     )
-    known_digits = build_known_account_digits(a.external_account_number for a in accounts)
+    # Own accounts' stored numbers, kept current while the page lives: an mBank
+    # import saves the statement's number, and files later in the same batch
+    # must see it (KAL-CSV-039).
+    external_numbers: dict[int, str | None] = {a.id: a.external_account_number for a in accounts}
+
+    def _known_digits() -> set[str]:
+        return build_known_account_digits(external_numbers.values())
+
+    def _target_digits(queued_file: QueuedFile) -> str | None:
+        """The number of the account a file goes into: the statement's own, else stored."""
+        if queued_file.metadata is not None and queued_file.metadata.account_number_digits:
+            return queued_file.metadata.account_number_digits
+        if queued_file.target_account_id is None:
+            return None
+        return external_numbers.get(queued_file.target_account_id)
 
     def _history_tuples(runs: list[Any]) -> list[tuple[str, str, str, int, int]]:
         rows: list[tuple[str, str, str, int, int]] = []
@@ -268,7 +282,12 @@ async def import_page() -> None:
         mapping_section.set_visible(show_mapping)
 
         settings_section.load_file(active, accounts)
-        preview_section.render(active.parsed_rows, known_digits)
+        preview_section.render(
+            active.parsed_rows,
+            _known_digits(),
+            profile=active.profile,
+            target_digits=_target_digits(active),
+        )
 
         show_settings = active.status in {"ready", "done"}
         settings_section.set_visible(show_settings)
@@ -560,12 +579,17 @@ async def import_page() -> None:
             async def _persist(session: Any) -> tuple[int, list[Any]]:
                 svc_import = ImportService(session)
                 if queued_file.profile == "mbank":
+                    # Fresh from the database: an earlier file in this batch,
+                    # or Settings, may have stored a number since the page loaded.
+                    for fresh in await AccountService(session).list():
+                        external_numbers[fresh.id] = fresh.external_account_number
                     creates = await svc_import.to_transaction_creates_with_payees(
                         queued_file.parsed_rows,
                         account_id=target_account_id,
                         default_expense_category_id=expense_cat_id,
                         default_income_category_id=income_cat_id,
-                        known_account_digits=known_digits,
+                        known_account_digits=_known_digits(),
+                        target_account_digits=_target_digits(queued_file),
                     )
                 else:
                     creates = svc_import.to_transaction_creates(
@@ -601,6 +625,8 @@ async def import_page() -> None:
                         target_account_id,
                         queued_file.metadata.account_number_digits,
                     )
+                    # Already digits (MBankFileMetadata), as save_external_number stores them.
+                    external_numbers[target_account_id] = queued_file.metadata.account_number_digits
                 return count, skipped_rows
 
             count, skipped_rows = await with_session(_persist)

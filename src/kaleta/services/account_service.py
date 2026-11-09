@@ -286,10 +286,15 @@ class AccountService:
         return matches[0] if matches else None
 
     async def save_external_number(self, account_id: int, number: str) -> None:
-        """Persist the last-10-digits of an external account number for auto-matching."""
+        """Persist an external account number, all of its digits, for auto-matching.
+
+        Kept whole: transfer detection on import compares it with the
+        statement's full counterparty number (``account_number_matches``), and
+        a full number the user typed must not be cut down by the next import.
+        """
         account = await self.get(account_id)
         if account is not None:
-            account.external_account_number = number[-10:]
+            account.external_account_number = digits_only(number)
             await self.session.commit()
 
     @staticmethod

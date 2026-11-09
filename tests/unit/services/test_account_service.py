@@ -252,3 +252,26 @@ class TestBalanceBreakdown:
         assert breakdown.shown == []
         assert breakdown.hidden_count == 0
         assert breakdown.hidden_total == Decimal("0")
+
+
+class TestSaveExternalNumber:
+    """Plan ``import-mbank-transfer-account-suffix``: the number is kept whole."""
+
+    async def test_save_external_number_keeps_full_digits(self, svc: AccountService):
+        account = await svc.create(AccountCreate(name="mBank", type=AccountType.CHECKING))
+
+        await svc.save_external_number(account.id, "55 1140 2004 0000 3302 7888 6836")
+
+        stored = await svc.get(account.id)
+        assert stored is not None
+        assert stored.external_account_number == "55114020040000330278886836"
+
+    async def test_save_external_number_still_finds_by_ten_digit_tail(self, svc: AccountService):
+        """The import's auto-match searches by the last 10 digits."""
+        account = await svc.create(AccountCreate(name="mBank tail", type=AccountType.CHECKING))
+        await svc.save_external_number(account.id, "55114020040000330278886836")
+
+        found = await svc.find_by_external_number("0278886836")
+
+        assert found is not None
+        assert found.id == account.id

@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.db.types import ACCOUNT_SUFFIX_DIGITS, account_number_matches, digits_only
 from kaleta.exceptions import ImportError_
 from kaleta.models.dismissed_transfer_pair import DismissedTransferPair
 from kaleta.models.import_run import ImportRun
@@ -95,25 +96,46 @@ def row_error_line(message: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def digits_only(value: str) -> str:
-    """Strip non-digit characters from an account number string."""
-    return re.sub(r"\D", "", value)
-
-
 def build_known_account_digits(external_numbers: Iterable[str | None]) -> set[str]:
-    """Collect normalised account digits from stored external account numbers."""
-    return {digits_only(num) for num in external_numbers if num}
+    """The own accounts' stored numbers, as digits, that can identify an account.
+
+    Full numbers and older 10-digit tails alike; anything shorter than
+    ``ACCOUNT_SUFFIX_DIGITS`` could not tell two accounts apart and is dropped.
+    """
+    known = (digits_only(num) for num in external_numbers if num)
+    return {digits for digits in known if len(digits) >= ACCOUNT_SUFFIX_DIGITS}
 
 
-def is_counterparty_transfer(row: ParsedRow, known_digits: set[str]) -> bool:
-    """Return True when a row's counterparty matches a known own account."""
-    counterparty = digits_only(counterparty_account_raw(row.raw))
-    return bool(counterparty and counterparty in known_digits)
+def is_counterparty_transfer(
+    row: ParsedRow, known_digits: set[str], *, target_digits: str | None = None
+) -> bool:
+    """Return True when a row's counterparty is one of the user's own accounts.
+
+    The counterparty is compared with each stored number by
+    ``account_number_matches``. A row whose counterparty is the account being
+    imported into (*target_digits*) is not a transfer between own accounts.
+    """
+    counterparty = counterparty_account_raw(row.raw)
+    if target_digits and account_number_matches(target_digits, counterparty):
+        return False
+    return any(account_number_matches(stored, counterparty) for stored in known_digits)
 
 
-def classify_row_preview_type(row: ParsedRow, known_digits: set[str]) -> str:
-    """Classify a parsed row for import preview (transfer / income / expense)."""
-    if is_counterparty_transfer(row, known_digits):
+def classify_row_preview_type(
+    row: ParsedRow,
+    known_digits: set[str],
+    *,
+    profile: str,
+    target_digits: str | None = None,
+) -> str:
+    """Classify a parsed row for import preview (transfer / income / expense).
+
+    Only the mBank commit path stores transfers, so only an mBank file's
+    preview shows them; every other profile is shown as it will be stored.
+    """
+    if profile == MBANK_PROFILE and is_counterparty_transfer(
+        row, known_digits, target_digits=target_digits
+    ):
         return "transfer"
     return "income" if row.amount >= 0 else "expense"
 
@@ -125,11 +147,19 @@ class RowTypeCounts:
     transfer: int = 0
 
 
-def count_row_types(rows: list[ParsedRow], known_digits: set[str]) -> RowTypeCounts:
+def count_row_types(
+    rows: list[ParsedRow],
+    known_digits: set[str],
+    *,
+    profile: str,
+    target_digits: str | None = None,
+) -> RowTypeCounts:
     """Count preview row types for stats chips."""
     counts = RowTypeCounts()
     for row in rows:
-        row_type = classify_row_preview_type(row, known_digits)
+        row_type = classify_row_preview_type(
+            row, known_digits, profile=profile, target_digits=target_digits
+        )
         if row_type == "transfer":
             counts.transfer += 1
         elif row_type == "income":
@@ -143,12 +173,16 @@ def build_preview_table_rows(
     rows: list[ParsedRow],
     known_digits: set[str],
     *,
+    profile: str,
+    target_digits: str | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """Build ``ui.table`` row dicts for the import preview."""
     preview: list[dict[str, Any]] = []
     for i, row in enumerate(rows[:limit]):
-        row_type = classify_row_preview_type(row, known_digits)
+        row_type = classify_row_preview_type(
+            row, known_digits, profile=profile, target_digits=target_digits
+        )
         amount_text = f"{'+' if row.amount >= 0 else ''}{row.amount:,.2f}"
         preview.append(
             {
@@ -1930,12 +1964,15 @@ class ImportService:
         default_expense_category_id: int | None = None,
         default_income_category_id: int | None = None,
         known_account_digits: set[str] | None = None,
+        target_account_digits: str | None = None,
     ) -> list[TransactionCreate]:
         """mBank-aware: resolves payees and detects transfers to registered accounts.
 
         A transaction is marked as TRANSFER only when the counterparty account
         number (``Numer rachunku`` column) matches one of the user's own accounts
-        (identified by their stored ``external_account_number`` digits).
+        (identified by their stored ``external_account_number`` digits, see
+        ``account_number_matches``) and is not the account being imported into
+        (*target_account_digits*).
 
         Does NOT commit — the caller owns the transaction boundary.
         """
@@ -1954,9 +1991,7 @@ class ImportService:
                 payee_id = payee.id
 
             # Transfer only when the counterparty account is one of ours
-            counterparty_raw = counterparty_account_raw(row.raw)
-            counterparty_digits = re.sub(r"\D", "", counterparty_raw)
-            if counterparty_digits and counterparty_digits in known:
+            if is_counterparty_transfer(row, known, target_digits=target_account_digits):
                 creates.append(
                     TransactionCreate(
                         account_id=account_id,
