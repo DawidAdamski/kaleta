@@ -7,7 +7,7 @@ import builtins
 import datetime
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,12 +81,53 @@ class NotesPreview:
     can_toggle: bool
 
 
-class SubscriptionFormError(Exception):
-    """Raised when subscription form fields fail validation."""
+class SubscriptionFormError(ValidationError):
+    """Raised when subscription form fields fail validation.
 
-    def __init__(self, message: str) -> None:
-        self.message = message
-        super().__init__(message)
+    A :class:`ValidationError`, so a raise that carries ``message_key`` and
+    ``params`` reaches the dialog's toast translated; ``message`` stays the
+    English fallback (and what tests match on).
+    """
+
+
+#: The bounds ``SubscriptionCreate.cadence_days`` and the dialog's widget use.
+CADENCE_MIN_DAYS = 1
+CADENCE_MAX_DAYS = 400
+DEFAULT_CADENCE_DAYS = 30
+
+
+def _parse_cadence_days(value: object) -> int:
+    """A whole number of days in ``1..400`` from whatever the form holds.
+
+    NiceGUI's ``ui.number`` stores every edit as a float (``365.0``), so the
+    old ``int(str(value))`` failed on any cadence the user had touched.
+    ``None``/``""`` is the default 30; ``0`` is out of range, not the default.
+    """
+    if value is None or value == "":
+        return DEFAULT_CADENCE_DAYS
+    whole_days = SubscriptionFormError(
+        "Cadence must be a whole number of days.",
+        message_key="errors.subscription.cadence_whole_days",
+    )
+    if isinstance(value, bool):
+        raise whole_days
+    if isinstance(value, int):
+        days = value
+    else:
+        try:
+            number = Decimal(str(value).strip().replace(",", "."))
+        except (InvalidOperation, ValueError) as exc:
+            raise whole_days from exc
+        if not number.is_finite() or number != number.to_integral_value():
+            raise whole_days
+        days = int(number)
+    if not CADENCE_MIN_DAYS <= days <= CADENCE_MAX_DAYS:
+        raise SubscriptionFormError(
+            f"Cadence must be between {CADENCE_MIN_DAYS} and {CADENCE_MAX_DAYS} days.",
+            message_key="errors.subscription.cadence_range",
+            params={"min": CADENCE_MIN_DAYS, "max": CADENCE_MAX_DAYS},
+        )
+    return days
 
 
 def build_notes_preview(notes: str, *, max_chars: int = NOTE_PREVIEW_CHARS) -> NotesPreview:
@@ -124,8 +165,8 @@ def parse_subscription_form(
         raise SubscriptionFormError(str(exc)) from exc
     if amount <= 0:
         raise SubscriptionFormError("Amount must be > 0")
+    cadence = _parse_cadence_days(cadence_value)
     try:
-        cadence = int(str(cadence_value or 30))
         first_seen = datetime.date.fromisoformat(first_seen_value) if first_seen_value else None
         next_expected = (
             datetime.date.fromisoformat(next_expected_value) if next_expected_value else None

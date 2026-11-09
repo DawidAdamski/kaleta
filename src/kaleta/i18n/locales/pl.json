@@ -200,6 +200,8 @@
       "category_not_found": "Nie znaleziono kategorii {category_id}."
     },
     "subscription": {
+      "cadence_range": "Częstotliwość musi wynosić od {min} do {max} dni.",
+      "cadence_whole_days": "Częstotliwość musi być pełną liczbą dni.",
       "candidate_needs_account": "Nie można zaplanować wykrytej płatności bez konta",
       "planned_needs_name": "Zaplanowana transakcja wymaga nazwy",
       "planned_needs_positive_amount": "Zaplanowana transakcja wymaga dodatniej kwoty",

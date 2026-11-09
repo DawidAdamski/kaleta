@@ -2525,6 +2525,14 @@ Feature: Subscriptions Panel
     When the settlement scheduler runs on 2026-04-30 without the panel being opened
     Then the subscription moves to the cancelled section
     And a reader filtering on active subscriptions no longer sees it
+
+  KAL-SUB-011 @automated
+  Scenario: Subscription cadence can be changed to any whole number of days
+    Given a subscription "Disney+" of 49.99 every 30 days
+    When I edit it to amount 599.90 and cadence 365 and save
+    Then no warning is shown
+    And the subscription is listed as yearly
+    And the monthly total shows 49.99
 ```
 
 ---

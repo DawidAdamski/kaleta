@@ -200,6 +200,8 @@
       "category_not_found": "Category {category_id} not found."
     },
     "subscription": {
+      "cadence_range": "Cadence must be between {min} and {max} days.",
+      "cadence_whole_days": "Cadence must be a whole number of days.",
       "candidate_needs_account": "A detected charge without an account cannot be planned",
       "planned_needs_name": "A planned transaction needs a name",
       "planned_needs_positive_amount": "A planned transaction needs a positive amount",
