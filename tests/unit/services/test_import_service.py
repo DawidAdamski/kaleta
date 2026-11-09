@@ -473,6 +473,57 @@ class TestToTransactionCreatesWithPayees:
 
         assert creates[0].type == TransactionType.TRANSFER
 
+    async def test_stored_suffix_matches_full_statement_number(self, session: AsyncSession):
+        """Covers: KAL-CSV-039
+
+        Production stores the last 10 digits; the statement names the full 26.
+        """
+        account_id = await _make_account(session)
+        row = _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836")
+        svc = ImportService(session)
+
+        creates = await svc.to_transaction_creates_with_payees(
+            [row], account_id=account_id, known_account_digits={"0278886836"}
+        )
+
+        assert creates[0].type == TransactionType.TRANSFER
+        assert creates[0].is_internal_transfer is True
+        assert is_counterparty_transfer(row, {"0278886836"}) is True
+
+    async def test_short_counterparty_never_matches(self, session: AsyncSession):
+        """A 10-digit counterparty is a reference, not an account: never a transfer."""
+        account_id = await _make_account(session)
+        row = _parsed_row(counterparty_account="0278886836")
+        svc = ImportService(session)
+
+        creates = await svc.to_transaction_creates_with_payees(
+            [row],
+            account_id=account_id,
+            default_expense_category_id=await _make_expense_cat(session),
+            known_account_digits={"0278886836"},
+        )
+
+        assert creates[0].type == TransactionType.EXPENSE
+        assert is_counterparty_transfer(row, {"0278886836"}) is False
+
+    async def test_own_target_account_is_not_a_transfer(self, session: AsyncSession):
+        """A row on account X whose counterparty is X is not an internal transfer."""
+        account_id = await _make_account(session)
+        full = "55114020040000330278886836"
+        row = _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836")
+        svc = ImportService(session)
+
+        creates = await svc.to_transaction_creates_with_payees(
+            [row],
+            account_id=account_id,
+            default_expense_category_id=await _make_expense_cat(session),
+            known_account_digits={"0278886836"},
+            target_account_digits=full,
+        )
+
+        assert creates[0].type == TransactionType.EXPENSE
+        assert is_counterparty_transfer(row, {"0278886836"}, target_digits="0278886836") is False
+
     async def test_empty_rows_list_returns_empty(self, session: AsyncSession):
         account_id = await _make_account(session)
         svc = ImportService(session)
@@ -568,6 +619,31 @@ class TestKnownAccountDigits:
     def test_build_known_account_digits_strips_non_digits(self):
         digits = build_known_account_digits(["55 1140 2004", None, ""])
         assert digits == {"5511402004"}
+
+    def test_build_known_account_digits_drops_numbers_under_eight_digits(self):
+        digits = build_known_account_digits(["1234567", "0278886836", "55114020040000330278886836"])
+        assert digits == {"0278886836", "55114020040000330278886836"}
+
+
+class TestPreviewTransfersOnlyForMBank:
+    """Only the mBank commit stores transfers, so only its preview shows them."""
+
+    def test_non_mbank_profile_shows_the_row_as_it_will_be_stored(self):
+        row = _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836", amount="-5.00")
+        known = {"0278886836"}
+
+        assert classify_row_preview_type(row, known, profile="mbank") == "transfer"
+        for profile in ("generic", "pko", "wise"):
+            assert classify_row_preview_type(row, known, profile=profile) == "expense"
+            assert count_row_types([row], known, profile=profile).transfer == 0
+
+    def test_preview_never_counts_the_target_account(self):
+        row = _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836", amount="-5.00")
+        counts = count_row_types(
+            [row], {"0278886836"}, profile="mbank", target_digits="55114020040000330278886836"
+        )
+        assert counts.transfer == 0
+        assert counts.expense == 1
 
 
 # ── parse_queued_file ─────────────────────────────────────────────────────────

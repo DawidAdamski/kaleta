@@ -1675,6 +1675,25 @@ Feature: mBank CSV Import
     Then no currency-mismatch warning is shown
     But a file denominated in "EUR" against that account does warn
 
+  KAL-CSV-039 @automated
+  Scenario: An mBank transfer to an own account is detected against its stored number
+    Kaleta stores an own account's number as the import saved it - before
+    0.9, only its last 10 digits - while the statement names the counterparty
+    by its full 26-digit number. A row is a transfer when the statement
+    number ends with a stored one; a number learned from one file counts for
+    the next file of the same session; the account being imported into is
+    never its own transfer.
+
+    Given an own account whose stored number is "0222220392"
+    And an mBank statement for another account with a "PRZELEW WŁASNY" of 300.00
+      to "12 1140 2004 0000 3302 2222 0392"
+    When I import it
+    Then the preview shows "Transfers: 1"
+    And the row is stored as a transfer with is_internal_transfer true
+    When I then import, on the same page, a statement for the savings account
+      with a transfer back to the first account's number
+    Then that row is stored as a transfer too
+
   KAL-CSV-040 @automated
   Scenario: The mBank preview shows the description the row will be stored with
     mBank's "Opis operacji" names only the operation type. The preview, the

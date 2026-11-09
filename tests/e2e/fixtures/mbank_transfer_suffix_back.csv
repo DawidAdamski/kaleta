@@ -1,0 +1,12 @@
+#Numer rachunku
+12 1140 2004 0000 3302 2222 0392
+#Rodzaj rachunku
+EMAX
+#Waluta
+PLN
+#Klient
+E2E Transfer Suffix Client
+#Za okres:
+2024-02-01;2024-02-29
+#Data operacji;#Data księgowania;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer rachunku;#Kwota
+2024-02-20;2024-02-20;PRZELEW WŁASNY;Powrot CSV039 E2E;Jan Kowalski;55 1140 2004 0000 3302 1111 0391;-120.00

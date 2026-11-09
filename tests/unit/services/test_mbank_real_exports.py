@@ -65,7 +65,9 @@ def test_current_account_fixture_parses_transfer_counterparty() -> None:
         for r in with_counterparty
         if digits_only(counterparty_account_raw(r.raw)) == "96132015374150799939999901"
     )
-    known = {digits_only(counterparty_account_raw(row.raw))}
+    # What save_external_number stored before this plan, and what every
+    # account imported since 0.8 still holds: the last 10 digits.
+    known = {"9939999901"}
     assert is_counterparty_transfer(row, known)
 
 

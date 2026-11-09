@@ -133,4 +133,55 @@ None blocking. Decided:
 
 ## Implementation notes
 
+- **The rule.** `kaleta.db.types.account_number_matches(stored, statement)`:
+  both sides reduced with `digits_only`; the statement needs at least 26
+  digits, the stored value at least `ACCOUNT_SUFFIX_DIGITS` (8); a match is
+  `statement.endswith(stored)`. The 26 is written in the helper with its
+  reason (a full NRB / most EU IBAN bodies; shorter IBANs never match),
+  following the plan's "no new constant" decision.
+- **One normaliser.** `import_service`'s own `digits_only` (`re.sub(r"\D")`)
+  is gone. It imports `digits_only`, `ACCOUNT_SUFFIX_DIGITS` and
+  `account_number_matches` from `kaleta.db.types`, as `account_service`
+  already did. `find_by_external_number` keeps its direction (stored ends
+  with the searched digits) and was already on that normaliser.
+- **Signatures.** `classify_row_preview_type`, `count_row_types`,
+  `build_preview_table_rows` and `PreviewSection.render` take a keyword-only
+  `profile` (required, so no caller can forget it) and an optional
+  `target_digits`. `is_counterparty_transfer` takes `target_digits`, and
+  `to_transaction_creates_with_payees` takes `target_account_digits`. The
+  existing tests that called these without `profile` now pass
+  `profile="mbank"`; their assertions are unchanged.
+- **Target account.** The number excluded is the statement's own
+  (`metadata.account_number_digits`, which is the account being imported
+  into), else the target account's stored number.
+- **Fresh numbers per file.** The import page keeps `external_numbers`
+  (account id → stored number). `_persist` reloads it from the database
+  before building the creates of an mBank file, so numbers saved by earlier
+  files or in Settings count. After `save_external_number` it records the new
+  number in the map, so the next preview render sees it without a reload.
+  The preview render reads the map, not the database, because it is
+  synchronous.
+- **Auto-match unchanged.** `_auto_match_account` still searches by
+  `digits[-10:]`. With the full number now stored, "stored ends with the last
+  10" still holds, and old 10-digit values are matched as before (unit test
+  `test_save_external_number_still_finds_by_ten_digit_tail`).
+- **`save_external_number`** stores `digits_only(number)`. Existing 10-digit
+  values stay valid under the rule, so there is no migration.
+- **Tests.**
+  - The plan's named unit tests are in `test_import_service.py`,
+    `tests/unit/db/test_account_number_matches.py` and
+    `test_account_service.py`.
+  - `test_current_account_fixture_parses_transfer_counterparty` now seeds the
+    10-digit tail `9939999901`.
+  - Preview gating per profile and target exclusion are also covered.
+  - KAL-CSV-039 is covered by the e2e test
+    `test_mbank_transfer_detected_against_stored_suffix_and_earlier_file`
+    (`tests/e2e/test_transfer_detection.py`). It uses two new fixtures with
+    their own account numbers, so it cannot collide with KAL-CSV-004's
+    accounts in the shared e2e database. The savings account holds only the
+    10-digit tail. File 1 is a transfer to it. File 2, on the same page with
+    no reload, is a transfer back to file 1's account, whose number only file
+    1's import stored. Run against `main`'s `src/`, that e2e test fails
+    (`Transfers: 1` never appears).
+
 ## Implementation (filled by plan-archiver)
