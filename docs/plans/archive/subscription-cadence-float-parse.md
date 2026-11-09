@@ -3,8 +3,9 @@ plan_id: subscription-cadence-float-parse
 title: Saving a subscription with a changed cadence fails ("invalid literal for int() ... '365.0'")
 area: subscriptions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-09
+roadmap_ref: ../../roadmap.md
 ---
 
 # Saving a subscription with a changed cadence fails ("invalid literal for int() ... '365.0'")
@@ -224,3 +225,30 @@ None.
   subscription back.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-09 (PR #402).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `21a883ac` | Dawid Adamski | 2026-11-09 | Merge pull request #402 from DawidAdamski/plan/subscription-cadence-float-parse |
+
+**Files changed:**
+- docs/bdd.md
+- docs/harness/runs/fidelity-independent-critic.jsonl
+- docs/plans/chores.md
+- docs/plans/subscription-cadence-float-parse.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/subscription_service.py
+- src/kaleta/views/subscriptions/dialogs.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_subscriptions.py
+- tests/unit/services/test_subscription_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
