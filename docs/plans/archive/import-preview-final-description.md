@@ -3,8 +3,9 @@ plan_id: import-preview-final-description
 title: mBank rows carry their final description from parse time
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-09
+roadmap_ref: ../../roadmap.md
 ---
 
 # mBank rows carry their final description from parse time
@@ -100,3 +101,24 @@ None. (`build_preview_table_rows` has no API caller — only
   `import-mbank-transfer-account-suffix` reserves it.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-09 (PR #404).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e0aaa990` | Dawid Adamski | 2026-11-09 | Merge pull request #404 from DawidAdamski/plan/import-preview-final-description |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-preview-final-description.md
+- src/kaleta/services/import_service.py
+- tests/integration/test_mbank_final_description.py
+- tests/unit/services/test_import_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
