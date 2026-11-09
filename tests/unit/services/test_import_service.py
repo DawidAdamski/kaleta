@@ -1006,3 +1006,81 @@ class TestImportRunRecording:
         assert runs[0].row_date_min == datetime.date(2024, 10, 1)
         assert runs[0].row_date_max == datetime.date(2024, 10, 31)
         assert runs[0].account is not None
+
+
+# ── mBank: the final description is set at parse time (KAL-CSV-040) ──────────
+
+_MBANK_HEADER = (
+    "#Klient;\n"
+    "Jan Kowalski;\n"
+    "#Rodzaj rachunku;\n"
+    "MKONTO INTENSIVE;\n"
+    "#Waluta;\n"
+    "PLN;\n"
+    "#Numer rachunku;\n"
+    "55 1140 2004 0000 3302 9999 6836 ;\n"
+    "\n"
+    "#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;"
+    "#Numer konta;#Kwota;#Saldo po operacji;\n"
+)
+_MBANK_CARD_ROW = (
+    "2026-10-12;2026-10-10;ZAKUP PRZY UŻYCIU KARTY;"
+    '"LIDL KASPROWICZA 01/INOWROCLAW  DATA TRANSAKCJI: 2026-10-10";"  ";\'\';'
+    "-43,21;1 000,00;\n"
+)
+_MBANK_TRANSFER_ROW = (
+    "2026-10-14;2026-10-14;PRZELEW ZEWNĘTRZNY WYCHODZĄCY;"
+    '"Czynsz 10/2026";"JAN NOWAK  UL. DŁUGA 1";\'12 1020 3040 0000 1111 2222 3333\';'
+    "-2 400,00;956,79;\n"
+)
+
+
+class TestMBankFinalDescription:
+    def test_mbank_preview_shows_final_description(self) -> None:
+        """Covers: KAL-CSV-040
+
+        A card purchase reads as its merchant in the parsed row and in the
+        preview, not as the generic ``ZAKUP PRZY UŻYCIU KARTY``.
+        """
+        result = _svc().parse_queued_file(_MBANK_HEADER + _MBANK_CARD_ROW, "mbank")
+
+        assert result.ok is True
+        assert result.profile == "mbank"
+        [row] = result.rows
+        assert row.description == "LIDL KASPROWICZA 01/INOWROCLAW"
+        assert row.raw["Opis operacji"] == "ZAKUP PRZY UŻYCIU KARTY"
+        [preview] = build_preview_table_rows(result.rows, set())
+        assert preview["description"] == "LIDL KASPROWICZA 01/INOWROCLAW"
+
+    def test_mbank_auto_detected_file_gets_final_description(self) -> None:
+        """The generic profile that detects mBank takes the same branch."""
+        result = _svc().parse_queued_file(_MBANK_HEADER + _MBANK_CARD_ROW, "generic")
+
+        assert result.profile == "mbank"
+        assert [r.description for r in result.rows] == ["LIDL KASPROWICZA 01/INOWROCLAW"]
+
+    async def test_mbank_commit_description_unchanged(self, session: AsyncSession) -> None:
+        """Covers: KAL-CSV-040
+
+        A transfer is stored as ``Nadawca/Odbiorca — Tytuł``, exactly as
+        before: the duplicate check compares stored descriptions verbatim.
+        """
+        account_id = await _make_account(session)
+        expense_id = await _make_expense_cat(session)
+        income_id = await _make_income_cat(session)
+        parsed = ImportService(session).parse_queued_file(
+            _MBANK_HEADER + _MBANK_CARD_ROW + _MBANK_TRANSFER_ROW, "mbank"
+        )
+
+        creates = await ImportService(session).to_transaction_creates_with_payees(
+            parsed.rows,
+            account_id=account_id,
+            default_expense_category_id=expense_id,
+            default_income_category_id=income_id,
+        )
+
+        assert [c.description for c in creates] == [
+            "LIDL KASPROWICZA 01/INOWROCLAW",
+            "JAN NOWAK UL. DŁUGA 1 — Czynsz 10/2026",
+        ]
+        assert [c.description for c in creates] == [r.description for r in parsed.rows]
