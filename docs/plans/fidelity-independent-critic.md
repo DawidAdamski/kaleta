@@ -162,3 +162,17 @@ together with the restyle plans.
 renders the decision note from the real profile and asserted `Profile v1`.
 The profile is now v2 (this plan adds `[fidelity]`), so the expected literal
 became `Profile v2`. The assertion is just as strict; only the version changed.
+
+**Regenerated reports (2026-11-09, `shoot all` + `critique all`, sonnet,
+~0.25 USD and ~45 s per artboard).** All 13 now carry `author: critic`.
+`check all` is red: 41 rows across the 13 screens are `open` (1c 2, 1d 2,
+1f 4, 2a 1, 2b 2, 2c 4, 2d 3, 3a 4, 3b 6, 3c 4, 3d 4, 3e 4, 3f 1). The
+hand-written reports had passed. Fixing the screens is not this plan's
+work, so this is the honest starting state for the restyle plans. Two
+observations for the owner:
+- *One sample is noisy.* `2a` critiqued twice on the same shots gave 4 open
+  rows, then 1. Several samples with a majority (as `critic.py` does) would
+  be the next step, together with the `tile_threshold` calibration.
+- *2d* named its worst tile (D4) in an `open` row but in no `deviation`
+  row, so `check` also reports the tile. That is the specified behaviour
+  (the prompt asks for both), and it is left as is.
