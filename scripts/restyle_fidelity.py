@@ -8,20 +8,27 @@ to the artboard it was copying. This script is that step.
 
     uv run python scripts/restyle_fidelity.py split
     uv run python scripts/restyle_fidelity.py shoot 2a        # or: all
+    uv run python scripts/restyle_fidelity.py critique 2a     # or: all
     uv run python scripts/restyle_fidelity.py check 2a        # or: all
 
-``split``  cuts ``Kaleta Dashboard.dc.html`` into one static file per target
-           artboard under ``docs/design/restyle/artboards/``. Each is 10-25 KB:
-           small enough to read whole, which the 300 KB canvas is not.
-``shoot``  starts an ephemeral, seeded Kaleta (nothing of the developer's is
-           touched), screenshots the app and the artboard at the artboard's
-           width and theme into ``.fidelity/<id>/``, and stamps the report
-           with a hash of the screen's source files.
-``check``  is the executable acceptance criterion: the report exists, was
-           written against the code as it is now, has no ``open`` row, and
-           every ``deviation`` says why.
+``split``     cuts ``Kaleta Dashboard.dc.html`` into one static file per target
+              artboard under ``docs/design/restyle/artboards/``. Each is 10-25 KB:
+              small enough to read whole, which the 300 KB canvas is not.
+``shoot``     starts an ephemeral, seeded Kaleta (nothing of the developer's is
+              touched), screenshots the app and the artboard at the artboard's
+              width and theme into ``.fidelity/<id>/``, measures the difference
+              between the two on a 4x4 grid, and stamps the report with the
+              tiles and a hash of the screen's source files.
+``critique``  hands the two screenshots, the artboard and the screen's view
+              sources to a fresh, read-only ``claude -p`` session that did not
+              build the screen, and writes the report rows it returns.
+``check``     is the executable acceptance criterion: the report exists, was
+              written by the critic against the screenshots on disk and the
+              code as it is now, has no ``open`` row, every ``deviation`` says
+              why, and the tiles that differ most are named by a deviation.
 
-Look at the two pictures before writing the report. That is the whole point.
+The implementer shoots and asks for a critique; it does not write the report.
+That was self-assessment (ADR-39), and the screens drifted under it.
 """
 
 from __future__ import annotations
@@ -30,17 +37,22 @@ import argparse
 import datetime
 import hashlib
 import html
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import urllib.error
 import urllib.request
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, Page
@@ -66,6 +78,18 @@ DATA_PASSPHRASE = "demo-kaleta-data"
 DEFAULT_DB_URL = "postgresql+asyncpg://kaleta:kaleta@127.0.0.1:55432/kaleta"
 MIN_REPORT_ROWS = 8
 STATUSES = ("match", "deviation", "open")
+#: The owner's profile; ``[fidelity] tile_threshold`` is read from it.
+PROFILE = ROOT / "docs" / "harness" / "profile.toml"
+#: The run log the gate and the critic write (``gate-audit-log``).
+HARNESS_DIR = ROOT / "scripts" / "harness"
+ACTIVE_PLAN = ROOT / ".claude" / "state" / "active-plan"
+#: Rows A-D top to bottom, columns 1-4 left to right: ``A1`` is top left.
+GRID = 4
+TILE_NAMES = tuple(f"{'ABCD'[r]}{c + 1}" for r in range(GRID) for c in range(GRID))
+#: Until the owner sets ``tile_threshold``, the worst this many must be named.
+WORST_REQUIRED = 3
+#: ``KALETA_FIDELITY_MODEL``, else the review critic's ``KALETA_REVIEW_MODEL``.
+DEFAULT_CRITIC_MODEL = "sonnet"
 
 
 @dataclass(frozen=True)
@@ -250,7 +274,113 @@ class CanvasSplitter:
         return match.group() if match else ""
 
 
+# ── measure ──────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class TileMeasure:
+    """Mean absolute difference, in percent of full scale, per tile and overall."""
+
+    whole: float
+    tiles: dict[str, float]
+
+    def worst(self, n: int) -> list[str]:
+        """The ``n`` tiles that differ most (ties broken by name); never a 0.00 tile."""
+        ranked = sorted(
+            (name for name, value in self.tiles.items() if value > 0),
+            key=lambda name: (-self.tiles[name], name),
+        )
+        return ranked[:n]
+
+    def above(self, threshold: float) -> list[str]:
+        return [name for name in TILE_NAMES if self.tiles[name] > threshold]
+
+    def header_tiles(self) -> str:
+        return " ".join(f"{name}={self.tiles[name]:.2f}" for name in TILE_NAMES)
+
+
+class TileDiff:
+    """A number for the difference between artboard and app that needs nobody's eyes.
+
+    Both pictures are brought to the artboard's width (the app keeps its aspect
+    ratio), each is split into a 4x4 grid of quarters of its own height, and
+    the tiles are compared pairwise after the app's tile is resized onto the
+    artboard's. Row ``r`` of the grid is therefore the r-th quarter of each
+    picture, which survives a full-page app shot that is taller than the card.
+    Pixels are compared in RGB; the value is the mean absolute channel
+    difference as a percentage of 255, so 0 is identical and 100 is inverse.
+    """
+
+    @staticmethod
+    def measure(artboard_png: Path, app_png: Path) -> TileMeasure:
+        from PIL import Image, ImageChops, ImageStat
+
+        with Image.open(artboard_png) as raw_spec, Image.open(app_png) as raw_app:
+            spec = raw_spec.convert("RGB")
+            app = raw_app.convert("RGB")
+        width = spec.width
+        if width < GRID or spec.height < GRID or app.width < 1 or app.height < 1:
+            raise FidelityError(f"{artboard_png.parent.name}: a screenshot is too small to grid")
+        app = app.resize((width, max(GRID, round(app.height * width / app.width))))
+
+        def mean(a: Any, b: Any) -> float:
+            stat = ImageStat.Stat(ImageChops.difference(a, b))
+            return round(sum(stat.mean) / len(stat.mean) / 255 * 100, 2)
+
+        tiles: dict[str, float] = {}
+        for index, name in enumerate(TILE_NAMES):
+            row, col = divmod(index, GRID)
+            x0, x1 = col * width // GRID, (col + 1) * width // GRID
+            spec_tile = spec.crop(
+                (x0, row * spec.height // GRID, x1, (row + 1) * spec.height // GRID)
+            )
+            app_tile = app.crop((x0, row * app.height // GRID, x1, (row + 1) * app.height // GRID))
+            tiles[name] = mean(spec_tile, app_tile.resize(spec_tile.size))
+        return TileMeasure(mean(spec, app.resize(spec.size)), tiles)
+
+
 # ── report ───────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Row:
+    """One compared element, as the critic wrote it."""
+
+    element: str
+    artboard: str
+    app: str
+    status: str
+    note: str
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _rel(path: Path) -> str:
+    """``path`` relative to the repo when it is inside it (the critic runs there)."""
+    return path.relative_to(ROOT).as_posix() if path.is_relative_to(ROOT) else str(path)
+
+
+def _cell(text: str) -> str:
+    """A value fit for one markdown table cell."""
+    return re.sub(r"\s+", " ", text.replace("|", "\\|")).strip()
+
+
+def fidelity_threshold(profile: Path = PROFILE) -> float | None:
+    """``[fidelity] tile_threshold`` from the owner's profile; ``None`` while unset."""
+    if not profile.exists():
+        return None
+    try:
+        raw = tomllib.loads(profile.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise FidelityError(f"{profile.name} is not valid TOML: {exc}") from exc
+    value = raw.get("fidelity", {}).get("tile_threshold")
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise FidelityError("[fidelity] tile_threshold in the profile must be a number")
+    return float(value)
 
 
 @dataclass
@@ -258,25 +388,47 @@ class Report:
     """``docs/design/restyle/fidelity/<id>.md`` — what was compared, and the verdict."""
 
     artboard: Artboard
+    report_dir: Path = REPORT_DIR
+    shot_dir: Path = SHOT_DIR
+    profile: Path = PROFILE
     path: Path = field(init=False)
 
-    _TEMPLATE_ROWS = (
-        "Shell: header (height, ground, contents)",
-        "Shell: drawer / tab bar (width, items, active state)",
-        "Title block: eyebrow, title size and weight, actions on the title row",
-        "Layout: columns, widths, order of sections",
-        "Surfaces: what is a card and what is bare type on the ground",
-        "Card geometry: radius, padding, shadow, gaps",
-        "Typography: sizes, weights, letter-spacing per role",
-        "Numbers: IBM Plex Mono, tabular, muted decimals",
-        "Colour: ink / muted / accent / income / expense where the artboard has them",
-        "Controls: buttons, chips, pills, toggles, inputs",
-        "Tables and lists: columns, alignment, dividers, row height",
-        "Charts: series colours, axes, legend, annotations",
-    )
+    _TILE_RE = re.compile(r"\b([A-D][1-4])\b")
 
     def __post_init__(self) -> None:
-        self.path = REPORT_DIR / f"{self.artboard.id}.md"
+        self.path = self.report_dir / f"{self.artboard.id}.md"
+
+    # ── what is on disk ──
+
+    @property
+    def shots(self) -> Path:
+        return self.shot_dir / self.artboard.id
+
+    def shot_files(self) -> list[Path]:
+        """The pictures the critic looks at: the artboard and every app viewport."""
+        names = ["artboard.png", *(f"app-{w}.png" for w, _ in self.artboard.viewports)]
+        return [self.shots / name for name in names]
+
+    def shot_hashes(self) -> dict[str, str]:
+        missing = [p.name for p in self.shot_files() if not p.exists()]
+        if missing:
+            raise FidelityError(
+                f"{self.artboard.id}: no {', '.join(missing)} in "
+                f"{self.shots.relative_to(self.shot_dir.parent)} - run `shoot {self.artboard.id}`"
+            )
+        return {p.name: _sha256(p) for p in self.shot_files()}
+
+    def measure(self) -> TileMeasure:
+        """Artboard against the app at the artboard's own (first) viewport."""
+        self.shot_hashes()  # raises with the right advice when a picture is missing
+        width = self.artboard.viewports[0][0]
+        return TileDiff.measure(self.shots / "artboard.png", self.shots / f"app-{width}.png")
+
+    def required_tiles(self, measure: TileMeasure) -> list[str]:
+        threshold = fidelity_threshold(self.profile)
+        if threshold is None:
+            return measure.worst(WORST_REQUIRED)
+        return measure.above(threshold)
 
     def source_hash(self) -> str:
         digest = hashlib.sha256()
@@ -290,26 +442,88 @@ class Report:
                 digest.update(file.read_bytes())
         return digest.hexdigest()[:16]
 
-    def stamp(self) -> None:
-        """Record what code the screenshots were taken of; create the report if new."""
-        REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    def source_files(self) -> list[Path]:
+        files: list[Path] = []
+        for source in (*SHELL_SOURCES, *self.artboard.sources):
+            root = ROOT / source
+            files.extend(sorted(root.rglob("*.py")) if root.is_dir() else [root])
+        return files
+
+    # ── writing ──
+
+    def stamp(self, measure: TileMeasure) -> None:
+        """Record what code and what difference the screenshots show; create the report if new."""
+        self.report_dir.mkdir(parents=True, exist_ok=True)
         today = datetime.date.today().isoformat()
         if not self.path.exists():
-            self.path.write_text(self._template(today), encoding="utf-8")
+            self.path.write_text(self._template(today, measure), encoding="utf-8")
             return
         text = self.path.read_text(encoding="utf-8")
-        text = re.sub(r"^views_hash:.*$", f"views_hash: {self.source_hash()}", text, flags=re.M)
-        text = re.sub(r"^shot_at:.*$", f"shot_at: {today}", text, flags=re.M)
+        for key, value in (
+            ("views_hash", self.source_hash()),
+            ("shot_at", today),
+            ("diff_whole", f"{measure.whole:.2f}"),
+            ("tiles", measure.header_tiles()),
+        ):
+            text = self._set_header(text, key, value)
         self.path.write_text(text, encoding="utf-8")
+
+    def write_critique(self, result: CriticResult, measure: TileMeasure) -> None:
+        """Replace the report with the critic's rows, under a header that says who and on what."""
+        if not self.path.exists():
+            raise FidelityError(f"no report at {self.path.name} - run `shoot {self.artboard.id}`")
+        old = self.path.read_text(encoding="utf-8")
+        a = self.artboard
+        header = {
+            "artboard": a.id,
+            "views_hash": self.header(old).get("views_hash", self.source_hash()),
+            "shot_at": self.header(old).get("shot_at", ""),
+            "author": "critic",
+            "critic_run": result.run_id,
+            "critic_model": result.model,
+            "critiqued_at": datetime.date.today().isoformat(),
+            "shots": " ".join(f"{name}={sha}" for name, sha in result.shots.items()),
+            "diff_whole": f"{measure.whole:.2f}",
+            "tiles": measure.header_tiles(),
+        }
+        rows = "\n".join(
+            f"| {n} | {_cell(r.element)} | {_cell(r.artboard)} | {_cell(r.app)} "
+            f"| {r.status} | {_cell(r.note)} |"
+            for n, r in enumerate(result.rows, start=1)
+        )
+        self.path.write_text(
+            "---\n" + "".join(f"{key}: {value}\n" for key, value in header.items()) + "---\n\n"
+            f"# Fidelity report - {a.id} {a.title}\n\n"
+            f"Spec: [`artboards/{a.id}.html`](../artboards/{a.id}.html). "
+            f"Pictures: `.fidelity/{a.id}/index.html` after `shoot {a.id}`.\n\n"
+            "Written by `restyle_fidelity.py critique`: a read-only critic session that\n"
+            "saw the two screenshots, the artboard and the view sources, and not the\n"
+            "conversation that built the screen. `shots` are the sha256 of the pictures\n"
+            "it saw; `tiles` the mean absolute difference per tile (rows A-D top to\n"
+            "bottom, columns 1-4 left to right, percent of full scale). Do not edit by\n"
+            "hand - shoot and critique again.\n\n"
+            "| # | Element | Artboard | App | Status | Note |\n"
+            "|---|---|---|---|---|---|\n"
+            f"{rows}\n",
+            encoding="utf-8",
+        )
+
+    # ── checking ──
 
     def problems(self) -> list[str]:
         if not self.path.exists():
-            return [f"no report at {self.path.relative_to(ROOT)} - run `shoot {self.artboard.id}`"]
+            return [f"no report at {self.path.name} - run `shoot {self.artboard.id}`"]
         text = self.path.read_text(encoding="utf-8")
+        head = self.header(text)
         found: list[str] = []
-        stamped = re.search(r"^views_hash:\s*(\S+)", text, flags=re.M)
-        if stamped is None or stamped.group(1) != self.source_hash():
+        if head.get("views_hash") != self.source_hash():
             found.append("the screen's source changed since the last `shoot` - shoot and re-review")
+        if head.get("author") != "critic":
+            found.append(
+                f"author is '{head.get('author', 'missing')}', not 'critic' - "
+                f"run `critique {self.artboard.id}`; the implementer does not write the report"
+            )
+        found.extend(self._shot_problems(head))
         rows = self._rows(text)
         if len(rows) < MIN_REPORT_ROWS:
             found.append(f"{len(rows)} compared elements; at least {MIN_REPORT_ROWS} expected")
@@ -322,39 +536,341 @@ class Report:
                 found.append(f"row {number} is a deviation with no reason: {element}")
         return found
 
+    def _shot_problems(self, head: dict[str, str]) -> list[str]:
+        try:
+            on_disk = self.shot_hashes()
+            measure = self.measure()
+        except FidelityError as exc:
+            return [str(exc)]
+        found: list[str] = []
+        seen = dict(pair.split("=", 1) for pair in head.get("shots", "").split() if "=" in pair)
+        if seen != on_disk:
+            found.append(
+                "the screenshots on disk are not the ones the critic saw - "
+                f"run `critique {self.artboard.id}` on the current shots"
+            )
+        if head.get("tiles") != measure.header_tiles():
+            found.append("the report's tiles do not match the screenshots - shoot and critique")
+        named = self.named_tiles(self.path.read_text(encoding="utf-8"))
+        found.extend(
+            f"tile {tile} differs by {measure.tiles[tile]:.2f}% and no deviation row names it"
+            for tile in self.required_tiles(measure)
+            if tile not in named
+        )
+        return found
+
+    @classmethod
+    def named_tiles(cls, text: str) -> set[str]:
+        """Tiles a ``deviation`` row names (``tile B3``, ``tiles B3, C4``)."""
+        named: set[str] = set()
+        for _, element, status, note in cls._rows(text):
+            cells = f"{element} {note}"
+            if status == "deviation" and re.search(r"\btiles?\b", cells, flags=re.I):
+                named.update(cls._TILE_RE.findall(cells))
+        return named
+
+    @staticmethod
+    def header(text: str) -> dict[str, str]:
+        match = re.match(r"---\n(.*?)\n---\n", text, flags=re.S)
+        if match is None:
+            return {}
+        pairs = (line.split(":", 1) for line in match.group(1).splitlines() if ":" in line)
+        return {key.strip(): value.strip() for key, value in pairs}
+
+    @staticmethod
+    def _set_header(text: str, key: str, value: str) -> str:
+        line = f"{key}: {value}"
+        if re.search(rf"^{key}:.*$", text, flags=re.M):
+            return re.sub(rf"^{key}:.*$", lambda _m: line, text, count=1, flags=re.M)
+        return re.sub(r"\A(---\n.*?\n)(---\n)", lambda m: f"{m[1]}{line}\n{m[2]}", text, flags=re.S)
+
     @staticmethod
     def _rows(text: str) -> list[tuple[str, str, str, str]]:
         rows = []
         for line in text.splitlines():
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
             if len(cells) == 6 and cells[0].isdigit():
                 rows.append((cells[0], cells[1], cells[4].lower(), cells[5]))
         return rows
 
-    def _template(self, today: str) -> str:
+    def _template(self, today: str, measure: TileMeasure) -> str:
         a = self.artboard
-        rows = "\n".join(
-            f"| {n} | {element} |  |  | open |  |"
-            for n, element in enumerate(self._TEMPLATE_ROWS, start=1)
-        )
         return (
             "---\n"
             f"artboard: {a.id}\n"
             f"views_hash: {self.source_hash()}\n"
             f"shot_at: {today}\n"
+            "author: pending\n"
+            f"diff_whole: {measure.whole:.2f}\n"
+            f"tiles: {measure.header_tiles()}\n"
             "---\n\n"
             f"# Fidelity report - {a.id} {a.title}\n\n"
-            f"Spec: [`artboards/{a.id}.html`](../artboards/{a.id}.html). "
-            f"Pictures: `.fidelity/{a.id}/index.html` after `shoot {a.id}`.\n\n"
-            "One row per element you compared. Replace the generic rows with the\n"
-            'artboard\'s real elements ("Hero figure", "Pace bar", "Overdue strip").\n'
-            '`Artboard` and `App` hold the observed values, not "ok". Status is\n'
-            "`match`, `deviation` (the Note says why: sample data, a Quasar limit,\n"
-            "an owner decision) or `open` (still to fix - `check` fails on these).\n\n"
-            "| # | Element | Artboard | App | Status | Note |\n"
-            "|---|---|---|---|---|---|\n"
-            f"{rows}\n"
+            f"Shot, not yet critiqued. Run `restyle_fidelity.py critique {a.id}`.\n"
         )
+
+
+# ── critique ─────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class CriticResult:
+    run_id: str
+    model: str
+    rows: list[Row]
+    shots: dict[str, str]
+
+
+#: Runs one critic session: (prompt, model, allowed tools, raw-output path) -> (payload, run id).
+CriticRunner = Callable[[str, str, str, Path], tuple[dict[str, Any], str]]
+
+CRITIC_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "rows": {
+            "type": "array",
+            "minItems": MIN_REPORT_ROWS,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "element": {"type": "string"},
+                    "artboard": {"type": "string"},
+                    "app": {"type": "string"},
+                    "status": {"type": "string", "enum": list(STATUSES)},
+                    "note": {"type": "string"},
+                },
+                "required": ["element", "artboard", "app", "status", "note"],
+            },
+        }
+    },
+    "required": ["rows"],
+}
+
+CRITIC_TEMPLATE = """You are an independent design critic. You did NOT build this screen and you
+do not fix it. Compare a running screen of the Kaleta app with the artboard it
+was built from, and report what you observe. Do not edit anything.
+
+Artboard {id} - {title}. App route {route}, {theme} theme, drawn at {width}px.
+
+Read these, and only these:
+  {artboard_png}   the artboard, rendered
+  {app_pngs}   the app, screenshotted at each viewport
+  {artboard_html}   the artboard's markup: element order, nesting and every
+      inline value are the spec; its text is sample data and its SVG charts
+      are sketches
+  the screen's view sources (to name the code behind a value):
+{sources}
+
+A machine compared the two pictures on a 4x4 grid (rows A-D top to bottom,
+columns 1-4 left to right; mean absolute difference, percent of full scale;
+the whole picture: {whole}):
+{tiles}
+These tiles must each be named by a "deviation" row that explains what differs
+there (write "tile B3" in the element or the note): {required}.
+If what differs in such a tile is a real mismatch rather than an explainable
+difference, report it as "open" AND name the tile in a deviation row that says
+which open row it belongs to.
+
+Write at least {min_rows} rows, one per element you compared, in the artboard's
+own terms ("Hero figure", "Pace bar", "Overdue strip"), not generic ones.
+"artboard" and "app" hold the values you observed on each side (sizes, weights,
+colours, order, spacing), never "ok". "status" is:
+  "match"      the app shows what the artboard draws
+  "deviation"  it differs for a reason the note states: sample vs seeded data,
+               a sketch vs a real chart, a Quasar limit, an owner decision.
+               "Close enough" is not a reason.
+  "open"       it differs and should be fixed
+Return ONLY the JSON object the schema asks for.
+"""
+
+
+#: Nothing that writes, runs or reaches out; the earlier reports are not its to read.
+CRITIC_DENIED = "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch,Task,Agent"
+
+
+class Critic:
+    """A fresh ``claude -p`` that writes the report rows from the pictures, not from memory."""
+
+    def __init__(self, model: str | None = None, runner: CriticRunner | None = None) -> None:
+        self.model = (
+            model
+            or os.environ.get("KALETA_FIDELITY_MODEL")
+            or os.environ.get("KALETA_REVIEW_MODEL")
+            or DEFAULT_CRITIC_MODEL
+        )
+        self._runner = runner or self._claude
+
+    def critique(self, report: Report) -> CriticResult:
+        shots = report.shot_hashes()
+        measure = report.measure()
+        prompt = self.prompt(report, measure)
+        payload, run_id = self._runner(
+            prompt, self.model, self.allowed_tools(report), report.shots / "critic-raw.json"
+        )
+        rows = self._rows(payload, report.artboard.id)
+        # The pictures must not have changed under the critic.
+        if report.shot_hashes() != shots:
+            raise FidelityError(f"{report.artboard.id}: screenshots changed during the critique")
+        result = CriticResult(run_id, self.model, rows, shots)
+        report.write_critique(result, measure)
+        return result
+
+    @staticmethod
+    def prompt(report: Report, measure: TileMeasure) -> str:
+        a = report.artboard
+        app_pngs = [p for p in report.shot_files() if p.name.startswith("app-")]
+        tiles = "\n".join(
+            "  " + "  ".join(f"{name} {measure.tiles[name]:6.2f}" for name in TILE_NAMES[r : r + 4])
+            for r in range(0, len(TILE_NAMES), GRID)
+        )
+        return CRITIC_TEMPLATE.format(
+            id=a.id,
+            title=a.title,
+            route=a.route,
+            theme=a.theme,
+            width=a.viewports[0][0],
+            artboard_png=_rel(report.shots / "artboard.png"),
+            app_pngs="\n  ".join(_rel(p) for p in app_pngs),
+            artboard_html=_rel(ARTBOARD_DIR / f"{a.id}.html"),
+            sources="\n".join(f"    {_rel(p)}" for p in report.source_files()),
+            whole=f"{measure.whole:.2f}",
+            tiles=tiles,
+            required=", ".join(report.required_tiles(measure)) or "none",
+            min_rows=MIN_REPORT_ROWS,
+        )
+
+    @staticmethod
+    def allowed_tools(report: Report) -> str:
+        """Read, and only on the pictures, the artboard and the screen's sources."""
+        paths = [f"{report.shots}/**", str(ARTBOARD_DIR / f"{report.artboard.id}.html")]
+        for source in (*SHELL_SOURCES, *report.artboard.sources):
+            root = ROOT / source
+            paths.append(f"{root}/**" if root.is_dir() else str(root))
+        return ",".join(f"Read(/{path})" for path in paths)
+
+    @staticmethod
+    def _rows(payload: dict[str, Any], artboard_id: str) -> list[Row]:
+        raw = payload.get("rows")
+        if not isinstance(raw, list):
+            raise FidelityError(f"{artboard_id}: the critic returned no rows")
+        rows = []
+        for item in raw:
+            if not isinstance(item, dict):
+                raise FidelityError(f"{artboard_id}: the critic returned a malformed row")
+            status = str(item.get("status", "")).strip().lower()
+            if status not in STATUSES:
+                raise FidelityError(f"{artboard_id}: the critic returned status '{status}'")
+            rows.append(
+                Row(
+                    element=str(item.get("element", "")),
+                    artboard=str(item.get("artboard", "")),
+                    app=str(item.get("app", "")),
+                    status=status,
+                    note=str(item.get("note", "")),
+                )
+            )
+        if len(rows) < MIN_REPORT_ROWS:
+            raise FidelityError(
+                f"{artboard_id}: the critic compared {len(rows)} elements; "
+                f"at least {MIN_REPORT_ROWS} expected"
+            )
+        return rows
+
+    @staticmethod
+    def _claude(prompt: str, model: str, tools: str, raw_out: Path) -> tuple[dict[str, Any], str]:
+        if not shutil.which("claude"):
+            raise FidelityError("the claude CLI is not on PATH; `critique` needs it")
+        env = {
+            k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT")
+        }
+        # A Claude Code session in this repo loads the project's hooks; this
+        # tells the Stop hook it is a critic, not the implementer.
+        env["KALETA_CRITIC_SESSION"] = "1"
+        cmd = [
+            "claude", "-p", prompt,
+            "--model", model,
+            "--permission-mode", "dontAsk",
+            "--allowedTools", tools,
+            "--disallowedTools", f"{CRITIC_DENIED},Read(/{REPORT_DIR}/**)",
+            "--max-turns", "30",
+            "--output-format", "json",
+            "--json-schema", json.dumps(CRITIC_SCHEMA),
+        ]  # fmt: skip
+        done = subprocess.run(
+            cmd, cwd=ROOT, capture_output=True, text=True, errors="replace", env=env, check=False
+        )
+        raw_out.write_text(done.stdout or done.stderr, encoding="utf-8")
+        try:
+            raw = json.loads(done.stdout)
+        except json.JSONDecodeError:
+            raw = {}
+        payload = raw.get("structured_output") if isinstance(raw, dict) else None
+        if payload is None and isinstance(raw, dict) and isinstance(raw.get("result"), str):
+            match = re.search(r"\{.*\}", raw["result"], re.S)
+            try:
+                payload = json.loads(match.group(0)) if match else None
+            except json.JSONDecodeError:
+                payload = None
+        if not isinstance(payload, dict):
+            raise FidelityError(
+                f"the critic's output could not be parsed - see {raw_out.relative_to(ROOT)}"
+            )
+        run_id = str(raw.get("session_id") or uuid.uuid4())
+        return payload, run_id
+
+
+# ── run log ──────────────────────────────────────────────────────────────
+
+
+class RunLog:
+    """One ``fidelity`` record per checked artboard, in the plan's hash-chained run log."""
+
+    def __init__(self, root: Path = ROOT) -> None:
+        self._root = root
+
+    def plan_id(self) -> str | None:
+        """The armed plan, else the ``plan/<id>`` branch; ``None`` outside a plan."""
+        active = self._root / ".claude" / "state" / "active-plan"
+        if active.exists() and active.read_text(encoding="utf-8").strip():
+            return active.read_text(encoding="utf-8").strip()
+        done = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=self._root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        branch = done.stdout.strip()
+        return branch.removeprefix("plan/") if branch.startswith("plan/") else None
+
+    def record(self, report: Report, problems: list[str]) -> str | None:
+        plan_id = self.plan_id()
+        if plan_id is None:
+            return None
+        if str(HARNESS_DIR) not in sys.path:
+            sys.path.insert(0, str(HARNESS_DIR))
+        import gate_log
+
+        head = (
+            report.header(report.path.read_text(encoding="utf-8")) if report.path.exists() else {}
+        )
+        gate_log.append(
+            self._root,
+            plan_id,
+            "fidelity",
+            {
+                "artboard": report.artboard.id,
+                "ok": not problems,
+                "problems": problems,
+                "author": head.get("author"),
+                "critic_run": head.get("critic_run"),
+                "critic_model": head.get("critic_model"),
+                "shots": head.get("shots"),
+                "diff_whole": head.get("diff_whole"),
+                "tiles": head.get("tiles"),
+                "tile_threshold": fidelity_threshold(report.profile),
+            },
+        )
+        return plan_id
 
 
 # ── shoot ────────────────────────────────────────────────────────────────
@@ -505,7 +1021,8 @@ class Shooter:
         spec_page.close()
 
         (out / "index.html").write_text(self._index(artboard, app_shots), encoding="utf-8")
-        Report(artboard).stamp()
+        report = Report(artboard)
+        report.stamp(report.measure())
         print(f"[shot] {artboard.id}: {(out / 'index.html').relative_to(ROOT)}")
 
     def _login(self, page: Page) -> None:
@@ -665,7 +1182,11 @@ class Cli:
         parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
         commands = parser.add_subparsers(dest="command", required=True)
         commands.add_parser("split", help="cut the canvas into per-artboard files")
-        for name, text in (("shoot", "screenshot app and artboard"), ("check", "gate")):
+        for name, text in (
+            ("shoot", "screenshot app and artboard, measure the tiles"),
+            ("critique", "have an independent critic write the report"),
+            ("check", "gate"),
+        ):
             sub = commands.add_parser(name, help=text)
             sub.add_argument("artboard", help="an artboard id, or 'all'")
             if name == "shoot":
@@ -673,6 +1194,12 @@ class Cli:
                     "--base-url",
                     help="shoot an app that is already running (seeded, with the login "
                     f"{EMAIL}/{PASSWORD}) instead of starting an ephemeral one",
+                )
+            if name == "critique":
+                sub.add_argument(
+                    "--model",
+                    help="the critic's model (default: $KALETA_FIDELITY_MODEL, "
+                    f"$KALETA_REVIEW_MODEL, else {DEFAULT_CRITIC_MODEL})",
                 )
         args = parser.parse_args(argv)
         try:
@@ -683,6 +1210,8 @@ class Cli:
             targets = self._targets(args.artboard)
             if args.command == "shoot":
                 return self._shoot(targets, args.base_url)
+            if args.command == "critique":
+                return self._critique(targets, args.model)
             return self._check(targets)
         except FidelityError as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
@@ -713,14 +1242,31 @@ class Cli:
         return 0
 
     @staticmethod
+    def _critique(targets: list[Artboard], model: str | None) -> int:
+        critic = Critic(model)
+        for artboard in targets:
+            report = Report(artboard)
+            result = critic.critique(report)
+            opened = sum(row.status == "open" for row in result.rows)
+            print(
+                f"[critique] {artboard.id}: {len(result.rows)} rows, {opened} open "
+                f"({result.model}, run {result.run_id}) -> {report.path.relative_to(ROOT)}"
+            )
+        return 0
+
+    @staticmethod
     def _check(targets: list[Artboard]) -> int:
         failed = False
+        log = RunLog()
         for artboard in targets:
-            problems = Report(artboard).problems()
+            report = Report(artboard)
+            problems = report.problems()
             print(f"[{'FAIL' if problems else ' OK '}] {artboard.id} {artboard.title}")
             for problem in problems:
                 print(f"       - {problem}")
             failed = failed or bool(problems)
+            if log.record(report, problems) is None:
+                print("       (no plan armed and not on a plan/ branch: no run-log record)")
         return 1 if failed else 0
 
 

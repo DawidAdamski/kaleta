@@ -3,7 +3,7 @@ plan_id: fidelity-independent-critic
 title: Restyle fidelity reports written by an independent critic, with a measured screenshot difference
 area: harness / restyle
 effort: medium
-status: draft
+status: in-progress
 harness: true
 roadmap_ref: ../roadmap.md#5-engineering-hygiene
 ---
