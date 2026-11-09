@@ -324,6 +324,16 @@ class QueueSettingsSnapshot:
     column_mapping: ColumnMapping | None = None
 
 
+def default_remember_mapping(auto_matched: bool) -> bool:
+    """Whether "Remember this mapping" starts ticked for a newly queued file.
+
+    Off when the account was matched by the statement's own number: that
+    match already finds the account next time, and a saved filename rule
+    could only ever be less precise.
+    """
+    return not auto_matched
+
+
 def inherit_queue_settings(
     current: QueueSettingsSnapshot,
     queue: list[QueueSettingsSnapshot],

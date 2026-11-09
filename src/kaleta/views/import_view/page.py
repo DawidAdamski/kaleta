@@ -26,6 +26,7 @@ from kaleta.services.import_service import (
     TransferPairSuggestion,
     build_known_account_digits,
     decode_upload,
+    default_remember_mapping,
     inherit_queue_settings,
     validate_import_readiness,
 )
@@ -482,6 +483,7 @@ async def import_page() -> None:
 
         if queued_file.status == "ready" and queued_file.profile == "mbank":
             auto = await _auto_match_account(queued_file)
+            queued_file.remember_mapping = default_remember_mapping(auto)
             if auto and not rule_applied:
                 ui.notify(t("import.queue_inherited"), type="info")
 

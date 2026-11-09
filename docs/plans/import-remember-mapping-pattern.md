@@ -3,7 +3,7 @@ plan_id: import-remember-mapping-pattern
 title: "Remember this mapping" must not suggest a pattern that matches every account
 area: import
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
