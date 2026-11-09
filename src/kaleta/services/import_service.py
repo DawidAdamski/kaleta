@@ -12,7 +12,7 @@ import re
 import warnings
 import zipfile
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -1221,6 +1221,17 @@ def _build_mbank_description(raw: dict[str, str]) -> str:
     return opis
 
 
+def _apply_mbank_descriptions(rows: list[ParsedRow]) -> list[ParsedRow]:
+    """Give every mBank row its final description at parse time.
+
+    The raw ``Opis operacji`` (``ZAKUP PRZY UŻYCIU KARTY``) says nothing about
+    the merchant; the preview, the duplicate check and the commit all read
+    ``row.description``, so it carries ``_build_mbank_description`` from the
+    start, as the Wise branch does with ``_apply_wise_descriptions``.
+    """
+    return [replace(row, description=_build_mbank_description(row.raw)) for row in rows]
+
+
 # ── Date format auto-detection ───────────────────────────────────────────────
 
 _DATE_FORMATS = [
@@ -1524,7 +1535,7 @@ class ImportService:
                 )
             return ParseQueuedFileResult(
                 profile=resolved_profile,
-                rows=result.rows,
+                rows=_apply_mbank_descriptions(result.rows),
                 errors=result.errors,
                 error_rows=result.error_rows,
                 metadata=metadata,
@@ -1935,7 +1946,7 @@ class ImportService:
         creates: list[TransactionCreate] = []
 
         for row in rows:
-            description = _build_mbank_description(row.raw)
+            description = row.description  # built at parse time (_apply_mbank_descriptions)
             payee_raw = row.raw.get("Nadawca/Odbiorca", "").strip()
             payee_id: int | None = None
             if payee_raw:

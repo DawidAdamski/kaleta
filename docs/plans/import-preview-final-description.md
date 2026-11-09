@@ -3,7 +3,7 @@ plan_id: import-preview-final-description
 title: mBank rows carry their final description from parse time
 area: import
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -72,5 +72,31 @@ None. (`build_preview_table_rows` has no API caller — only
 `preview_section.py` and tests.)
 
 ## Implementation notes
+
+- **Parse time.** The mBank branch of `parse_queued_file` returns
+  `_apply_mbank_descriptions(result.rows)`. That module-level helper sits next
+  to `_build_mbank_description` and mirrors `_apply_wise_descriptions`; it uses
+  `dataclasses.replace`, so `raw` and `notes` are carried over untouched. The
+  generic profile that auto-detects mBank takes the same branch (unit test
+  `test_mbank_auto_detected_file_gets_final_description`).
+- **Commit.** `to_transaction_creates_with_payees` reads `row.description`.
+  Its only production caller (`views/import_view/page.py`, mBank branch)
+  passes `queued_file.parsed_rows`, which come from `parse_queued_file`, so the
+  stored text is unchanged. The existing `TestToTransactionCreatesWithPayees`
+  tests build `ParsedRow`s by hand and assert types and payees only, never the
+  description, so they are unaffected. `build_preview_table_rows` and
+  `PreviewSection.render` are unchanged, as scoped.
+- **Coverage lives in `tests/integration`.** `scripts/spec_coverage.py` counts
+  `Covers:` only in `tests/integration` and `tests/e2e`. The two unit tests
+  the plan names (and its acceptance criterion selects) stay in
+  `tests/unit/services/test_import_service.py`. KAL-CSV-040 is covered by
+  `tests/integration/test_mbank_final_description.py`, which drives the import
+  page's commit path through the services: parse → preview → creates →
+  `filter_duplicates` → `create_bulk`. It checks the preview text, the stored
+  descriptions, and that a second import of the same file writes 0 rows (the
+  duplicate check reads the same text).
+- With the service change reverted, all three new unit tests fail.
+- `KAL-CSV-039` is left free: the sibling plan
+  `import-mbank-transfer-account-suffix` reserves it.
 
 ## Implementation (filled by plan-archiver)

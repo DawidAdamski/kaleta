@@ -1674,6 +1674,19 @@ Feature: mBank CSV Import
     And a target account denominated in "PLN"
     Then no currency-mismatch warning is shown
     But a file denominated in "EUR" against that account does warn
+
+  KAL-CSV-040 @automated
+  Scenario: The mBank preview shows the description the row will be stored with
+    mBank's "Opis operacji" names only the operation type. The preview, the
+    duplicate check and the commit read one description, built when the file
+    is parsed.
+
+    Given an mBank statement with a card purchase whose "Opis operacji" is
+      "ZAKUP PRZY UŻYCIU KARTY" and whose "Tytuł" is
+      "LIDL KASPROWICZA 01/INOWROCLAW  DATA TRANSAKCJI: 2026-10-10"
+    When the file is parsed for import
+    Then the preview's description reads "LIDL KASPROWICZA 01/INOWROCLAW"
+    And a transfer row is still stored as "Nadawca/Odbiorca — Tytuł"
 ```
 
 ## Feature: Transfer Recognition
