@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 670" width="1000" height="670" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <title id="title">Importing a bank statement: the UI path against the REST API (Kaleta 0.8.0)</title>
+  <desc id="desc">The import page runs eight steps on every file: detect the profile, match the account by its number, build descriptions and payees, detect transfers, skip duplicates, apply categorisation rules, record the import run and save the account number, then suggest transfer pairs. The REST API only offers POST /api/v1/transactions, which stores one row exactly as sent: none of the eight steps run. Transfer detection on the UI path is also broken: stored account numbers keep 10 digits while statements carry 26, so the exact comparison never matches.</desc>
+  <style>
+    .h { font-size: 20px; font-weight: 700; fill: #2b2620; }
+    .sub { font-size: 13px; fill: #6b6157; }
+    .col { font-size: 15px; font-weight: 700; fill: #2b2620; }
+    .step { font-size: 13px; fill: #2b2620; }
+    .code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; fill: #6b6157; }
+    .ok { fill: #e7f1e4; stroke: #6e9a62; }
+    .warn { fill: #fbeedb; stroke: #c98a2b; }
+    .gap { fill: #f7e3e0; stroke: #b5533f; stroke-dasharray: 5 4; }
+    .api { fill: #ece7f6; stroke: #7a68a8; }
+    .mark { font-size: 15px; font-weight: 700; }
+    .legend { font-size: 12px; fill: #2b2620; }
+  </style>
+  <rect width="1000" height="670" fill="#faf7f2"/>
+
+  <text x="40" y="44" class="h">Importing a bank statement — UI path vs REST API</text>
+  <text x="40" y="66" class="sub">Kaleta 0.8.0 · found while importing 9 mBank statements on 2026-11-09 · steps 2–7 are glued together in views/import_view/page.py, not in a service</text>
+
+  <!-- column headers -->
+  <text x="40" y="108" class="col">Import page  (/import)</text>
+  <text x="560" y="108" class="col">REST API  (POST /api/v1/transactions)</text>
+
+  <!-- UI steps -->
+  <g>
+    <rect x="40" y="122" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="142" class="step">1  Parse file, detect bank profile</text>
+    <text x="56" y="158" class="code">parse_queued_file()</text>
+
+    <rect x="40" y="176" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="196" class="step">2  Resolve account: filename rule, then number</text>
+    <text x="56" y="212" class="code">find_by_external_number(digits[-10:])</text>
+
+    <rect x="40" y="230" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="250" class="step">3  (mBank) "Payee — Title" description, resolve payee</text>
+    <text x="56" y="266" class="code">_build_mbank_description() · match_or_create_from_name()</text>
+
+    <rect x="40" y="284" width="440" height="46" rx="8" class="warn"/>
+    <text x="56" y="304" class="step">4  (mBank) Mark own-account transfers   ⚠ never matches</text>
+    <text x="56" y="320" class="code">stored 10 digits ≠ statement 26 digits (exact compare)</text>
+
+    <rect x="40" y="338" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="358" class="step">5  Skip duplicates (account, date, amount, description)</text>
+    <text x="56" y="374" class="code">filter_duplicates()</text>
+
+    <rect x="40" y="392" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="412" class="step">6  Apply categorisation rules</text>
+    <text x="56" y="428" class="code">apply_categorisation_rules()</text>
+
+    <rect x="40" y="446" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="466" class="step">7  Record import run, save account number</text>
+    <text x="56" y="482" class="code">record_import_run() · save_external_number()</text>
+
+    <rect x="40" y="500" width="440" height="46" rx="8" class="ok"/>
+    <text x="56" y="520" class="step">8  Suggest transfer pairs → accept / dismiss</text>
+    <text x="56" y="536" class="code">suggest_transfer_pairs() · pair_as_transfer()</text>
+  </g>
+
+  <!-- API column: one box, and the missing steps -->
+  <g>
+    <rect x="560" y="122" width="400" height="46" rx="8" class="api"/>
+    <text x="576" y="142" class="step">You parse the CSV yourself, then send rows one by one</text>
+    <text x="576" y="158" class="code">no upload endpoint, no profile detection</text>
+
+    <rect x="560" y="176" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="204" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  account: you pass account_id</text>
+
+    <rect x="560" y="230" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="258" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  description: you rebuild the importer's format</text>
+
+    <rect x="560" y="284" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="312" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  transfers: not detected</text>
+
+    <rect x="560" y="338" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="366" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  duplicates: stored twice without warning</text>
+
+    <rect x="560" y="392" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="420" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  rules: not applied, category_id required</text>
+
+    <rect x="560" y="446" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="474" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  no import run: missing from "recent imports"</text>
+
+    <rect x="560" y="500" width="400" height="46" rx="8" class="gap"/>
+    <text x="576" y="520" class="step"><tspan class="mark" fill="#b5533f">✕</tspan>  no pair endpoint: two PUTs by hand,</text>
+    <text x="596" y="536" class="step">without the currency/amount checks</text>
+  </g>
+
+  <!-- arrow between columns -->
+  <g stroke="#9c9186" stroke-width="1.5" fill="none">
+    <path d="M490 330 L548 330" marker-end="url(#arrow)"/>
+  </g>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9c9186"/>
+    </marker>
+  </defs>
+
+  <!-- legend + fix -->
+  <rect x="40" y="572" width="920" height="76" rx="8" fill="#ffffff" stroke="#ddd5ca"/>
+  <rect x="58" y="588" width="16" height="12" rx="2" class="ok"/><text x="82" y="599" class="legend">works</text>
+  <rect x="140" y="588" width="16" height="12" rx="2" class="warn"/><text x="164" y="599" class="legend">runs, wrong result (bug)</text>
+  <rect x="330" y="588" width="16" height="12" rx="2" class="gap"/><text x="354" y="599" class="legend">missing on the API path</text>
+  <text x="58" y="622" class="legend">Fix: ImportPipeline.build (2–6, writes nothing) + apply (7, one commit), used by the page and POST /api/v1/imports;</text><text x="58" y="638" class="legend">step 8 as /api/v1/transfer-pairs; compare account numbers by suffix.</text>
+</svg>

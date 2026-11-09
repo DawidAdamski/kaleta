@@ -1,0 +1,76 @@
+---
+plan_id: import-preview-final-description
+title: mBank rows carry their final description from parse time
+area: import
+effort: small
+status: draft
+roadmap_ref: ../roadmap.md
+---
+
+# mBank rows carry their final description from parse time
+
+## Intent
+
+The preview step of `/import` shows, for an mBank file, the raw `Opis operacji`
+column: every card purchase reads `ZAKUP PRZY UŻYCIU KARTY`, every transfer
+`PRZELEW ZEWNĘTRZNY WYCHODZĄCY`. The stored rows get a different description,
+built at commit time by `_build_mbank_description`
+(`src/kaleta/services/import_service.py:1195`): `Nadawca/Odbiorca — Tytuł`, or
+`Tytuł` for card purchases (`LIDL KASPROWICZA 01/INOWROCLAW`).
+
+On 2026-11-09 this made a correct file look broken — as if every merchant name
+would be lost — and the import was paused to read the code.
+
+The Wise path already solves this the right way: `_apply_wise_descriptions`
+(`import_service.py:~1553`) writes the final text into `ParsedRow.description`
+during `parse_queued_file`, so the preview, the duplicate check and the commit
+all read one field.
+
+## Scope
+
+In scope:
+
+- In `parse_queued_file`, for `profile == "mbank"`, set each
+  `row.description = _build_mbank_description(row.raw)` (mirroring the Wise branch).
+- `to_transaction_creates_with_payees` uses `row.description` instead of calling
+  `_build_mbank_description` again.
+- No signature change to `build_preview_table_rows` or `PreviewSection.render`.
+- Test `test_mbank_preview_shows_final_description`: an mBank card row with
+  `Opis operacji = ZAKUP PRZY UŻYCIU KARTY`, empty `Nadawca/Odbiorca`, and
+  `Tytuł = "LIDL KASPROWICZA 01/INOWROCLAW  DATA TRANSAKCJI: 2026-10-10"` → the
+  parsed row and the preview row both read `LIDL KASPROWICZA 01/INOWROCLAW`.
+- Test `test_mbank_commit_description_unchanged`: the stored description for a
+  transfer row is still `Nadawca/Odbiorca — Tytuł` (regression guard for the
+  duplicate check, which compares descriptions exactly).
+
+Out of scope:
+
+- Payee or category columns in the preview.
+- The type column (see `import-mbank-transfer-account-suffix`).
+- The preview's 70-character truncation (`import_service.py:158`).
+
+## Acceptance criteria
+
+- `uv run pytest tests/unit/services/test_import_service.py -q -k "mbank_preview_shows_final_description or mbank_commit_description_unchanged"`
+- `uv run pytest tests/unit/services/test_mbank_real_exports.py -q`
+- `grep -c "KAL-CSV-040" docs/bdd.md | grep -qE '^[1-9]'`
+- `uv run python scripts/spec_coverage.py`
+- `[manual]` Upload an mBank statement: the preview's DESCRIPTION column shows
+  merchant / counterparty names; the stored row's description starts with the
+  same text (the preview cuts at 70 characters).
+
+## Touchpoints
+
+- `src/kaleta/services/import_service.py` — `parse_queued_file`,
+  `to_transaction_creates_with_payees`, `_build_mbank_description`
+- `tests/unit/services/test_import_service.py`
+- `docs/bdd.md` — `KAL-CSV-040`
+
+## Open questions
+
+None. (`build_preview_table_rows` has no API caller — only
+`preview_section.py` and tests.)
+
+## Implementation notes
+
+## Implementation (filled by plan-archiver)

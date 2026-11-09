@@ -107,6 +107,27 @@ The subagent:
 
 ## Plans index
 
+### Import — findings from the 2026-11-09 mBank import (execute in this order)
+
+Found while importing 9 mBank statements on a self-hosted 0.8.0 instance, half
+through the import page and half through the API. Overview:
+[`import-ui-vs-api.svg`](../images/import-ui-vs-api.svg). Drafted with the
+Elephant-Goldfish method (three fresh-context reviewers: codebase details,
+implementation readiness, design). BDD ids reserved: KAL-CSV-039–042,
+KAL-API-008–009.
+
+| # | Plan | Status | Effort | Depends on |
+|---|---|---|---|---|
+| 1 | [import-mbank-transfer-account-suffix](import-mbank-transfer-account-suffix.md) | draft | small | — |
+| 2 | [import-preview-final-description](import-preview-final-description.md) | draft | small | — |
+| 3 | [import-remember-mapping-pattern](import-remember-mapping-pattern.md) | draft | small | — |
+| 4 | [import-queue-survives-navigation](import-queue-survives-navigation.md) | draft | small | — |
+| 5 | [import-pipeline-service](import-pipeline-service.md) | draft | medium | 1, 2 |
+| 6 | [import-api-endpoint](import-api-endpoint.md) | draft | medium | 5 |
+| 7 | [import-transfer-pairs-api](import-transfer-pairs-api.md) | draft | medium | 5 (constants); ship after 6 |
+
+1–4 are independent; 1 and 2 go before 5 so the extraction moves fixed logic.
+
 ### Harness — measurable critic, deterministic judge (execute in this order)
 
 Decision: [ADR-39](../adr/039-measurable-critic-deterministic-judge.md). The
