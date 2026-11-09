@@ -534,15 +534,15 @@ class TestPreviewClassification:
         row = _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836", amount="-10.00")
         known = {"55114020040000330278886836"}
         assert is_counterparty_transfer(row, known) is True
-        assert classify_row_preview_type(row, known) == "transfer"
+        assert classify_row_preview_type(row, known, profile="mbank") == "transfer"
 
     def test_negative_amount_is_expense_without_match(self):
         row = _parsed_row(counterparty_account="", amount="-10.00")
-        assert classify_row_preview_type(row, set()) == "expense"
+        assert classify_row_preview_type(row, set(), profile="mbank") == "expense"
 
     def test_positive_amount_is_income_without_match(self):
         row = _parsed_row(counterparty_account="", amount="10.00")
-        assert classify_row_preview_type(row, set()) == "income"
+        assert classify_row_preview_type(row, set(), profile="mbank") == "income"
 
     def test_count_row_types(self):
         rows = [
@@ -550,14 +550,14 @@ class TestPreviewClassification:
             _parsed_row(counterparty_account="", amount="-2.00"),
             _parsed_row(counterparty_account="", amount="3.00"),
         ]
-        counts = count_row_types(rows, {"55114020040000330278886836"})
+        counts = count_row_types(rows, {"55114020040000330278886836"}, profile="mbank")
         assert counts.transfer == 1
         assert counts.expense == 1
         assert counts.income == 1
 
     def test_build_preview_table_rows_limits_and_formats(self):
         rows = [_parsed_row(amount="-12.50", description="Long " * 20)]
-        preview = build_preview_table_rows(rows, set(), limit=1)
+        preview = build_preview_table_rows(rows, set(), profile="mbank", limit=1)
         assert len(preview) == 1
         assert preview[0]["amount"] == "-12.50"
         assert preview[0]["type"] == "expense"
@@ -1049,7 +1049,7 @@ class TestMBankFinalDescription:
         [row] = result.rows
         assert row.description == "LIDL KASPROWICZA 01/INOWROCLAW"
         assert row.raw["Opis operacji"] == "ZAKUP PRZY UŻYCIU KARTY"
-        [preview] = build_preview_table_rows(result.rows, set())
+        [preview] = build_preview_table_rows(result.rows, set(), profile="mbank")
         assert preview["description"] == "LIDL KASPROWICZA 01/INOWROCLAW"
 
     def test_mbank_auto_detected_file_gets_final_description(self) -> None:

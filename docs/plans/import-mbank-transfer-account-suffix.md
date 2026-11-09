@@ -3,7 +3,7 @@ plan_id: import-mbank-transfer-account-suffix
 title: Detect own-account transfers on mBank import (stored number vs statement number)
 area: import
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
