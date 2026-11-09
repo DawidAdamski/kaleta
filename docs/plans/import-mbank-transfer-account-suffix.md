@@ -98,7 +98,9 @@ Out of scope:
   account: preview shows `Transfers: 1`+, stored row is `type = transfer`,
   `is_internal_transfer = true`.
 
-New tests (names fixed so the criteria select them):
+## New tests
+
+Names fixed so the criteria above select them:
 
 - `test_stored_suffix_matches_full_statement_number` — known `"0278886836"`,
   counterparty `"55 1140 2004 0000 3302 7888 6836"` → transfer.
@@ -167,6 +169,23 @@ None blocking. Decided:
   `test_save_external_number_still_finds_by_ten_digit_tail`).
 - **`save_external_number`** stores `digits_only(number)`. Existing 10-digit
   values stay valid under the rule, so there is no migration.
+- **The plan file was reorganised, not changed.** The "New tests" list sat
+  inside `## Acceptance criteria`, and its bullets start with a backtick, so
+  the DoD gate read each test name as a shell command (gate attempt 1:
+  "command not found"). The list now has its own `## New tests` heading. Its
+  content is unchanged, and the criteria that run those tests
+  (`pytest … -k "stored_suffix or short_counterparty or own_target"`,
+  `-k account_number_matches`, and the whole `test_mbank_real_exports.py`)
+  are unchanged.
+- **"Assertions removed" (gate warning) - none were.** The flagged lines in
+  `tests/unit/services/test_import_service.py` are six existing asserts and
+  calls in `TestPreviewClassification` and `TestMBankFinalDescription` whose
+  call gained the now-required `profile="mbank"` keyword
+  (`classify_row_preview_type(row, known)` became
+  `classify_row_preview_type(row, known, profile="mbank")`, and likewise for
+  `count_row_types` and `build_preview_table_rows`). Each `assert` line was
+  rewritten in place with the same expected value, so the diff shows it as
+  removed and added. No assertion was dropped or loosened.
 - **Tests.**
   - The plan's named unit tests are in `test_import_service.py`,
     `tests/unit/db/test_account_number_matches.py` and
