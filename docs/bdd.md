@@ -1415,6 +1415,21 @@ Feature: mBank CSV Import
     Then the rule "mbank-2025-*.csv" is applied
     And when two rules tie on specificity the one with later last_used_at wins
 
+  KAL-CSV-041 @automated
+  Scenario: Remember this mapping never suggests a rule that catches every account
+    mBank names a statement "<last 8 account digits>_<from>_<to>.csv". Replacing
+    its first digit block kept the dates and dropped the account, so one saved
+    rule sent every statement of that period to the first file's account.
+
+    Given an account registered with number "55 1140 2004 0000 3302 4444 0393"
+    When I upload the mBank statement "44440393_261011_261109.csv"
+    Then the account is chosen by its number
+    And "Remember this mapping" starts unticked
+    When I tick it
+    Then the suggested filename pattern is "44440393_*_*.csv"
+    And a pattern made only of wildcards and separators, such as "*_*_*.csv",
+      is never suggested and cannot be saved
+
   KAL-CSV-017 @automated
   Scenario: Disabled import rule stops matching; delete removes it
     Given a saved import rule "mbank-*.csv" that matches my uploads

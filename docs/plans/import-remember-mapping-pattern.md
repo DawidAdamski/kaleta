@@ -90,4 +90,44 @@ not match the statement regex and keep today's behaviour (`dawid*_000101_261013.
 
 ## Implementation notes
 
+- **Inconsistency in the plan, resolved.** Scope item 1 keeps today's rule for
+  every non-statement name (first digit block → `*`), which turns
+  `2025-10-01_2025-10-31.csv` into `*_2025-10-31.csv`. That pattern is not made
+  only of wildcards and separators, yet the plan's test expects `""` for that
+  name. Following the plan's intent (never suggest a pattern that names nothing
+  but a period), the two checks are kept apart:
+  - `is_wildcard_only(pattern)`: true when, after removing the extension,
+    wildcards (`*`, `?`) and separators (`_`, `-`, `.`, whitespace), nothing is
+    left. It is used to refuse a save, exactly as the plan states.
+  - `suggest_filename_pattern` additionally returns `""` when that remainder
+    has no letter, i.e. the suggestion names only digits and dates.
+  So `mbank-2025-10.csv` → `mbank-*.csv`, `statement.csv` → `statement.csv`,
+  and the decided `dawid72288564_000101_261013.csv` →
+  `dawid*_000101_261013.csv` are unchanged, while
+  `2025-10-01_2025-10-31.csv`, `12345.csv` and an empty name give `""` (an
+  empty name used to give `*`).
+- **mBank statement names.** `^(\d{8})_(\d{6})_(\d{6})(\.csv)$`,
+  case-insensitive, becomes `<8 digits>_*_*<extension as written>`
+  (`.CSV` stays `.CSV`).
+- **Refusal sits in `_normalise_pattern`.** That covers `create` as the plan
+  asks, and also `update` and `upsert_from_import`, which save through the same
+  normaliser ("never … save"). It raises `ValidationError` with
+  `errors.import_rule.pattern_matches_everything` (en/pl, minimal JSON diff).
+  From the import page, a remembered rule that cannot be saved still surfaces
+  through the existing `import.rule_save_failed` toast.
+- **Remember default.** `default_remember_mapping(auto_matched)` lives next to
+  `inherit_queue_settings` in `import_service.py`. `handle_upload` sets
+  `remember_mapping` from it right after `_auto_match_account`. Inheritance
+  cannot copy `True` back: `QueueSettingsSnapshot` has no remember field, and
+  a unit test pins that.
+- **Log.** `Created import rule id=%s account_id=%s`; caplog test asserts that
+  the account digits never appear. (`RuleService.create` for categorisation
+  rules also logs its pattern; those patterns are merchant text, not account
+  numbers, so they are out of scope here.)
+- **Tests.** Unit tests are in `tests/unit/services/test_import_rule_service.py`
+  (on `main`'s `src/` they cannot even import `default_remember_mapping`).
+  KAL-CSV-041 is covered by `tests/e2e/test_import_remember_default.py` with a
+  new statement fixture `44440393_261011_261109.csv` for its own account
+  number. On `main`'s `src/` the e2e test fails: the box is ticked.
+
 ## Implementation (filled by plan-archiver)

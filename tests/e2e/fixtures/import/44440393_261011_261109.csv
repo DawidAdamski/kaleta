@@ -1,0 +1,12 @@
+#Numer rachunku
+55 1140 2004 0000 3302 4444 0393
+#Rodzaj rachunku
+EKONTO
+#Waluta
+PLN
+#Klient
+E2E Remember Default Client
+#Za okres:
+2026-10-11;2026-11-09
+#Data operacji;#Data księgowania;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer rachunku;#Kwota
+2026-10-20;2026-10-20;ZAKUP PRZY UŻYCIU KARTY;Biedronka CSV041 E2E;;;-25.00
