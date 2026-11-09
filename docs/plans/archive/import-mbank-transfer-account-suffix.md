@@ -3,8 +3,9 @@ plan_id: import-mbank-transfer-account-suffix
 title: Detect own-account transfers on mBank import (stored number vs statement number)
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-09
+roadmap_ref: ../../roadmap.md
 ---
 
 # Detect own-account transfers on mBank import (stored number vs statement number)
@@ -216,3 +217,35 @@ None blocking. Decided:
   here (scope).
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-09 (PR #406).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ae8990c3` | Dawid Adamski | 2026-11-10 | Merge pull request #406 from DawidAdamski/plan/import-mbank-transfer-account-suffix |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/import-mbank-transfer-account-suffix.md
+- src/kaleta/db/types.py
+- src/kaleta/services/account_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/preview_section.py
+- tests/e2e/fixtures/mbank_transfer_suffix_back.csv
+- tests/e2e/fixtures/mbank_transfer_suffix_out.csv
+- tests/e2e/test_transfer_detection.py
+- tests/integration/test_mbank_final_description.py
+- tests/unit/db/test_account_number_matches.py
+- tests/unit/services/test_account_service.py
+- tests/unit/services/test_import_service.py
+- tests/unit/services/test_mbank_real_exports.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
