@@ -282,4 +282,4 @@ def test_note_for_the_owner() -> None:
     assert "**Done — mode C**" in note
     assert "Risk class: **high** (src/kaleta/auth/session.py)" in note
     assert "| Q-SCOPE | 0.00 | 0 / 3 | - | - |" in note
-    assert "Profile v1" in note
+    assert "Profile v2" in note

@@ -80,4 +80,85 @@ Does **not** cover:
   regenerate them all with `critique all` in this plan's PR.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+**Open questions, resolved by their defaults.**
+- *Image library:* Pillow only. It is already in the dependency graph
+  (`types-qrcode` in the dev group, `matplotlib` in the `forecast` extra) and
+  installed by `uv sync --group dev`, which `verify.sh` requires. numpy is
+  only in the `forecast` extra, so it is **not** used; `ImageChops` +
+  `ImageStat` do the arithmetic. No dependency added. Caveat: Pillow is a
+  transitive dev dependency; if `types-qrcode` ever leaves the dev group,
+  the owner should declare `pillow` there directly.
+- *Thresholds:* `[fidelity]` is in the profile with `tile_threshold`
+  commented out (unset), so `check` requires the three worst tiles to be
+  named. Profile bumped to `version = 2`, `signed = 2026-11-09`.
+- *Existing reports:* all 13 regenerated with `shoot all` + `critique all`
+  in this PR (see "Regenerated reports" below).
+
+**Grid alignment (a design decision made after looking at the shots).** The
+first version split each picture into quarters of its *own* height. On `2a`
+the app is a full-page shot 4022 px tall and the card 811 px, so the
+artboard's header tile was compared with the ledger's fifteenth row. Now the
+app is resized to the artboard's width and laid over the artboard from the
+top: the artboard's frame is what is gridded, rows that run on below the
+card are not compared, and an app shorter than the card is padded with
+white, which counts against it. Only the artboard's own (first) viewport is
+measured; `3f`'s phone viewport is still in front of the critic.
+
+**Tile naming.** Rows A–D top to bottom, columns 1–4 left to right (`A1` is
+top left). A deviation row names a tile by containing the word "tile(s)"
+and the id, in the Element or Note cell; `match`/`open` rows do not count.
+
+**Protected paths.** `scripts/restyle_fidelity.py` is fully protected.
+`docs/design/restyle/fidelity/*` is `written-by-harness:`, not plainly
+protected: a restyle plan *must* run `shoot` and `critique`, which change
+the report, and a plain entry would veto every such diff. So the agent's
+Edit/Write is blocked but a Bash write is not. Residual route: an
+implementer could still `sed` a report. `check` catches a report whose
+author, shot hashes or tiles disagree with the screenshots on disk, but
+not rows edited while the header is left alone. Closing that needs the
+critique to log a sha of the report it wrote (in the run log) for `check`
+to compare. That is a follow-up for the owner, not in this plan's Scope.
+
+**Critic session.** `claude -p --permission-mode dontAsk`, `--allowedTools`
+= `Read(//…)` on `.fidelity/<id>/**`, the artboard file and the screen's
+source paths only; `--disallowedTools` = Bash/Edit/Write/MultiEdit/
+NotebookEdit/WebFetch/WebSearch/Task/Agent plus `Read` on the reports
+directory (so the critic cannot copy the old report). The project and user
+settings carry no broad allow rules (checked). `KALETA_CRITIC_SESSION=1` as
+in `critic.py`. Model: `--model`, else `KALETA_FIDELITY_MODEL`, else
+`KALETA_REVIEW_MODEL`, else `sonnet`. Raw output goes to
+`.fidelity/<id>/critic-raw.json`. The run id is the session's `session_id`.
+
+**Run log.** `check` appends one `fidelity` record per artboard to the
+armed plan's log (`.claude/state/active-plan`, else the `plan/<id>`
+branch). Outside a plan, nothing is logged and `check` says so, which keeps
+`main` free of log churn from ad-hoc checks.
+
+**Out-of-scope fix in the same file (Chore-inbox rule: same file, trivially
+small, own commit).** `shoot` had been broken on `main` since `7a8b012f` put
+`/api-docs` behind a debug flag: the ephemeral app's readiness probe never
+got its 200 and every shoot timed out. The probe now waits on `/health`.
+Without this the plan's own `shoot` criterion could not run.
+
+**Working Agreement §12 and the restyle README.** These are not in
+Touchpoints, but §12 told the implementer to *write* the report, which the
+Scope bullet "it does not write reports" (and now the protect hook) forbids.
+Only §12's procedure sentence and the README's command block were changed,
+to shoot → critique → check.
+
+**Manual criterion: state on the current code.** `shoot 2a && critique 2a`
+works end to end, and the header shows `author: critic`, `critic_run`,
+`critic_model`, `shots` and `tiles`. `check 2a` does **not** pass. The
+independent critic reports four `open` rows on the real screen (Export
+button missing, selected-row tint grey not warm, amounts with hyphen-minus
+and dot decimals, tags column chips). The tile requirement itself passes.
+The old hand-written report had all of these as `match` or `deviation`,
+which is exactly the drift this plan was written to expose. Fixing the
+screens is "Does not cover" here, so this criterion is left to the owner
+together with the restyle plans.
+
+**Harness test touched.** `scripts/harness/tests/test_judge.py::test_note_for_the_owner`
+renders the decision note from the real profile and asserted `Profile v1`.
+The profile is now v2 (this plan adds `[fidelity]`), so the expected literal
+became `Profile v2`. The assertion is just as strict; only the version changed.
