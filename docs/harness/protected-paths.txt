@@ -18,6 +18,11 @@
 
 # Run logs: written by the gate and the critic, never by the agent
 written-by-harness:docs/harness/runs/*
+# Restyle fidelity reports: written by `restyle_fidelity.py shoot` and
+# `critique` (an independent critic session), never by the implementer's
+# Edit/Write. A restyle plan runs those two, so the diff veto cannot apply;
+# `check` holds the report to `author: critic` and the screenshot hashes.
+written-by-harness:docs/design/restyle/fidelity/*
 
 # The harness: hooks, their wiring, the goal-mode entry point, runtime state
 .claude/hooks/*
@@ -31,6 +36,8 @@ scripts/review_gate.sh
 scripts/plan_goal.sh
 scripts/plan_runner.sh
 scripts/harness/*
+# judges design fidelity (plan fidelity-independent-critic)
+scripts/restyle_fidelity.py
 
 # Legislation: profile, critic questions, checklist, calibration gold labels
 docs/harness/*

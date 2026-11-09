@@ -74,7 +74,10 @@ artboard 2a" goes in as
 `uv run python scripts/restyle_fidelity.py check 2a` (Working Agreement
 §12), and the plan's Scope cites `docs/design/restyle/artboards/2a.html`,
 not the README's paragraph about it. The first restyle pass left all
-fifteen comparisons `[manual]`; none was ever made.
+fifteen comparisons `[manual]`; none was ever made. The report behind that
+check is written by an independent critic (`restyle_fidelity.py critique`),
+not by whoever built the screen: `check` requires `author: critic`, the
+screenshot hashes, and the worst-differing tiles explained.
 
 ## Touchpoints
 Files, models, services, i18n keys, migrations likely to change.

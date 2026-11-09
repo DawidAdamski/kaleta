@@ -92,13 +92,17 @@ vacuum. The PR description must link the plan file in `docs/plans/`
 
 - [ ] The plan's criterion is `scripts/restyle_fidelity.py check <id>`,
       not `[manual]`, and its output is in the PR description.
-- [ ] `docs/design/restyle/fidelity/<id>.md` names the artboard's real
-      elements with values observed on both sides — not the template's
-      generic rows, not "ok".
-- [ ] Spot-check three `match` rows against
-      `docs/design/restyle/artboards/<id>.html` and the view code: same
-      element, same order, same numbers. A `match` the markup contradicts
-      is a request-changes.
+- [ ] The report header of `docs/design/restyle/fidelity/<id>.md` says
+      `author: critic` and carries a `critic_run` and `critic_model`: it was
+      written by `restyle_fidelity.py critique`, not by the implementer. Any
+      other author, or a hand edit to a report in the diff, is a
+      request-changes.
+- [ ] Its `shots` hashes are the screenshots `check` ran against (`check`
+      compares them with `.fidelity/<id>/`), and its `tiles` are the ones
+      `shoot` measured. Read the worst tiles: each is named by a
+      `deviation` row whose reason holds.
+- [ ] The rows name the artboard's real elements with values observed on
+      both sides — not generic rows, not "ok".
 - [ ] Every `deviation` has a reason that is not "close enough": sample
       vs seed data, a sketch vs a real chart, a Quasar limit, or an owner
       decision recorded in the plan.
