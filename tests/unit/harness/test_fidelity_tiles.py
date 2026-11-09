@@ -72,16 +72,28 @@ def test_the_app_is_brought_to_the_artboard_width(
     assert measure.whole < 1.0
 
 
-def test_rows_are_quarters_of_each_pictures_own_height(
+def test_app_rows_below_the_artboard_do_not_count(
     fidelity: ModuleType, picture: Callable[..., Path]
 ) -> None:
-    """A full-page app shot taller than the card still lines its quarters up."""
+    """A full-page app shot runs on below the card; only the card's frame is compared."""
     spec = picture("artboard.png", black=[D4])
-    app = picture("app.png", size=(400, 1000), black=[(300, 750, 400, 1000)])
+    app = picture("app.png", size=(400, 1000), black=[D4, (0, 600, 400, 1000)])
 
     measure = fidelity.TileDiff.measure(spec, app)
 
-    assert max(measure.tiles.values()) < 1.0
+    assert measure.whole == 0.0
+
+
+def test_an_app_shorter_than_the_artboard_is_padded_and_counts(
+    fidelity: ModuleType, picture: Callable[..., Path]
+) -> None:
+    spec = picture("artboard.png", black=[(0, 300, 400, 400)])  # the whole bottom row
+    app = picture("app.png", size=(400, 300))
+
+    measure = fidelity.TileDiff.measure(spec, app)
+
+    assert [measure.tiles[n] for n in ("D1", "D2", "D3", "D4")] == [100.0] * 4
+    assert measure.whole == 25.0
 
 
 def test_worst_ranks_by_value_then_name(fidelity: ModuleType) -> None:

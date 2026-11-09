@@ -302,13 +302,14 @@ class TileMeasure:
 class TileDiff:
     """A number for the difference between artboard and app that needs nobody's eyes.
 
-    Both pictures are brought to the artboard's width (the app keeps its aspect
-    ratio), each is split into a 4x4 grid of quarters of its own height, and
-    the tiles are compared pairwise after the app's tile is resized onto the
-    artboard's. Row ``r`` of the grid is therefore the r-th quarter of each
-    picture, which survives a full-page app shot that is taller than the card.
-    Pixels are compared in RGB; the value is the mean absolute channel
-    difference as a percentage of 255, so 0 is identical and 100 is inverse.
+    The app is brought to the artboard's width (keeping its aspect ratio) and
+    laid over the artboard from the top: the artboard's frame is what is
+    compared, so the rows of a full-page app shot that run on below the card
+    are not on the artboard and do not count, and an app shorter than the card
+    is padded with white, which counts against it. That frame is split into a
+    4x4 grid. Pixels are compared in RGB; the value is the mean absolute
+    channel difference as a percentage of 255, so 0 is identical and 100 is
+    inverse.
     """
 
     @staticmethod
@@ -318,10 +319,12 @@ class TileDiff:
         with Image.open(artboard_png) as raw_spec, Image.open(app_png) as raw_app:
             spec = raw_spec.convert("RGB")
             app = raw_app.convert("RGB")
-        width = spec.width
-        if width < GRID or spec.height < GRID or app.width < 1 or app.height < 1:
+        width, height = spec.size
+        if width < GRID or height < GRID or app.width < 1 or app.height < 1:
             raise FidelityError(f"{artboard_png.parent.name}: a screenshot is too small to grid")
-        app = app.resize((width, max(GRID, round(app.height * width / app.width))))
+        scaled = app.resize((width, max(1, round(app.height * width / app.width))))
+        framed = Image.new("RGB", (width, height), "white")
+        framed.paste(scaled.crop((0, 0, width, min(height, scaled.height))), (0, 0))
 
         def mean(a: Any, b: Any) -> float:
             stat = ImageStat.Stat(ImageChops.difference(a, b))
@@ -330,13 +333,14 @@ class TileDiff:
         tiles: dict[str, float] = {}
         for index, name in enumerate(TILE_NAMES):
             row, col = divmod(index, GRID)
-            x0, x1 = col * width // GRID, (col + 1) * width // GRID
-            spec_tile = spec.crop(
-                (x0, row * spec.height // GRID, x1, (row + 1) * spec.height // GRID)
+            box = (
+                col * width // GRID,
+                row * height // GRID,
+                (col + 1) * width // GRID,
+                (row + 1) * height // GRID,
             )
-            app_tile = app.crop((x0, row * app.height // GRID, x1, (row + 1) * app.height // GRID))
-            tiles[name] = mean(spec_tile, app_tile.resize(spec_tile.size))
-        return TileMeasure(mean(spec, app.resize(spec.size)), tiles)
+            tiles[name] = mean(spec.crop(box), framed.crop(box))
+        return TileMeasure(mean(spec, framed), tiles)
 
 
 # ── report ───────────────────────────────────────────────────────────────
