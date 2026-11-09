@@ -19,7 +19,7 @@ from kaleta.services.subscription_service import (
     parse_subscription_form,
     suggest_purpose_index,
 )
-from kaleta.views.error_handling import notify_kaleta_error
+from kaleta.views.error_handling import notify_kaleta_error, resolve_toast_text
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -209,7 +209,7 @@ def build_subscription_dialogs(
                 auto_renew=bool(auto_renew_cb.value),
             )
         except SubscriptionFormError as exc:
-            ui.notify(exc.message, type="warning")
+            ui.notify(resolve_toast_text(exc), type="warning")
             return
 
         editing_id = editing_state["id"]

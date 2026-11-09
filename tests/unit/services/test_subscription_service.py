@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.payee import Payee
@@ -765,3 +766,66 @@ def test_purpose_child_index_map_resolves_children_by_name() -> None:
     assert index_map[PURPOSE_MUSIC] == 11
     # The renamed child is not mapped to any purpose.
     assert 99 not in index_map.values()
+
+
+def _form(cadence_value: object) -> SubscriptionCreate:
+    return parse_subscription_form(
+        name="Domain renewal",
+        amount_value="120.00",
+        cadence_value=cadence_value,
+        first_seen_value="",
+        next_expected_value="",
+        category_id_value=None,
+        url_value="",
+        notes_value="",
+        auto_renew=True,
+    )
+
+
+class TestParseFormCadence:
+    """The dialog's ``ui.number`` hands the parser a float once it was touched.
+
+    ``subscription-cadence-float-parse``: ``int("365.0")`` used to raise, so a
+    cadence could not be changed from the UI at all.
+    """
+
+    def test_parse_form_accepts_float_cadence(self) -> None:
+        """Covers: KAL-SUB-011"""
+        assert _form(365.0).cadence_days == 365
+
+    @pytest.mark.parametrize("value", ["365", "365.0", "365,0", " 365 ", Decimal("365.00")])
+    def test_parse_form_accepts_numeric_string_cadence(self, value: object) -> None:
+        assert _form(value).cadence_days == 365
+
+    @pytest.mark.parametrize("value", [365.5, "365,5"])
+    def test_parse_form_rejects_fractional_cadence(self, value: object) -> None:
+        with pytest.raises(SubscriptionFormError) as caught:
+            _form(value)
+        assert caught.value.message_key == "errors.subscription.cadence_whole_days"
+
+    @pytest.mark.parametrize("value", ["abc", True, float("nan"), float("inf")])
+    def test_parse_form_rejects_non_numeric_cadence(self, value: object) -> None:
+        with pytest.raises(SubscriptionFormError) as caught:
+            _form(value)
+        assert caught.value.message_key == "errors.subscription.cadence_whole_days"
+        assert caught.value.message == "Cadence must be a whole number of days."
+
+    @pytest.mark.parametrize("value", [0, 401, "0", 401.0])
+    def test_parse_form_rejects_out_of_range_cadence(self, value: object) -> None:
+        with pytest.raises(SubscriptionFormError) as caught:
+            _form(value)
+        assert caught.value.message_key == "errors.subscription.cadence_range"
+        assert caught.value.params == {"min": 1, "max": 400}
+
+    @pytest.mark.parametrize("value", [1, 400])
+    def test_parse_form_accepts_the_bounds(self, value: int) -> None:
+        assert _form(value).cadence_days == value
+
+    @pytest.mark.parametrize("value", [None, ""])
+    def test_parse_form_default_cadence(self, value: object) -> None:
+        assert _form(value).cadence_days == 30
+
+    def test_parse_form_error_is_a_validation_error(self) -> None:
+        """The dialog's toast resolves ``message_key`` only on a ``KaletaError``."""
+        with pytest.raises(ValidationError):
+            _form("abc")

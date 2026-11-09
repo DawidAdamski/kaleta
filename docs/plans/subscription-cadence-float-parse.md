@@ -3,7 +3,7 @@ plan_id: subscription-cadence-float-parse
 title: Saving a subscription with a changed cadence fails ("invalid literal for int() ... '365.0'")
 area: subscriptions
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
