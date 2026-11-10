@@ -3,7 +3,7 @@ plan_id: critic-calibration-set
 title: Calibration set from the repo's own history, seeded defects and counterfactual pairs; per-question critic metrics
 area: harness / review
 effort: large
-status: draft
+status: in-progress
 harness: true
 roadmap_ref: ../roadmap.md#5-engineering-hygiene
 ---
@@ -115,4 +115,73 @@ Does **not** cover:
   chore.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+- **Size (open question, default taken):** `seed_defects.py --max-plans 30`
+  built 30 plans → **121 cases** (93 `calib`, 28 `test`). Mutants per operator:
+  M-SCOPE 30, M-NOTES 30, M-KAL 20, M-VIEW-LOGIC 4, M-TENANT 3, M-MIGRATION 3,
+  M-SERVICE-TEST 1. 85 of the archived plans have no recoverable merge (merged
+  from a branch whose name does not end in the plan id, or before the
+  `plan/<id>` convention). Newest plans first: today's questions fit them best.
+- **Questions this set cannot calibrate yet.** With 1–4 mutants, Q-SERVICE-TEST,
+  Q-TENANT-ISOLATION, Q-MIGRATION and Q-VIEW-LOGIC will have miss-rate upper
+  bounds far above 0.10 whatever the critic does; like the three questions
+  without an operator, they stay capped. Growing them needs more plans
+  (`--max-plans`) or looser operators — a follow-up, not this plan.
+- **Merge discovery.** A plan's case is the newest first-parent merge
+  `Merge pull request #N from <owner>/<…>/<plan_id>`; `docs/archive-<id>`
+  merges are skipped (the first dry run picked those up — their diff is the
+  plan file moving to the archive). base = merge-base of the PR, head = its
+  last commit.
+- **Clean label narrowed to Python sources.** "Same files" first meant every
+  file of the PR; shared files (`docs/bdd.md`, the locale JSON, `chores.md`)
+  are touched by nearly every later fix, and 39 of the newest 40 plans were
+  rejected. Now only the PR's `src/**/*.py` count. The report's `label_note`
+  says the label is a heuristic; mutant recall is the trustworthy number.
+- **Operators keep it to one fact.** M-SCOPE edits a module docstring outside
+  `services/ views/ api/ models/ auth/ db/ crypto/` (a change there would make
+  another question true as well). M-SERVICE-TEST only fires for a *new* service
+  function whose every test the PR wrote, and backs off when deleting them
+  would leave a `KAL-` id with no `Covers:` (that would flip Q-KAL-SCENARIO).
+  M-VIEW-LOGIC inserts a template helper (query + money rounding) into a view
+  the PR changed. Gold for the non-target questions of a mutant copies the
+  clean case (`no`), as the plan says; where a mutation could arguably touch
+  another question (an unused helper looks like scope creep), that is label
+  noise the report does not hide.
+- **Replaying an old case.** The runner makes a temporary worktree at the
+  case's base, lays today's `critic-questions.toml`, `profile.toml`,
+  `review-checklist.md`, `.claude/settings.json` and `.claude/hooks/` over it
+  as one commit, applies the PR diff and the mutation (both `--index`), and
+  runs today's `critic.py` with the new **`--base <overlay commit>`** option
+  (the gate never passes it; `profile_settings` reads the profile at that
+  base). A PR that changed one of those overlay files is skipped when the
+  cases are built. The worktree reuses this checkout's `.venv` without syncing
+  (`UV_PROJECT_ENVIRONMENT`, `UV_NO_SYNC`) with the case's `src` first on
+  `PYTHONPATH`, so a sample's `uv run pytest` tests the case's code.
+- **One run, up to two critic hashes.** The critic adds a local-model sample
+  on its own where the profile requires one (high risk), and the hash covers
+  the model list — the smoke run on `gifts-mark-bought--m-tenant` came back
+  `613e8b9ab733ffd9`, not `36ef5368e55e44a3`. Each case result records its
+  real hash; results go to `docs/harness/calibration/<split>.cases.jsonl` and a
+  report is written per hash. `[calibration] report` may therefore be a list;
+  `gate.calibration` takes the report whose hash is the reviewing critic's.
+- **What the gate accepts.** Only a report with `split = "test"` and
+  `complete = true` (every test case ran) counts — thresholds are tuned on the
+  calib split. "Runs once" means one complete run: a test run cut short by the
+  budget resumes; after a complete one, `--force --reason` is required and the
+  reason is logged in the report and `forced-runs.log`.
+- **Metric definitions.** Miss = a violation whose p is under `uncertain`
+  (between `uncertain` and `block` the judge escalates, so it is not let
+  through); a violation with no valid sample is a miss too. False alarm = a
+  clean answer with p ≥ `block`. Accuracy uses p ≥ `block`. Totals sum the
+  per-question counts, because thresholds differ per question.
+- **Smoke test without a model:** `run_case` on a real case with
+  `KALETA_CRITIC_FAKE` built the worktree, applied diff and patch, ran the
+  critic and cleaned up. No real calibration has run: that is the owner's
+  manual criterion and costs money (estimate ≈ 0.90 USD per case at k = 3:
+  ≈ 85 USD for the calib split, ≈ 25 USD for the test split).
+- **`profile.toml` is not edited here.** Pointing `[calibration] report` at a
+  test report, retuning thresholds and re-signing are the owner's (manual
+  criteria). `docs/goal-mode.md` "Calibrating the critic" has the steps.
+- **Gate warning "New '# type: ignore'"** points at
+  `tests/harness/critic_cases/gifts-mark-bought--m-service-test/mutation.patch`:
+  a *removed* test line stored as patch data, not code anyone runs or types.
