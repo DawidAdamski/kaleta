@@ -92,13 +92,13 @@ Out of scope:
 
 Tests in `tests/integration/test_api_transfer_pairs.py`:
 
-- `test_suggest_requires_date_range`, `test_suggest_span_capped`
-- `test_accept_links_both_legs` (checks `type=transfer`, no category, links in
-  both directions)
-- `test_accept_is_idempotent`, `test_accept_unordered_ids`
-- `test_accept_different_currency_422`, `test_accept_already_linked_409`,
-  `test_accept_unknown_id_404`
-- `test_dismiss_unknown_id_404`, `test_dismissed_pair_not_suggested`
+- Suggest: `test_suggest_requires_date_range`, `test_suggest_span_capped`
+- Accept: `test_accept_links_both_legs` (checks `type=transfer`, no category,
+  links in both directions)
+- Accept: `test_accept_is_idempotent`, `test_accept_unordered_ids`
+- Accept errors: `test_accept_different_currency_422`,
+  `test_accept_already_linked_409`, `test_accept_unknown_id_404`
+- Dismiss: `test_dismiss_unknown_id_404`, `test_dismissed_pair_not_suggested`
 - In the PUT tests file: `test_put_link_validates`, `test_put_link_writes_both_sides`.
 
 ## Touchpoints
@@ -164,6 +164,11 @@ None blocking.
   `dangling`, `amount_mismatch`, `currency_mismatch` and `same_direction` links;
   exit code 1 when anything is found. Tests feed it real API responses
   (`tests/integration/test_check_transfer_links.py`).
+- **Acceptance list format.** The DoD gate runs every acceptance bullet that
+  starts with a backtick as a shell command, so the bullets naming the tests in
+  `test_api_transfer_pairs.py` were read as commands (`command not found`). They
+  now start with a word ("Suggest:", "Accept:", …); the names and the tests are
+  unchanged and all run under the first criterion.
 - **Not run here: the self-hosted check.** This session has no URL or token for
   the self-hosted instance, so the one-off run is left to the owner:
   `KALETA_API_TOKEN=… uv run python scripts/check_transfer_links.py --url <instance>`.
