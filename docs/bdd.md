@@ -1430,6 +1430,18 @@ Feature: mBank CSV Import
     And a pattern made only of wildcards and separators, such as "*_*_*.csv",
       is never suggested and cannot be saved
 
+  KAL-CSV-042 @automated
+  Scenario: Leaving the import page with an unfinished queue asks first
+    The queue lives only in the page's memory (it is not persisted: with
+    Redis/Valkey it would hold plain-text statement rows), so leaving drops it.
+
+    Given I have uploaded two files to the import queue and not imported them
+    When I click a sidebar link, go back, reload or close the tab
+    Then the browser asks whether to leave the page
+    And cancelling keeps me on the import page with both files queued
+    When every file in the queue has been imported
+    Then leaving the page asks nothing
+
   KAL-CSV-017 @automated
   Scenario: Disabled import rule stops matching; delete removes it
     Given a saved import rule "mbank-*.csv" that matches my uploads

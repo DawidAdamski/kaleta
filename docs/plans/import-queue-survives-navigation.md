@@ -3,7 +3,7 @@ plan_id: import-queue-survives-navigation
 title: Warn before leaving /import with an unfinished queue
 area: import
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -77,5 +77,38 @@ Out of scope:
   and `ui.navigate.to` do full page loads, so it should.)
 
 ## Implementation notes
+
+- **Step 1 — trigger (reproduced with Playwright on a demo instance, 2 files
+  queued).** Browser back (`history.back()`) went to `/dashboard` with no
+  warning and the queue was gone; a sidebar click does the same. NiceGUI here
+  (3.18, no `ui.sub_pages`) makes `ui.navigate.to` a full page load, so a
+  sidebar entry fires `beforeunload`: with a listener registered, clicking the
+  sidebar "Settings" raised the browser's prompt and dismissing it kept
+  `/import` with both files. **No sidebar dialog was added** and the i18n keys
+  `import.leave_guard_title` / `_body` were not needed (the prompt is the
+  browser's own, with its own text).
+- **A listener, not `window.onbeforeunload`.** NiceGUI already owns
+  `window.onbeforeunload` (it sets `sessionStorage.__nicegui_tab_closed`);
+  overwriting it would break that. The guard is a named listener,
+  `window.__kaletaImportLeaveGuard`, added/removed with
+  `addEventListener`/`removeEventListener`; the e2e reads that name.
+- **When it is on:** `state.leave_guard_active(queue, importing=...)` — a run
+  is going, or the queue holds a file not `done`/`failed` (reuses
+  `queue_is_terminal`). Synced in `_render_queue` (every queue change renders
+  the queue) and after a run ends; `state["leave_guard"]` mirrors what was
+  last sent, so the script runs only on changes.
+- **The page's client is captured at build time.** The first version called
+  `ui.run_javascript` from `do_import_all`'s `finally`; that handler is fired
+  by the footer's import button, which `wizard_footer.refresh()` deletes, so
+  NiceGUI could not resolve the client ("The parent element this slot belongs
+  to has been deleted") and the run never reached its summary. The existing
+  `test_csv_import` e2e caught it. `page_client.run_javascript` avoids the
+  slot lookup.
+- **Not persisted** (scope item 3): the queue stays memory-only.
+- **Manual criterion checked with Playwright** (two files, sidebar
+  "Settings" → `beforeunload` prompt; cancel → still `/import`, 2 queue rows).
+  The e2e uses the pinned "Dashboard" entry instead of "Settings": it is
+  always visible, and expanding the "Setup" group would persist a nav
+  collapse change for the shared e2e user. Both are the same `ui.navigate.to`.
 
 ## Implementation (filled by plan-archiver)
