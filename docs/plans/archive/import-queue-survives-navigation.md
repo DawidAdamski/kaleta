@@ -3,8 +3,9 @@ plan_id: import-queue-survives-navigation
 title: Warn before leaving /import with an unfinished queue
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-10
+roadmap_ref: ../../roadmap.md
 ---
 
 # Warn before leaving /import with an unfinished queue
@@ -112,3 +113,25 @@ Out of scope:
   collapse change for the shared e2e user. Both are the same `ui.navigate.to`.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-10 (PR #410).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f331aa79` | Dawid Adamski | 2026-11-10 | Merge pull request #410 from DawidAdamski/plan/import-queue-survives-navigation |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-queue-survives-navigation.md
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/state.py
+- tests/e2e/test_import_leave_guard.py
+- tests/unit/views/test_import_queue_state.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
