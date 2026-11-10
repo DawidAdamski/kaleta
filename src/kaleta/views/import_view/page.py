@@ -51,6 +51,7 @@ from kaleta.views.import_view.state import (
     apply_settings_snapshot,
     current_step,
     import_button_label,
+    leave_guard_active,
     queue_is_terminal,
     settings_block_reason,
     settings_snapshot,
@@ -82,6 +83,21 @@ from kaleta.views.theme import (
     PAGE_CONTAINER,
     PAGE_GAP_24,
     PAGE_TITLE,
+)
+
+#: Arms the browser's own "leave this page?" prompt. Idempotent: a second run
+#: finds the listener already registered.
+_LEAVE_GUARD_ON = (
+    "if (!window.__kaletaImportLeaveGuard) {"
+    " window.__kaletaImportLeaveGuard = (e) => { e.preventDefault(); e.returnValue = ''; };"
+    " window.addEventListener('beforeunload', window.__kaletaImportLeaveGuard);"
+    " }"
+)
+_LEAVE_GUARD_OFF = (
+    "if (window.__kaletaImportLeaveGuard) {"
+    " window.removeEventListener('beforeunload', window.__kaletaImportLeaveGuard);"
+    " delete window.__kaletaImportLeaveGuard;"
+    " }"
 )
 
 
@@ -131,6 +147,11 @@ async def import_page() -> None:
             rows.append((when, run.filename, account_name, run.imported_count, run.skipped_count))
         return rows
 
+    # The page's own client, taken while building it: a handler fired from a
+    # refreshable (the footer's import button) loses its slot once
+    # `wizard_footer.refresh()` deletes the button, and `ui.run_javascript`
+    # resolves the client through that slot.
+    page_client = ui.context.client
     state: dict[str, Any] = {
         "queue": [],
         "active_id": None,
@@ -156,6 +177,9 @@ async def import_page() -> None:
         # summary of everything else on a step nobody could reach.
         "run_finished": False,
         "importing": False,
+        # Whether the browser's "leave this page?" prompt is armed; mirrors
+        # what was last sent to the client so the script runs on changes only.
+        "leave_guard": False,
         "last_settings": None,
         "bulk_account_id": None,
         "activity_rows": activity_rows,
@@ -297,7 +321,19 @@ async def import_page() -> None:
         if sync:
             _sync_step()
 
+    def _sync_leave_guard() -> None:
+        # A `beforeunload` listener, not `window.onbeforeunload`: NiceGUI
+        # owns that property (it marks the tab closed in sessionStorage).
+        # The sidebar's `ui.navigate.to` is a full page load, so the same
+        # browser prompt covers it as well as back, reload and close.
+        wanted = leave_guard_active(state["queue"], importing=state["importing"])
+        if wanted == state["leave_guard"]:
+            return
+        state["leave_guard"] = wanted
+        page_client.run_javascript(_LEAVE_GUARD_ON if wanted else _LEAVE_GUARD_OFF)
+
     def _render_queue() -> None:
+        _sync_leave_guard()
         queue_section.render(
             state["queue"],
             state["active_id"],
@@ -686,6 +722,7 @@ async def import_page() -> None:
             # Whatever ended the run, the button that started it stops
             # being drawn disabled.
             wizard_footer.refresh()
+            _sync_leave_guard()
 
         if state["queue"]:
             state["last_settings"] = settings_snapshot(state["queue"][-1])

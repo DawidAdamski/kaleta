@@ -160,6 +160,18 @@ def queue_is_terminal(queue: list[QueuedFile]) -> bool:
     return bool(queue) and all(f.status in TERMINAL_STATUSES for f in queue)
 
 
+def leave_guard_active(queue: list[QueuedFile], *, importing: bool) -> bool:
+    """True while leaving the page would throw away work the reader still needs.
+
+    The queue lives only in the page's memory (it is deliberately not
+    persisted: with Redis/Valkey it would hold plain-text statement rows), so
+    any full navigation away from ``/import`` drops it. That matters while a
+    file is still waiting to be imported or a run is going; an empty queue or
+    one where every file has finished holds nothing left to lose.
+    """
+    return importing or (bool(queue) and not queue_is_terminal(queue))
+
+
 def settings_snapshot(file: QueuedFile) -> QueueSettingsSnapshot:
     """Convert queue file state into a service-layer settings snapshot."""
     return QueueSettingsSnapshot(
