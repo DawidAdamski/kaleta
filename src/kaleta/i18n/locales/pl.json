@@ -306,6 +306,7 @@
     "import_rule": {
       "not_found": "Nie znaleziono reguły importu {rule_id}.",
       "account_not_found": "Nie znaleziono konta {account_id}.",
+      "pattern_matches_everything": "Wzorzec nazwy pliku pasowałby do każdego pliku.",
       "pattern_empty": "Wzorzec nazwy pliku reguły importu nie może być pusty.",
       "pattern_too_long": "Wzorzec nazwy pliku reguły importu jest za długi."
     },

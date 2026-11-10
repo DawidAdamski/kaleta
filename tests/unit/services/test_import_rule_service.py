@@ -6,17 +6,24 @@ Covers: KAL-CSV-014, KAL-CSV-015, KAL-CSV-016, KAL-CSV-017
 
 from __future__ import annotations
 
+import logging
+from dataclasses import fields
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.import_rule import ImportRuleCreate, ImportRuleUpdate
 from kaleta.services import AccountService, ImportRuleService
-from kaleta.services.import_service import ColumnMapping
+from kaleta.services.import_service import (
+    ColumnMapping,
+    QueueSettingsSnapshot,
+    default_remember_mapping,
+)
 
 
 @pytest.fixture
@@ -42,6 +49,79 @@ class TestSuggestFilenamePattern:
 
     def test_case_preserved_in_suggestion(self) -> None:
         assert ImportRuleService.suggest_filename_pattern("MBANK-2025-10.CSV") == "MBANK-*.CSV"
+
+    def test_mbank_statement_name_keeps_account_digits(self) -> None:
+        """mBank's <8 account digits>_<from>_<to>.csv keeps the account, drops the dates."""
+        suggest = ImportRuleService.suggest_filename_pattern
+        assert suggest("78886836_261011_261109.csv") == "78886836_*_*.csv"
+        assert suggest("78886836_261011_261109.CSV") == "78886836_*_*.CSV"
+
+    def test_wildcard_only_pattern_is_not_suggested(self) -> None:
+        suggest = ImportRuleService.suggest_filename_pattern
+        assert suggest("2025-10-01_2025-10-31.csv") == ""
+        assert suggest("12345.csv") == ""
+        assert suggest("") == ""
+
+    def test_older_history_export_keeps_todays_behaviour(self) -> None:
+        """The plan's decided case: not a statement name, first digit block only."""
+        suggest = ImportRuleService.suggest_filename_pattern
+        assert suggest("dawid72288564_000101_261013.csv") == "dawid*_000101_261013.csv"
+
+
+class TestWildcardOnlyPatterns:
+    async def test_create_refuses_wildcard_only_pattern(
+        self, session: AsyncSession, account: object
+    ) -> None:
+        svc = ImportRuleService(session)
+        for pattern in ("*_*_*.csv", "*.csv", "*", " *-* .csv"):
+            with pytest.raises(ValidationError) as caught:
+                await svc.create(
+                    ImportRuleCreate(
+                        filename_pattern=pattern,
+                        account_id=account.id,  # type: ignore[attr-defined]
+                        column_mapping={},
+                    )
+                )
+            assert caught.value.message_key == "errors.import_rule.pattern_matches_everything"
+        assert await svc.list() == []
+
+    async def test_create_accepts_a_pattern_that_names_the_account(
+        self, session: AsyncSession, account: object
+    ) -> None:
+        rule = await ImportRuleService(session).create(
+            ImportRuleCreate(
+                filename_pattern="78886836_*_*.csv",
+                account_id=account.id,  # type: ignore[attr-defined]
+                column_mapping={},
+            )
+        )
+        assert rule.filename_pattern == "78886836_*_*.csv"
+
+    async def test_create_log_has_no_pattern(
+        self, session: AsyncSession, account: object, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Account digits in a pattern must not reach plain-text logs (ADR-35)."""
+        caplog.set_level(logging.INFO, logger="kaleta.services.import_rule_service")
+        rule = await ImportRuleService(session).create(
+            ImportRuleCreate(
+                filename_pattern="78886836_*_*.csv",
+                account_id=account.id,  # type: ignore[attr-defined]
+                column_mapping={},
+            )
+        )
+        messages = [r.getMessage() for r in caplog.records]
+        assert any(f"id={rule.id}" in m for m in messages)
+        assert not any("78886836" in m for m in messages)
+
+
+class TestDefaultRememberMapping:
+    def test_default_remember_mapping_off_when_auto_matched(self) -> None:
+        assert default_remember_mapping(auto_matched=True) is False
+        assert default_remember_mapping(auto_matched=False) is True
+
+    def test_default_remember_mapping_is_not_inherited_from_the_previous_file(self) -> None:
+        """The queue snapshot carries no remember flag, so inheritance cannot copy one."""
+        assert "remember_mapping" not in {f.name for f in fields(QueueSettingsSnapshot)}
 
 
 class TestImportRuleMatch:

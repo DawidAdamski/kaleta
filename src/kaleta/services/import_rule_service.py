@@ -21,6 +21,21 @@ logger = logging.getLogger(__name__)
 
 # First run of digits (and any trailing digit/hyphen digit groups) → `*`.
 _DIGIT_BLOCK = re.compile(r"\d[\d\-]*")
+# mBank's statement export: <last 8 account digits>_<yymmdd from>_<yymmdd to>.csv.
+# Recognised by position, so the account digits stay and both dates go.
+_MBANK_STATEMENT = re.compile(r"^(\d{8})_(\d{6})_(\d{6})(\.csv)$", re.IGNORECASE)
+_EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,5}$")
+_WILDCARDS_AND_SEPARATORS = re.compile(r"[*?_\-.\s]")
+
+
+def _literal_stem(pattern: str) -> str:
+    """What a pattern names besides its extension, wildcards and separators."""
+    return _WILDCARDS_AND_SEPARATORS.sub("", _EXTENSION.sub("", pattern.strip()))
+
+
+def is_wildcard_only(pattern: str) -> bool:
+    """True for a pattern that would match any file of its type (``*_*_*.csv``, ``*.csv``)."""
+    return not _literal_stem(pattern)
 
 
 class ImportRuleService:
@@ -64,12 +79,9 @@ class ImportRuleService:
         loaded = await self.get(rule.id)
         if loaded is None:
             raise RuntimeError(f"Import rule {rule.id} missing right after commit.")
-        logger.info(
-            "Created import rule id=%s pattern=%r account_id=%s",
-            loaded.id,
-            loaded.filename_pattern,
-            loaded.account_id,
-        )
+        # No pattern here: one that keeps account digits would put them in
+        # plain-text logs, which the operator must not see (ADR-35).
+        logger.info("Created import rule id=%s account_id=%s", loaded.id, loaded.account_id)
         return loaded
 
     async def update(self, rule_id: int, data: ImportRuleUpdate) -> ImportRule:
@@ -175,13 +187,23 @@ class ImportRuleService:
 
     @staticmethod
     def suggest_filename_pattern(filename: str) -> str:
-        """Replace the first digit block with ``*`` — ``mbank-2025-10.csv`` → ``mbank-*.csv``."""
+        """A pattern that matches this file's later exports, or ``""`` when there is none.
+
+        An mBank statement (``78886836_261011_261109.csv``) keeps its account
+        digits and loses both dates: ``78886836_*_*.csv``. Any other name has
+        its first digit block replaced: ``mbank-2025-10.csv`` → ``mbank-*.csv``.
+        A suggestion that names nothing but dates, wildcards and separators
+        (``2025-10-01_2025-10-31.csv``) would send every statement of a period
+        to one account, so none is made.
+        """
         name = filename.strip()
-        if not name:
-            return "*"
-        if _DIGIT_BLOCK.search(name):
-            return _DIGIT_BLOCK.sub("*", name, count=1)
-        return name
+        statement = _MBANK_STATEMENT.match(name)
+        if statement:
+            return f"{statement[1]}_*_*{statement[4]}"
+        suggestion = _DIGIT_BLOCK.sub("*", name, count=1)
+        if not any(ch.isalpha() for ch in _literal_stem(suggestion)):
+            return ""
+        return suggestion
 
     @staticmethod
     def specificity_score(pattern: str) -> int:
@@ -237,5 +259,10 @@ class ImportRuleService:
             raise ValidationError(
                 "Import rule filename pattern is too long.",
                 message_key="errors.import_rule.pattern_too_long",
+            )
+        if is_wildcard_only(cleaned):
+            raise ValidationError(
+                "Import rule filename pattern would match every file.",
+                message_key="errors.import_rule.pattern_matches_everything",
             )
         return cleaned

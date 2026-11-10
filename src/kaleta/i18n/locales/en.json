@@ -306,6 +306,7 @@
     "import_rule": {
       "not_found": "Import rule {rule_id} not found.",
       "account_not_found": "Account {account_id} not found.",
+      "pattern_matches_everything": "Import rule filename pattern would match every file.",
       "pattern_empty": "Import rule filename pattern must not be empty.",
       "pattern_too_long": "Import rule filename pattern is too long."
     },
