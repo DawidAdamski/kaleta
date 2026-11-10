@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Load ``scripts/restyle_fidelity.py`` (a script, not a package) and draw test pictures."""
+"""Load ``scripts/restyle_fidelity.py`` (a script, not a package) and draw test pictures.
+
+``scripts/harness/`` goes on ``sys.path`` too, so the calibration tests import
+``calibration``, ``seed_defects`` and ``calibrate_critic`` as the scripts do.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,9 @@ import pytest
 from PIL import Image, ImageDraw
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "restyle_fidelity.py"
+HARNESS = Path(__file__).resolve().parents[3] / "scripts" / "harness"
+if str(HARNESS) not in sys.path:
+    sys.path.insert(0, str(HARNESS))
 
 
 def _load() -> ModuleType:
