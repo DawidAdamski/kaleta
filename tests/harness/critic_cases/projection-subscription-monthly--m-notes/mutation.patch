@@ -1,0 +1,14 @@
+diff --git a/docs/plans/projection-subscription-monthly.md b/docs/plans/projection-subscription-monthly.md
+index f763b1ef..4d787ffe 100644
+--- a/docs/plans/projection-subscription-monthly.md
++++ b/docs/plans/projection-subscription-monthly.md
+@@ -85,6 +85,9 @@ Expected values are the `KAL-SUB-002`/`-009` literals (120.00 → 10.00).
+ - None blocking. Resolved in decisions below.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_projection_subscription_monthly_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Decision — delegate, don't re-copy the ranges.** The bug is a second copy of
+   the cadence logic that drifted; importing `_to_monthly` removes the copy
+   rather than adding a third. `wizard_projection_service` already imports a

@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/credit_cards.py b/src/kaleta/seeders/credit_cards.py
+index e68e3b34..395c787d 100644
+--- a/src/kaleta/seeders/credit_cards.py
++++ b/src/kaleta/seeders/credit_cards.py
+@@ -4,6 +4,9 @@
+ The account already carries the balance; what the Credit page needs on top is
+ the contract — the limit the balance is a share of, the statement and due days
+ the calendar counts from, and the minimum payment it warns about.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

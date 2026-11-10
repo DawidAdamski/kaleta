@@ -1,0 +1,23 @@
+{
+  "id": "safety-funds-kind-toggle-visibility",
+  "plan_id": "safety-funds-kind-toggle-visibility",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 278,
+  "base": "8fc006ce5d6f3d498506d0f6839405fab002f063",
+  "head": "791b2bac96f3b4b29f1cf44ccb2fa942f0687e85",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": ""
+}

@@ -1,0 +1,24 @@
+{
+  "id": "errors-i18n-message-keys--m-view-logic",
+  "plan_id": "errors-i18n-message-keys",
+  "kind": "mutant",
+  "operator": "M-VIEW-LOGIC",
+  "target": "Q-VIEW-LOGIC",
+  "pr": 353,
+  "base": "a22020ac691d5d250379a87284ab227aa44566ba",
+  "head": "463579e53a2073704cd6492e4eb5f07c072ceb00",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "yes",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "query inlined into src/kaleta/views/error_handling.py"
+}

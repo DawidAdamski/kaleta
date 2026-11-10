@@ -1,0 +1,25 @@
+{
+  "id": "gifts-mark-bought--m-tenant",
+  "plan_id": "gifts-mark-bought",
+  "kind": "mutant",
+  "operator": "M-TENANT",
+  "target": "Q-TENANT-ISOLATION",
+  "pr": 285,
+  "base": "07535c935f5bacd4bee412956da0de66cc2c3abe",
+  "head": "f1f49dfc7fa1eef88c63c1b10a564be38a0cf80d",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "yes",
+    "Q-AUTH-SURFACE": "no",
+    "Q-MIGRATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "with_session( -> with_public_session( in src/kaleta/views/gifts.py"
+}

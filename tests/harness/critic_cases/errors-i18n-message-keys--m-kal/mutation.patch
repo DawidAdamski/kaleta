@@ -1,0 +1,32 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 68d0feee..faade754 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3382,15 +3382,6 @@ Feature: Localized error messages
+   I want handled domain errors shown in my own language
+   So that an error toast is as readable as the rest of the app
+ 
+-  KAL-ERR-001 @automated
+-  Scenario: A domain-error toast speaks the session's language
+-    Given a payee-identity conflict carries the key "errors.payee.identity_taken"
+-    And the parameters are pattern "lidl poznan" and owner "Lidl sp z o o"
+-    Then the Polish message reads "„lidl poznan” jest już wariantem nazwy odbiorcy „Lidl sp z o o”"
+-    And the English message reads "'lidl poznan' is already an identity of payee 'Lidl sp z o o'"
+-    And every first-cohort error key interpolates its parameters without a missing-placeholder error
+-```
+-
+ ## Feature: Authentication
+ 
+ ```gherkin
+diff --git a/tests/integration/test_error_i18n.py b/tests/integration/test_error_i18n.py
+index d66670f8..77598eec 100644
+--- a/tests/integration/test_error_i18n.py
++++ b/tests/integration/test_error_i18n.py
+@@ -8,7 +8,6 @@ API keep reading the English ``exc.message`` (see ``KaletaError`` and
+ (payee identity / merge-undo) by checking the keys exist in both locales and
+ interpolate their parameters the same way ``t`` does (``str.format``).
+ 
+-Covers: KAL-ERR-001
+ """
+ 
+ from __future__ import annotations

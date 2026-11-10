@@ -1,0 +1,14 @@
+diff --git a/docs/plans/health-tiered-disclosure.md b/docs/plans/health-tiered-disclosure.md
+index 5e6b3c29..2078da12 100644
+--- a/docs/plans/health-tiered-disclosure.md
++++ b/docs/plans/health-tiered-disclosure.md
+@@ -101,6 +101,9 @@ the instance's cross-family counts.
+   administrative-vs-family line; the resolution rules above encode it.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_health_tiered_disclosure_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Why a family bearer token never reaches admin.** Determining admin-ness from
+   a family token would need a new registry lookup `(tenant_id, user_id) →
+   auth_subject/email` (there is no helper for it today; a bearer token natively

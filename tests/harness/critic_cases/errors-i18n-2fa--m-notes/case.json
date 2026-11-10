@@ -1,0 +1,22 @@
+{
+  "id": "errors-i18n-2fa--m-notes",
+  "plan_id": "errors-i18n-2fa",
+  "kind": "mutant",
+  "operator": "M-NOTES",
+  "target": "Q-NOTES-TRUTH",
+  "pr": 362,
+  "base": "5d1142a010af57d3c0ba7ef8097500175e5cc85f",
+  "head": "163ed956ea7a47a13b01213e1c81bfde24283301",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "yes",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "notes claim tests/unit/test_errors_i18n_2fa_edge_cases.py"
+}

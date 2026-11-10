@@ -236,22 +236,42 @@ def critic_evidence(
 def calibration(
     root: Path, profile: judge.Profile | None, critic_hash: str | None
 ) -> dict[str, Any]:
+    """Which questions the profile's calibration report vouches for, for this critic.
+
+    ``[calibration] report`` is a path or a list of paths: the critic's hash
+    depends on whether a local-model sample is part of it (the profile requires
+    one for high risk), so one calibration run can produce a report per hash.
+    The report whose hash is this critic's counts; only a complete run of the
+    held-out test split is evidence (thresholds are tuned on the calib split).
+    """
     if profile is None:
         return {"report": "", "calibrated": []}
     cal = profile.raw.get("calibration", {})
-    report = cal.get("report") or ""
-    out: dict[str, Any] = {"report": report, "calibrated": [], "critic_hash_match": False}
-    if not report or not (root / report).exists():
-        return out
-    data = json.loads((root / report).read_text(encoding="utf-8"))
+    configured = cal.get("report") or []
+    reports = [configured] if isinstance(configured, str) else list(configured)
+    out: dict[str, Any] = {
+        "report": reports[0] if reports else "",
+        "calibrated": [],
+        "critic_hash_match": False,
+        "usable": False,
+    }
     target = float(cal.get("miss_rate_target", 0.10))
-    out["critic_hash_match"] = data.get("critic_hash") == critic_hash
-    if out["critic_hash_match"]:
-        out["calibrated"] = sorted(
-            qid
-            for qid, m in data.get("questions", {}).items()
-            if m.get("miss_rate_upper") is not None and float(m["miss_rate_upper"]) <= target
-        )
+    for report in reports:
+        if not (root / report).exists():
+            continue
+        data = json.loads((root / report).read_text(encoding="utf-8"))
+        if data.get("critic_hash") != critic_hash:
+            continue
+        out["report"] = report
+        out["critic_hash_match"] = True
+        out["usable"] = data.get("split") == "test" and bool(data.get("complete"))
+        if out["usable"]:
+            out["calibrated"] = sorted(
+                qid
+                for qid, m in data.get("questions", {}).items()
+                if m.get("miss_rate_upper") is not None and float(m["miss_rate_upper"]) <= target
+            )
+        break
     return out
 
 

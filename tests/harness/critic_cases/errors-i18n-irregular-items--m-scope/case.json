@@ -1,0 +1,22 @@
+{
+  "id": "errors-i18n-irregular-items--m-scope",
+  "plan_id": "errors-i18n-irregular-items",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 357,
+  "base": "01c930791b103cb169c5852cf65e481dea4a4216",
+  "head": "1ea80f799e95cf1ddaa29ae527e7f9e8ad0997e9",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "docstring of src/kaleta/core/weeks.py rewritten"
+}

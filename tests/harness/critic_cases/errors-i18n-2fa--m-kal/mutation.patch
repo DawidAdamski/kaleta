@@ -1,0 +1,32 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index ec5106f7..432a286b 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3446,15 +3446,6 @@ Feature: Localized error messages
+     And a full household of 10 reads in Polish "Gospodarstwo może mieć najwyżej 10 członków, wliczając zaproszenia."
+     And every household error key interpolates its parameters without a missing-placeholder error
+ 
+-  KAL-ERR-007 @automated
+-  Scenario: A two-factor and API-token error toast speaks the session's language
+-    Given reissuing recovery codes with the factor off carries the key "errors.mfa.enable_before_recovery_codes"
+-    Then the Polish message reads "Włącz uwierzytelnianie dwuskładnikowe, zanim poprosisz o kody zapasowe."
+-    And the English message reads "Enable two-factor authentication before asking for recovery codes."
+-    And changing API tokens without a fresh code carries the key "errors.api_token.confirm_code_before_changing" reading in Polish "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim zmienisz tokeny API."
+-    And every 2FA-cohort error key interpolates its parameters without a missing-placeholder error
+-```
+-
+ ## Feature: Authentication
+ 
+ ```gherkin
+diff --git a/tests/integration/test_error_i18n_2fa.py b/tests/integration/test_error_i18n_2fa.py
+index 49d5f303..5fb661c0 100644
+--- a/tests/integration/test_error_i18n_2fa.py
++++ b/tests/integration/test_error_i18n_2fa.py
+@@ -20,7 +20,6 @@ One real raise is driven per migrated service: ``_require_step_up`` via
+ with the factor off. Every migrated key is additionally covered by the
+ both-locales presence and locale-format tables below.
+ 
+-Covers: KAL-ERR-007
+ """
+ 
+ from __future__ import annotations

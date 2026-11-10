@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/logging_config.py b/src/kaleta/logging_config.py
+index 17e062e4..dca22c7a 100644
+--- a/src/kaleta/logging_config.py
++++ b/src/kaleta/logging_config.py
+@@ -5,6 +5,9 @@
+ correlation fields from :mod:`kaleta.observability.context`, so an event id
+ shown to a user leads straight to the lines around it. Records are redacted
+ and copied into the session ring buffer on their way out.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

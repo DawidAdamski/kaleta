@@ -1,0 +1,14 @@
+diff --git a/docs/plans/security-zap-baseline.md b/docs/plans/security-zap-baseline.md
+index 00a7b0f7..fe07095d 100644
+--- a/docs/plans/security-zap-baseline.md
++++ b/docs/plans/security-zap-baseline.md
+@@ -71,6 +71,9 @@ test — not here.
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_security_zap_baseline_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - **Runner shape.** `scan_zap.sh` mirrors `scan_trivy.sh`: pinned image tag
+   (`ZAP_VERSION`, default `2.16.1`, `ghcr.io/zaproxy/zaproxy`), env-overridable
+   gate/runner, `docker`|`podman` picked automatically (no local ZAP binary

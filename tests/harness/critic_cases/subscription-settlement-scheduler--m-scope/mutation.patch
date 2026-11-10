@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/base.py b/src/kaleta/seeders/base.py
+index 36f9d92f..a21857bd 100644
+--- a/src/kaleta/seeders/base.py
++++ b/src/kaleta/seeders/base.py
+@@ -11,6 +11,9 @@ button a user can press twice and one they cannot.
+ The generator is deterministic: same day, same dataset. That is what lets the
+ CLI and the Settings button be checked against each other instead of merely
+ described as equivalent.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

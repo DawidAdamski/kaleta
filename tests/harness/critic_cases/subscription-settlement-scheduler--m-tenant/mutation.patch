@@ -1,0 +1,13 @@
+diff --git a/src/kaleta/services/subscription_settlement_scheduler.py b/src/kaleta/services/subscription_settlement_scheduler.py
+index faf96739..09a3de5f 100644
+--- a/src/kaleta/services/subscription_settlement_scheduler.py
++++ b/src/kaleta/services/subscription_settlement_scheduler.py
+@@ -83,7 +83,7 @@ class SubscriptionSettlementScheduler:
+     @classmethod
+     async def _settle_current(cls, *, where: str = "") -> None:
+         try:
+-            async with AsyncSessionFactory() as session:
++            async with AsyncSessionFactory.public() as session:
+                 settled = await SubscriptionService(session).settle_due_cancellations()
+             if settled:
+                 logger.info("Settled %s due subscription cancellation(s)%s", settled, where)

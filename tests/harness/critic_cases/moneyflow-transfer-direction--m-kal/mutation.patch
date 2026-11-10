@@ -1,0 +1,50 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index fc0f495f..edaec90f 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3298,17 +3298,6 @@ Feature: Money Flow
+     And the transfer appears as a ribbon between the two account nodes
+     And income and expense totals ignore the transfer amounts
+ 
+-  KAL-FLW-005 @automated
+-  Scenario: Transfer ribbon follows the stored direction, not row order
+-    Given two imported rows are paired as a transfer of 300.00 from "Source" to "Destination"
+-    And the arriving row was recorded before the leaving row
+-    When I open the Money Flow report in Accounts view
+-    Then the ribbon runs from "Source" to "Destination"
+-    And no ribbon runs from "Destination" to "Source"
+-```
+-
+----
+-
+ # Workflow 7 — Platform
+ 
+ Cross-cutting guarantees: access control, data safety, automation.
+diff --git a/tests/integration/test_analysis_api.py b/tests/integration/test_analysis_api.py
+index 6b23a127..b65fbe96 100644
+--- a/tests/integration/test_analysis_api.py
++++ b/tests/integration/test_analysis_api.py
+@@ -275,8 +275,7 @@ async def test_reports_money_flow_shows_internal_transfers(api_client, db_engine
+ async def test_reports_money_flow_transfer_ribbon_follows_stored_direction(
+     api_client, db_engine
+ ) -> None:
+-    """Covers: KAL-FLW-005
+-
++    """
+     A transfer pair formed after the fact (``pair_as_transfer`` / import
+     "accept") can have the *incoming* leg with the lower id. The ribbon must
+     follow the stored ``transfer_direction`` (OUT = source), not id order,
+diff --git a/tests/unit/services/test_money_flow_service.py b/tests/unit/services/test_money_flow_service.py
+index 1ee72329..40197b31 100644
+--- a/tests/unit/services/test_money_flow_service.py
++++ b/tests/unit/services/test_money_flow_service.py
+@@ -270,8 +270,7 @@ class TestMoneyFlowBuild:
+     async def test_transfer_ribbon_follows_stored_direction_not_id_order(
+         self, svc: MoneyFlowService, session: AsyncSession
+     ) -> None:
+-        """Covers: KAL-FLW-005
+-
++        """
+         A pair formed after the fact (``pair_as_transfer``) can have the
+         incoming leg with the lower id. The source→destination ribbon must
+         follow ``transfer_direction`` (OUT = source), not id order.

@@ -1,0 +1,30 @@
+diff --git a/src/kaleta/views/institution_avatar.py b/src/kaleta/views/institution_avatar.py
+index 126e24d6..b866a0f3 100644
+--- a/src/kaleta/views/institution_avatar.py
++++ b/src/kaleta/views/institution_avatar.py
+@@ -11,6 +11,25 @@ from kaleta.schemas.institution import InstitutionResponse
+ _DEFAULT_COLOR = "var(--k-muted)"
+ 
+ 
++async def _period_spend_total(session: "AsyncSession", account_id: int) -> "Decimal":
++    """Outflows of the current month for this page's header."""
++    import datetime
++    from decimal import Decimal
++
++    from sqlalchemy import func, select
++
++    from kaleta.models.transaction import Transaction
++
++    today = datetime.date.today()
++    stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
++        Transaction.account_id == account_id,
++        Transaction.amount < 0,
++        Transaction.date >= today.replace(day=1),
++    )
++    total = await session.scalar(stmt)
++    return Decimal(total or 0).quantize(Decimal("0.01"))
++
++
+ def logo_url(inst: InstitutionResponse) -> str:
+     """The serving-route URL for *inst*'s logo, stamped with ``updated_at`` so a
+     replaced logo busts the browser cache (the route ignores the query)."""

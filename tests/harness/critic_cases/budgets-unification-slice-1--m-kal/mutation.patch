@@ -1,0 +1,35 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 7b3870e9..a28c82f8 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -1962,16 +1962,6 @@ Feature: Annual Budget Planning
+     Then four cards above the table say planned, actual, remaining and used
+       And the Total row at the foot of the table says the same four figures
+ 
+-  KAL-BUD-018 @automated
+-  Scenario: Planning lives on the Budgets page, and the old route redirects there
+-    Given I am on the Budgets page
+-    Then a Plan tab sits beside Overview and Realization
+-    When I open the Plan tab
+-    Then I see the annual planning grid with a row per category
+-    When I visit the old /budget-plan address
+-    Then I land on the Budgets page with the Plan tab already open
+-```
+-
+ ## Feature: Budget Planning Comparisons
+ 
+ Planning next month should lean on evidence: last month's actuals and
+diff --git a/tests/e2e/test_budget_plan.py b/tests/e2e/test_budget_plan.py
+index 6674c3c4..465c574e 100644
+--- a/tests/e2e/test_budget_plan.py
++++ b/tests/e2e/test_budget_plan.py
+@@ -240,8 +240,7 @@ def test_the_grid_tints_the_current_month(page: Page, base_url: str) -> None:
+ 
+ 
+ def test_plan_tab_on_budgets_page_and_old_route_redirects(page: Page, base_url: str) -> None:
+-    """Covers: KAL-BUD-018
+-
++    """
+     The planning grid moved onto the Budgets page as a Plan tab beside Overview
+     and Realization; the historical /budget-plan address redirects onto it.
+     """

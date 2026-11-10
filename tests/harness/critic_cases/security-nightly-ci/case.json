@@ -1,0 +1,18 @@
+{
+  "id": "security-nightly-ci",
+  "plan_id": "security-nightly-ci",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 318,
+  "base": "f9ec54e1584ca7fb403c141e136619d2cb8398c5",
+  "head": "a39b390fbc73bbd3ac98644852a3b5063a300417",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no Python source changed",
+  "note": ""
+}

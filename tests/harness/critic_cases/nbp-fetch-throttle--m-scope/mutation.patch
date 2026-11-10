@@ -1,0 +1,15 @@
+diff --git a/src/kaleta/observability/version.py b/src/kaleta/observability/version.py
+index 92f1da1d..5ff87a99 100644
+--- a/src/kaleta/observability/version.py
++++ b/src/kaleta/observability/version.py
+@@ -1,5 +1,9 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+-"""The version string that goes on every event, report and log line."""
++"""The version string that goes on every event, report and log line.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
++"""
+ 
+ from __future__ import annotations
+ 

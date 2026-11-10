@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/schemas/category_template.py b/src/kaleta/schemas/category_template.py
+index 0151f0db..711384b3 100644
+--- a/src/kaleta/schemas/category_template.py
++++ b/src/kaleta/schemas/category_template.py
+@@ -5,6 +5,9 @@ set of categories to merge into the tree (``category-templates``).
+ The catalogue is data (TOML under ``kaleta/data/category_templates``), validated
+ by these schemas. Each template carries both Polish and English names; the caller
+ picks the language, the way the Subscriptions tree does.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

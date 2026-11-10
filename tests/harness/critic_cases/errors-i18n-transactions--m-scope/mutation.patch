@@ -1,0 +1,15 @@
+diff --git a/src/kaleta/schemas/irregular_item.py b/src/kaleta/schemas/irregular_item.py
+index 7488430b..63b7937c 100644
+--- a/src/kaleta/schemas/irregular_item.py
++++ b/src/kaleta/schemas/irregular_item.py
+@@ -1,5 +1,9 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+-"""The irregular-expenses fund's items and its funding plan (``funds-irregular-items``)."""
++"""The irregular-expenses fund's items and its funding plan (``funds-irregular-items``).
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
++"""
+ 
+ from __future__ import annotations
+ 

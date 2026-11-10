@@ -1,0 +1,20 @@
+{
+  "id": "api-tenant-isolation-guard--m-scope",
+  "plan_id": "api-tenant-isolation-guard",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 297,
+  "base": "5e7518f730572817440aaf19a54f5610caceb32f",
+  "head": "fef3be4eea633771fa373ca524e0b4c9290f8b62",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no Python source changed",
+  "note": "docstring of src/kaleta/seeders/subscriptions.py rewritten"
+}

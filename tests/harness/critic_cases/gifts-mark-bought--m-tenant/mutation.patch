@@ -1,0 +1,21 @@
+diff --git a/src/kaleta/views/gifts.py b/src/kaleta/views/gifts.py
+index bfb253d6..7efaba20 100644
+--- a/src/kaleta/views/gifts.py
++++ b/src/kaleta/views/gifts.py
+@@ -7,6 +7,7 @@ from typing import Any
+ from nicegui import ui
+ from pydantic import ValidationError
+ 
++from kaleta.services.session import with_public_session
+ from kaleta.exceptions import KaletaError
+ from kaleta.i18n import t
+ from kaleta.schemas.gift import GiftCreate, GiftResponse, GiftsSummary, GiftUpdate
+@@ -40,7 +41,7 @@ def register() -> None:
+             ]
+             return summary, options
+ 
+-        summary, buyable = await with_session(_load)
++        summary, buyable = await with_public_session(_load)
+ 
+         with page_layout(t("gifts.title"), wide=True):
+             # ── Header ───────────────────────────────────────────────────

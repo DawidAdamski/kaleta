@@ -1,0 +1,14 @@
+diff --git a/docs/plans/rules-category-picker-hierarchy.md b/docs/plans/rules-category-picker-hierarchy.md
+index 695d20bd..e33d9be6 100644
+--- a/docs/plans/rules-category-picker-hierarchy.md
++++ b/docs/plans/rules-category-picker-hierarchy.md
+@@ -53,6 +53,9 @@ selectable, which matches today's behaviour; only the *labels* change.
+ - `./scripts/verify.sh --e2e` green (view changed → e2e mandatory, rule 8).
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_rules_category_picker_hierarchy_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - Reused `CategoryService.build_option_labels` verbatim — no new service code.
+   Confirmed Reports (`views/reports/page.py`) already consumes it, so the label
+   convention ("Root → Child", U+2192) is app-wide, not a one-off.

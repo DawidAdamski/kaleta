@@ -1,0 +1,14 @@
+diff --git a/docs/plans/timestamptz-audit-loan.md b/docs/plans/timestamptz-audit-loan.md
+index 1a05f6b7..271ccde3 100644
+--- a/docs/plans/timestamptz-audit-loan.md
++++ b/docs/plans/timestamptz-audit-loan.md
+@@ -59,6 +59,9 @@ Explicitly NOT in scope:
+ - `tests/integration/test_timestamptz_audit_loan.py` — covering test.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_timestamptz_audit_loan_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Non-shifting.** `audit_log.timestamp` is written by `func.now()` under a
+   UTC session; `settled_at` was written as naive UTC. `AT TIME ZONE 'UTC'`
+   therefore names the same instant each way, independent of the session

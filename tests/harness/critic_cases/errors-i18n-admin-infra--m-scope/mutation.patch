@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/schemas/wizard_actions.py b/src/kaleta/schemas/wizard_actions.py
+index 4f9b08f1..0f19e2cc 100644
+--- a/src/kaleta/schemas/wizard_actions.py
++++ b/src/kaleta/schemas/wizard_actions.py
+@@ -5,6 +5,9 @@ Items carry i18n *keys* plus interpolation ``params`` rather than rendered
+ strings: the services layer never imports ``kaleta.i18n`` (see
+ ``WizardMentorService.MentorSuggestion`` for the same shape), so the widget
+ does the translating.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

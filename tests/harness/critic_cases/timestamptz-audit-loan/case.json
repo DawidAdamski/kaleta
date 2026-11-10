@@ -1,0 +1,23 @@
+{
+  "id": "timestamptz-audit-loan",
+  "plan_id": "timestamptz-audit-loan",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 373,
+  "base": "c51418d47120ee40d9da4b9851c2c57b7aab8090",
+  "head": "f75d42e27b2a89ed806be98f4e7cf2070eb4eb95",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-MIGRATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": ""
+}

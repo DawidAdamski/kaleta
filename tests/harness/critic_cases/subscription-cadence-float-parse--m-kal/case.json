@@ -1,0 +1,24 @@
+{
+  "id": "subscription-cadence-float-parse--m-kal",
+  "plan_id": "subscription-cadence-float-parse",
+  "kind": "mutant",
+  "operator": "M-KAL",
+  "target": "Q-KAL-SCENARIO",
+  "pr": 402,
+  "base": "172b23f28e63efa81ebb1d37211be6f0950ca3a9",
+  "head": "462a671ee0b3de730a4cb8b3ee50bd71db3e23e0",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "yes",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "KAL-SUB-011 removed from docs/bdd.md and Covers:"
+}

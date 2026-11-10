@@ -1,0 +1,14 @@
+diff --git a/docs/plans/errors-i18n-encryption.md b/docs/plans/errors-i18n-encryption.md
+index 62981ba8..46ea9a59 100644
+--- a/docs/plans/errors-i18n-encryption.md
++++ b/docs/plans/errors-i18n-encryption.md
+@@ -71,6 +71,9 @@ Does NOT cover:
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_errors_i18n_encryption_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ ### Slice boundary
+ Covers the two encryption/identity services only. `chores.md` follow-up line
+ stays unticked. No view file is touched.

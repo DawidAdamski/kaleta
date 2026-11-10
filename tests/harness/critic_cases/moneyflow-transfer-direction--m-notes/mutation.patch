@@ -1,0 +1,14 @@
+diff --git a/docs/plans/moneyflow-transfer-direction.md b/docs/plans/moneyflow-transfer-direction.md
+index 03e9d2d6..452ecd5e 100644
+--- a/docs/plans/moneyflow-transfer-direction.md
++++ b/docs/plans/moneyflow-transfer-direction.md
+@@ -49,6 +49,9 @@ direction is now stored on the row (`Transaction.transfer_direction`,
+ - Legacy / NULL `transfer_direction` rows — see Implementation notes.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_moneyflow_transfer_direction_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **NULL-direction fallback.** Migration
+   `c4d5e6f7a8b9_ledger_derived_account_balances` backfilled every existing
+   paired leg with the *same* id-order rule

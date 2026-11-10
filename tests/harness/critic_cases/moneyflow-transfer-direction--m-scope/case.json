@@ -1,0 +1,22 @@
+{
+  "id": "moneyflow-transfer-direction--m-scope",
+  "plan_id": "moneyflow-transfer-direction",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 332,
+  "base": "3cc67c0b8ed2f3c5698b5d0e4685fd0954471a16",
+  "head": "c631f3755e5cc6bf123999546a4b1cb3a44606eb",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "docstring of src/kaleta/core/weeks.py rewritten"
+}

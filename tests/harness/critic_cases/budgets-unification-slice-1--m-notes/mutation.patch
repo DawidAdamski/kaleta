@@ -1,0 +1,14 @@
+diff --git a/docs/plans/budgets-unification-slice-1.md b/docs/plans/budgets-unification-slice-1.md
+index f9b49fb7..daeb70fa 100644
+--- a/docs/plans/budgets-unification-slice-1.md
++++ b/docs/plans/budgets-unification-slice-1.md
+@@ -109,6 +109,9 @@ Resolved from the umbrella draft for this slice:
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_budgets_unification_slice_1_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - **Panel extraction.** `budget_plan_page()` split cleanly: its body (state dict,
+   `EditDialogs`, `build_plan_grid`, `render_toolbar`, `await plan_grid()`) is
+   content-only, so it moved verbatim into `render_plan_panel()` in a new

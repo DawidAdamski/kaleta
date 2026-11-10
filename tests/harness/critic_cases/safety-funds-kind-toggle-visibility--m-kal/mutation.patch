@@ -1,0 +1,34 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 622cdd01..001512a6 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -2687,15 +2687,6 @@ Feature: Reserve Funds
+     When I open the dashboard
+     Then I see a warning that the reserve is below target
+ 
+-  KAL-FND-004 @automated
+-  Scenario: Switching the fund type back to Emergency restores its fields
+-    Given the New reserve fund dialog is open on the Emergency type
+-    When I switch the fund type to Irregular and back to Emergency
+-    Then the "months of coverage" input and the derive-target switch are shown again
+-```
+-
+----
+-
+ # Workflow 6 — Insight
+ 
+ Why the data is collected at all: seeing where the money stands and where it is heading.
+diff --git a/tests/e2e/test_reserve_funds.py b/tests/e2e/test_reserve_funds.py
+index 311f84df..6eadedd4 100644
+--- a/tests/e2e/test_reserve_funds.py
++++ b/tests/e2e/test_reserve_funds.py
+@@ -30,8 +30,7 @@ def _select_fund_type(page: Page, dialog: Locator, option: str) -> None:
+ def test_switching_fund_type_back_to_emergency_restores_its_fields(
+     page: Page, base_url: str
+ ) -> None:
+-    """Covers: KAL-FND-004
+-
++    """
+     The Emergency fund type shows "Cover [N] months of expenses" and the
+     "Derive target from my spending" switch. Switching the fund type away hides
+     them; switching back to Emergency must bring them back (dogfooding #20 — it

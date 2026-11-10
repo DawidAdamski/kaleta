@@ -1,0 +1,22 @@
+{
+  "id": "errors-i18n-household--m-kal",
+  "plan_id": "errors-i18n-household",
+  "kind": "mutant",
+  "operator": "M-KAL",
+  "target": "Q-KAL-SCENARIO",
+  "pr": 361,
+  "base": "57222705ffde892cf7d3849a77533232232aa75f",
+  "head": "6ae855591be73c62ce918f10df4ada3a99319e78",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "yes",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "KAL-ERR-006 removed from docs/bdd.md and Covers:"
+}

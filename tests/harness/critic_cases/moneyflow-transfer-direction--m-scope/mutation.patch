@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/core/weeks.py b/src/kaleta/core/weeks.py
+index e385221e..9588ce36 100644
+--- a/src/kaleta/core/weeks.py
++++ b/src/kaleta/core/weeks.py
+@@ -15,6 +15,9 @@ about: a Monday-to-Sunday week is seven days wide wherever it is read, and
+ trimming it would make the subtotal under it disagree with its own heading.
+ The month-relative buckets are clipped, because being inside one month is
+ what defines them.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

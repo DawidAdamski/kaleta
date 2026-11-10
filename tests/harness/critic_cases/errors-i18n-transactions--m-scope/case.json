@@ -1,0 +1,22 @@
+{
+  "id": "errors-i18n-transactions--m-scope",
+  "plan_id": "errors-i18n-transactions",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 356,
+  "base": "13462474d5dc5ae04ff92afe9216056b0c94be11",
+  "head": "4c9f4685250427700b3d9a0286a98c4dc5eb0cb0",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "docstring of src/kaleta/schemas/irregular_item.py rewritten"
+}

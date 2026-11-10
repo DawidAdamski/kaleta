@@ -1,0 +1,13 @@
+diff --git a/src/kaleta/api/v1/health.py b/src/kaleta/api/v1/health.py
+index b3548b45..084906aa 100644
+--- a/src/kaleta/api/v1/health.py
++++ b/src/kaleta/api/v1/health.py
+@@ -92,7 +92,7 @@ async def _bearer_audience(token: str) -> HealthAudience:
+         return "public"
+     # Bind the token's family so its ApiToken row can be looked up in that schema.
+     set_tenant(TenantContext(tenant_id=tenant.id, schema=tenant.schema_name))
+-    async with AsyncSessionFactory() as session:
++    async with AsyncSessionFactory.public() as session:
+         user_id = await ApiTokenService(session).authenticate_bearer(token)
+     return "family" if user_id is not None else "public"
+ 

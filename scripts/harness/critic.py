@@ -11,7 +11,11 @@ the new side of the diff, and this script checks that evidence
 deterministically. ``p_violation`` is the share of valid samples that found
 the problem. There is no verdict: ``scripts/harness/gate.py`` decides.
 
-    critic.py [plan_id] [--samples N] [--dry-run]
+    critic.py [plan_id] [--samples N] [--dry-run] [--base REV]
+
+``--base`` replaces the merge-base with ``main`` as the change's base: the
+calibration runner (``calibrate_critic.py``) replays old cases whose base is
+not ``main``'s merge-base. The gate never passes it.
 
 Env:
     KALETA_CRITIC_SAMPLES       k (default: profile, else 3)
@@ -540,12 +544,14 @@ def aggregate(
 
 # ── profile: how many samples, and whether another model family must be one ──
 def profile_settings(
-    root: Path, paths: list[str], plan_text: str
+    root: Path, paths: list[str], plan_text: str, base: str | None = None
 ) -> tuple[str | None, int | None, bool]:
     """(risk class, samples, cross_family_required) from the owner's profile, if it is usable."""
     try:
         maintainer = os.environ.get("KALETA_HARNESS_MAINTAINER") == "1"
-        profile = judge.load_profile(root, base=None if maintainer else gitutil.merge_base("main"))
+        profile = judge.load_profile(
+            root, base=None if maintainer else (base or gitutil.merge_base("main"))
+        )
     except judge.ProfileError:
         return None, None, False
     meta = plan_meta(plan_text)
@@ -562,7 +568,7 @@ def profile_settings(
 
 
 # ── main ─────────────────────────────────────────────────────────────────
-def run(plan_id: str, samples: int | None, dry: bool) -> int:
+def run(plan_id: str, samples: int | None, dry: bool, base_rev: str | None = None) -> int:
     root = gitutil.toplevel()
     os.chdir(root)
     STATE.mkdir(parents=True, exist_ok=True)
@@ -570,7 +576,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
     if not plan.exists():
         print(f"critic: {plan} not found", file=sys.stderr)
         return 1
-    base = gitutil.merge_base("main")
+    base = base_rev or gitutil.merge_base("main")
     if not gitutil.diff_text(base).strip():
         print(f"critic: no diff against {base} — nothing to review", file=sys.stderr)
         return 1
@@ -579,7 +585,7 @@ def run(plan_id: str, samples: int | None, dry: bool) -> int:
     questions = applicable(load_questions(root), paths)
 
     risk_class, prof_samples, cross_required = profile_settings(
-        root, paths, plan.read_text(encoding="utf-8")
+        root, paths, plan.read_text(encoding="utf-8"), base if base_rev else None
     )
     k = samples or int(os.environ.get("KALETA_CRITIC_SAMPLES") or prof_samples or DEFAULT_SAMPLES)
     if prof_samples and k < prof_samples:
@@ -733,6 +739,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("plan_id", nargs="?")
     ap.add_argument("--samples", type=int)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--base", help="the change's base (calibration only; default: merge-base main)")
     args = ap.parse_args(argv)
     plan_id = args.plan_id
     if not plan_id:
@@ -744,7 +751,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
-    return run(plan_id, args.samples, args.dry_run)
+    return run(plan_id, args.samples, args.dry_run, args.base)
 
 
 if __name__ == "__main__":

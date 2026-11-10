@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/observability/ring_buffer.py b/src/kaleta/observability/ring_buffer.py
+index d29d3591..16d105b8 100644
+--- a/src/kaleta/observability/ring_buffer.py
++++ b/src/kaleta/observability/ring_buffer.py
+@@ -4,6 +4,9 @@
+ Nothing here is persisted: the deque lives with the process and is dropped
+ when the session disconnects, so a user who never files a report leaves no
+ trace behind.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

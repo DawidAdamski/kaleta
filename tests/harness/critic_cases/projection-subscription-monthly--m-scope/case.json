@@ -1,0 +1,22 @@
+{
+  "id": "projection-subscription-monthly--m-scope",
+  "plan_id": "projection-subscription-monthly",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 292,
+  "base": "6b9e6b87493a1bf0b9b517752d15116ed7601963",
+  "head": "9b2907cb89e83a12bdd18fc02832b448fd50bdbd",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "docstring of src/kaleta/observability/version.py rewritten"
+}

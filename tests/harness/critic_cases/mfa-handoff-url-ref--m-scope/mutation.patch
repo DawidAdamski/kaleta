@@ -1,0 +1,15 @@
+diff --git a/src/kaleta/seeders/gifts.py b/src/kaleta/seeders/gifts.py
+index 211c5316..10a1256f 100644
+--- a/src/kaleta/seeders/gifts.py
++++ b/src/kaleta/seeders/gifts.py
+@@ -1,5 +1,9 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+-"""A handful of gifts a household plans across the year."""
++"""A handful of gifts a household plans across the year.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
++"""
+ 
+ from __future__ import annotations
+ 

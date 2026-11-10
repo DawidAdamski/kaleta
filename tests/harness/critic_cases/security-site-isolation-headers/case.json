@@ -1,0 +1,20 @@
+{
+  "id": "security-site-isolation-headers",
+  "plan_id": "security-site-isolation-headers",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 320,
+  "base": "85f791b3970751807f3615b6ad1cd7e0da980120",
+  "head": "4416ff0eb2d47a59a3ccfc545fce99a720193eae",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": ""
+}

@@ -1,0 +1,63 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 7a2de1d2..8c67ef15 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -4980,16 +4980,6 @@ Feature: Currency rates — NBP Table A
+     And the rate history for EUR→PLN is 4.100000, 4.300000, 4.280000
+     And the rate list marks the NBP rows as the instance's, which no family can delete
+ 
+-  KAL-FXR-005 @automated
+-  Scenario: The manual NBP fetch is throttled per instance after a success
+-    Given the manual NBP fetch succeeded just now for the instance
+-    When a user presses "Fetch NBP rates" again within 15 minutes
+-    Then no request is made to NBP
+-    And the user is told the next refresh is available in about 15 minutes
+-    When 15 minutes have passed
+-    Then pressing "Fetch NBP rates" fetches from NBP again
+-```
+-
+ ## Feature: Housekeeping — Duplicate transactions
+ 
+ Two bank exports of the same month, or a re-import, leave the ledger with
+diff --git a/tests/integration/test_nbp_fetch_throttle.py b/tests/integration/test_nbp_fetch_throttle.py
+index 33977e24..1e345c32 100644
+--- a/tests/integration/test_nbp_fetch_throttle.py
++++ b/tests/integration/test_nbp_fetch_throttle.py
+@@ -9,7 +9,6 @@ retryable. The store is built the way the app builds it at import —
+ ``default_store`` with ``KALETA_REDIS_URL`` set — so the Redis path runs on the
+ CI ``valkey`` job and an in-process fakeredis server otherwise.
+ 
+-Covers: KAL-FXR-005
+ """
+ 
+ from __future__ import annotations
+@@ -60,8 +59,7 @@ def _throttle(namespace: str) -> SendThrottle:
+ 
+ 
+ def test_a_success_blocks_the_next_fetch_for_fifteen_minutes(namespace: str) -> None:
+-    """Covers: KAL-FXR-005
+-
++    """
+     After a successful fetch the button marks the throttle; a second press
+     within 15 minutes is refused, with the full window remaining, so no HTTP
+     request to NBP is made.
+@@ -80,8 +78,7 @@ def test_a_success_blocks_the_next_fetch_for_fifteen_minutes(namespace: str) ->
+ 
+ 
+ def test_the_interval_frees_up_after_fifteen_minutes(namespace: str) -> None:
+-    """Covers: KAL-FXR-005
+-
++    """
+     Once 15 minutes have passed the throttle is clear, so the button fetches
+     from NBP again.
+     """
+@@ -94,8 +91,7 @@ def test_the_interval_frees_up_after_fifteen_minutes(namespace: str) -> None:
+ 
+ 
+ def test_reading_the_throttle_does_not_start_it(namespace: str) -> None:
+-    """Covers: KAL-FXR-005
+-
++    """
+     A failed fetch never calls ``mark``; the read alone must not lock the
+     button, or a transient network blip would block a legitimate retry.
+     """

@@ -248,6 +248,81 @@ report in `[calibration] report` was made for the current critic hash and
 its miss rate's upper bound is at or below `miss_rate_target` (plan
 `critic-calibration-set`). Until then nothing is freer than B.
 
+## Calibrating the critic
+
+A threshold means something only when the probability under it is honest.
+The calibration set measures the critic on Kaleta's own history; the report
+is what lets a question leave the B cap. It costs real money and never runs
+in `verify.sh` or on a PR.
+
+**1. Build the cases** (git only, free):
+
+```bash
+uv run python scripts/harness/seed_defects.py --dry-run --max-plans 30   # what it would build
+uv run python scripts/harness/seed_defects.py --max-plans 30             # write them
+```
+
+- A *clean case* is a merged plan PR replayed as `git diff <merge-base> <PR head>`,
+  kept only when no `fix…` commit touched the PR's Python sources within 30
+  days. That label is a heuristic: a false alarm on a clean case may be a real
+  finding. The number to trust is the miss rate on seeded defects.
+- A *mutant* applies one operator to a clean case, so exactly one fact changes:
+  `M-SCOPE` (drive-by docstring edit in an untouched module), `M-SERVICE-TEST`
+  (the tests of a new service function deleted), `M-VIEW-LOGIC` (a query and
+  money arithmetic written into a changed view), `M-TENANT` (a new family
+  session swapped for the registry's), `M-KAL` (the new scenario and its
+  `Covers:` removed), `M-NOTES` (notes claim a test that is not there),
+  `M-MIGRATION` (the migration of a model change deleted). The mutated
+  question's gold answer is `yes`; the rest copy the clean case.
+- A plan and all its variants share one split (70% `calib`, 30% `test`, by
+  the plan id). `docs/harness/calibration/test-split.sha256` pins the test
+  split; the runner refuses a test split that does not match it.
+- Cases live in `tests/harness/critic_cases/` (protected — the implementer
+  must not edit the exam). Questions without an operator (`Q-AUTH-SURFACE`,
+  `Q-REGRESSION-TEST`, `Q-SECRET-DATA`) stay uncalibrated, so changes that hit
+  them stay capped.
+
+**2. Run the calib split and tune thresholds** (real model, k from the profile):
+
+```bash
+uv run python scripts/harness/calibrate_critic.py --split calib --dry-run --budget-usd 50
+uv run python scripts/harness/calibrate_critic.py --split calib --budget-usd 50
+```
+
+Each case is replayed in a temporary worktree: its base, today's critic
+questions, profile and hooks laid over it as one commit, the PR's diff and
+the mutation on top; `critic.py --base` answers as the gate would. Results
+append to `docs/harness/calibration/<split>.cases.jsonl` and a later run
+resumes from them; the run stops before a case would cross `--budget-usd`.
+The report — `<critic_hash>-<split>.json` and `.md` — gives per question the
+miss rate (a violation with p under `uncertain`: it passes unseen), the
+false-alarm rate (a clean answer at or above `block`), accuracy, Brier, a
+reliability table at the levels k samples reach and ECE, the counterfactual
+flip rate and the invalid-evidence rate, every rate with a 95% Wilson
+interval. A high-risk case gets a local-model sample (the profile requires
+one), which changes the critic hash, so a run can write two reports — one
+per hash. `--cross` puts a local sample on every case.
+
+Change `[thresholds]` from the calib report only.
+
+**3. Run the test split once**, after the thresholds are final:
+
+```bash
+uv run python scripts/harness/calibrate_critic.py --split test --budget-usd 50
+```
+
+A complete test-split report is final for its critic hash: a second run needs
+`--force --reason "<text>"`, and the reason goes into the report and
+`docs/harness/calibration/forced-runs.log`. Changing a question, a prompt or
+the model changes the hash, and the old report stops counting.
+
+**4. Sign the profile.** Point `[calibration] report` at the test report (or a
+list of them, one per critic hash), bump `version` and `signed`. The gate
+counts a report only when it is the test split, complete, and made for the
+hash of the critic that just reviewed the change. A calibrated question no
+longer caps the mode at `uncalibrated_cap`; auto-merge stays the owner's
+`allow_auto_merge`.
+
 ## Run log
 
 Every gate run and every review run appends one record to
