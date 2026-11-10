@@ -16,6 +16,7 @@ from kaleta.api.v1.reports import router as reports_router
 from kaleta.api.v1.reserve_funds import router as reserve_funds_router
 from kaleta.api.v1.subscriptions import router as subscriptions_router
 from kaleta.api.v1.transactions import router as transactions_router
+from kaleta.api.v1.transfer_pairs import router as transfer_pairs_router
 
 v1_router = APIRouter(prefix="/v1", dependencies=[Depends(require_api_auth)])
 v1_router.include_router(accounts_router)
@@ -25,6 +26,7 @@ v1_router.include_router(categories_router)
 v1_router.include_router(import_rules_router)
 v1_router.include_router(imports_router)
 v1_router.include_router(transactions_router)
+v1_router.include_router(transfer_pairs_router)
 v1_router.include_router(budgets_router)
 v1_router.include_router(payees_router)
 v1_router.include_router(subscriptions_router)
