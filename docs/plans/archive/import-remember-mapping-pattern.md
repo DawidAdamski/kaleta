@@ -3,8 +3,9 @@ plan_id: import-remember-mapping-pattern
 title: "Remember this mapping" must not suggest a pattern that matches every account
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-10
+roadmap_ref: ../../roadmap.md
 ---
 
 # "Remember this mapping" must not suggest a pattern that matches every account
@@ -131,3 +132,31 @@ not match the statement regex and keep today's behaviour (`dawid*_000101_261013.
   number. On `main`'s `src/` the e2e test fails: the box is ticked.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-10 (PR #408).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `324c7788` | Dawid Adamski | 2026-11-10 | Merge pull request #408 from DawidAdamski/plan/import-remember-mapping-pattern |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-remember-mapping-pattern.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_rule_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/page.py
+- tests/e2e/fixtures/import/44440393_261011_261109.csv
+- tests/e2e/test_import_remember_default.py
+- tests/unit/services/test_import_rule_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Still @planned in docs/bdd.md: KAL-CSV-016 — retag before or after archiving.
