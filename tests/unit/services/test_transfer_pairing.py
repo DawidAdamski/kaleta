@@ -367,6 +367,8 @@ class TestTransactionServicePairing:
 
 
 class TestUpdateLinksBothSides:
+    """``TransactionService.update`` → ``_apply_link_update`` / ``_link_by_update``."""
+
     async def test_linked_row_turned_into_transfer_writes_its_partner(
         self, ledger: _Ledger
     ) -> None:
@@ -393,12 +395,27 @@ class TestUpdateLinksBothSides:
             await ledger.svc.update(inc, TransactionUpdate(type=TransactionType.TRANSFER))
 
     async def test_link_moved_to_another_account_reads_that_currency(self, ledger: _Ledger) -> None:
+        """``_link_by_update`` re-reads the account when the same PUT moves the row.
+
+        Without the re-read the check would compare PKO (PLN) with mBank (PLN)
+        and pass; the row is really going to the EUR account.
+        """
         out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
         inc = await ledger.row(ledger.pko, TransactionType.INCOME)
         with pytest.raises(ValidationError, match="currencies"):
             await ledger.svc.update(
                 inc, TransactionUpdate(account_id=ledger.wise_eur, linked_transaction_id=out)
             )
+
+    async def test_link_moved_to_a_missing_account_is_not_found(self, ledger: _Ledger) -> None:
+        """``_link_by_update``: the new account is gone → ``account_not_found``."""
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
+        inc = await ledger.row(ledger.pko, TransactionType.INCOME)
+        with pytest.raises(NotFoundError) as caught:
+            await ledger.svc.update(
+                inc, TransactionUpdate(account_id=999_999, linked_transaction_id=out)
+            )
+        assert caught.value.message_key == "errors.transaction.account_not_found"
 
 
 class TestTransferReviewWindow:

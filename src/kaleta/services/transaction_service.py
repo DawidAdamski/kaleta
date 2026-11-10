@@ -917,6 +917,14 @@ class TransactionService:
             partner.linked_transaction_id = None
 
     async def _link_by_update(self, transaction: Transaction, partner_id: int) -> None:
+        # The row already carries the update's fields; a lookup below must not
+        # flush them first (a missing account would surface as a foreign-key
+        # error instead of ``account_not_found``). Nothing is written until the
+        # checks pass.
+        with self.session.no_autoflush:
+            await self._check_and_link(transaction, partner_id)
+
+    async def _check_and_link(self, transaction: Transaction, partner_id: int) -> None:
         if partner_id == transaction.id:
             raise ValidationError(
                 "A transfer needs two different transactions.",

@@ -152,6 +152,13 @@ None blocking.
   - a PUT that moves the row to another account *and* links it reads the new
     account's currency (`errors.transaction.account_not_found`, new i18n key in
     `en.json`/`pl.json`, if that account is gone).
+- **No autoflush while checking a PUT link.** The checks run with the update's
+  fields already on the row, and the partner lookup used to autoflush them: a
+  PUT moving the row to a missing account *and* linking it surfaced as a
+  foreign-key error (a `500`) instead of `account_not_found`.
+  `_link_by_update` now runs its lookups under `session.no_autoflush`; found by
+  `test_link_moved_to_a_missing_account_is_not_found`, added after the critic
+  noted the branch had no test.
 - **Endpoints.** `GET /suggestions` refuses `date_to < date_from` as well as a
   span over 92 days (both `422`, raised in the route: they are request-shape
   rules, not domain rules). `max_days_apart` is `1..14`, `amount_tolerance >= 0`.
