@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.9.0](https://github.com/DawidAdamski/kaleta/compare/v0.8.0...v0.9.0) (2026-11-10)
+
+
+### Features
+
+* **fidelity:** critic-written reports, a 4x4 tile difference, a stricter check ([8b7a12e](https://github.com/DawidAdamski/kaleta/commit/8b7a12e0a67d1fe520288198e323027545f16dfb))
+* **harness:** append-only, hash-chained run log (ADR-39 2/4) ([56eec6f](https://github.com/DawidAdamski/kaleta/commit/56eec6fd67afc627eca187e6b9ef228572938c55))
+* **harness:** append-only, hash-chained run log for gate and review runs ([9b62ffc](https://github.com/DawidAdamski/kaleta/commit/9b62ffc1adbfe7bf75ff262c3f81d479c67c701e))
+* **harness:** calibration case builder, runner and metrics ([e828316](https://github.com/DawidAdamski/kaleta/commit/e828316b736f0ce0f1e7100e3c99d9a6a0690534))
+* **harness:** critic ([4ec2a59](https://github.com/DawidAdamski/kaleta/commit/4ec2a591230575f44ed66f8d6a2d03e907a041db))
+* **harness:** critic --base; the gate counts only a complete test-split report ([30b4909](https://github.com/DawidAdamski/kaleta/commit/30b49090b6b7aca4099f28ad0f5f6f38bf7f891b))
+* **harness:** critic answers narrow questions with checked evidence, no verdict ([f80bc4e](https://github.com/DawidAdamski/kaleta/commit/f80bc4e643e007b9abc8c7e10049ff27894cdc5e))
+* **harness:** critic answers narrow questions with checked evidence, no verdict (ADR-39 3/4) ([a510a43](https://github.com/DawidAdamski/kaleta/commit/a510a4366efceb910cea9c394c4324848810e174))
+* **harness:** cross-family critic sample from a local model, not Cursor ([c237876](https://github.com/DawidAdamski/kaleta/commit/c237876f655c8fcccb76bf7254a99e07c94b961b))
+* **harness:** deterministic judge over an owner-signed profile, autonomy per change ([6f23560](https://github.com/DawidAdamski/kaleta/commit/6f23560ef2b64710cdc737127c6b758101e7243f))
+* **harness:** deterministic judge over an owner-signed profile, autonomy per change (ADR-39 4/4) ([7253885](https://github.com/DawidAdamski/kaleta/commit/72538857fd5eac871974480ba621609cc6ced5e9))
+* **harness:** maintainer mode, one protected-paths list, terminal exhaustion ([576d428](https://github.com/DawidAdamski/kaleta/commit/576d428e5c509c3db64708cad6e93fdb16f6ea41))
+* **harness:** maintainer mode, one protected-paths list, terminal exhaustion (ADR-39 1/4) ([1562b92](https://github.com/DawidAdamski/kaleta/commit/1562b923c5a471663f4f2da0c6e65b9189915990))
+
+
+### Bug Fixes
+
+* **docs:** unbreak Deploy Pages by linking out-of-tree SQL via GitHub URL ([e148209](https://github.com/DawidAdamski/kaleta/commit/e1482092ee38a7d82c3848f97da07f9532949af4))
+* **docs:** unbreak Deploy Pages by linking out-of-tree SQL via GitHub URL ([284e891](https://github.com/DawidAdamski/kaleta/commit/284e89195f4a848634bd7ee53edafab4145b9fee))
+* **fidelity:** grid the artboard's frame, not quarters of a full-page shot ([013feaf](https://github.com/DawidAdamski/kaleta/commit/013feafdc87f8ab3ff84f5a17e63bcee173e0273))
+* **fidelity:** shoot waits on /health, not the debug-only /api-docs ([b9ce8b3](https://github.com/DawidAdamski/kaleta/commit/b9ce8b3e6b24f91088e864eee0ad82071c6f1eae))
+* **harness:** a crashing gate ends the run (escalate), a broken run log is a veto ([3171b26](https://github.com/DawidAdamski/kaleta/commit/3171b26c8ee4c246e282c862497c02a19f44cdd0))
+* **harness:** canned critic answers outside the tests are a veto ([266f7f6](https://github.com/DawidAdamski/kaleta/commit/266f7f6358cd6883460644b0d431dff653e383f7))
+* **harness:** judge both paths of a moved file (--no-renames) ([9093ee5](https://github.com/DawidAdamski/kaleta/commit/9093ee5135b24988706f69ab268dec45e7107132))
+* **harness:** judge the content of untracked files, not only their names ([d59a41e](https://github.com/DawidAdamski/kaleta/commit/d59a41eeeec92c6cb9848ce77190ac684b34cf8b))
+* **harness:** non-UTF-8 bytes in the diff no longer crash the gate ([8602de1](https://github.com/DawidAdamski/kaleta/commit/8602de1f54ef0bf13961ae6b2e299d91d62af2ba))
+* **harness:** plan-file edits are not scope evidence; record who answered what ([6de5381](https://github.com/DawidAdamski/kaleta/commit/6de5381f0c4d63a8fa6e51e5715daa765ae2ccc9))
+* **harness:** removed lines of a deleted file keep their path ([c47d03b](https://github.com/DawidAdamski/kaleta/commit/c47d03bba6f7351f45c1edf86f20392e8f1e68d0))
+* **harness:** the critic's claude -p sessions no longer trigger the implementer's gate ([6600749](https://github.com/DawidAdamski/kaleta/commit/6600749bb03c14a7f1f7f77add6368596a915132))
+* **harness:** the implementer cannot lower the critic's sample count ([1efe1f9](https://github.com/DawidAdamski/kaleta/commit/1efe1f919151d7efbf0c8f3aba5ead97b906ff21))
+* **harness:** the Stop hook fails closed when the judge cannot even start ([f462f49](https://github.com/DawidAdamski/kaleta/commit/f462f49bced54e0d65fb78e0053cd99def8bfa74))
+* **import:** detect own-account transfers against stored account-number tails ([ae8990c](https://github.com/DawidAdamski/kaleta/commit/ae8990c35bcde12456521ad41243a6d783f77510))
+* **import:** mBank rows carry their final description from parse time ([e0aaa99](https://github.com/DawidAdamski/kaleta/commit/e0aaa9907e0dd796c0cf262c0aa0d64152088f5c))
+* **import:** mBank rows carry their final description from parse time ([1dd723b](https://github.com/DawidAdamski/kaleta/commit/1dd723b0d24b0a284145f800e6dbae442beb2f7a))
+* **import:** own-account transfers are detected against stored number tails ([bc8771c](https://github.com/DawidAdamski/kaleta/commit/bc8771cd2b2d2fe0f24046d0e924f5c5f14eec78))
+* **import:** remembered mappings keep account digits and never match every file ([324c778](https://github.com/DawidAdamski/kaleta/commit/324c778839531c0c113ba9a8b4993376381bf4ef))
+* **import:** remembered mappings keep account digits, never match everything ([e158ae9](https://github.com/DawidAdamski/kaleta/commit/e158ae91f9400ab7b16ae8a54b514e4dc1cb52cf))
+* **import:** warn before leaving /import with an unfinished queue ([f331aa7](https://github.com/DawidAdamski/kaleta/commit/f331aa79ba794ef32a1d1025a7dcab222e3ff07e))
+* **import:** warn before leaving /import with an unfinished queue ([139a589](https://github.com/DawidAdamski/kaleta/commit/139a58959522ef15db63a26da7cc52a6c005de56))
+* **institutions:** store logos in Postgres, not on the pod filesystem ([1080191](https://github.com/DawidAdamski/kaleta/commit/10801915cdbe3e2d73d3f6d5992f0f6863c283d8))
+* **institutions:** store logos in Postgres, not on the pod filesystem ([536293a](https://github.com/DawidAdamski/kaleta/commit/536293abb832be276eb3cb1691ee256c09934d65))
+* **subscriptions:** a changed cadence saves instead of failing on '365.0' ([21a883a](https://github.com/DawidAdamski/kaleta/commit/21a883ac69f0e5f4193f25451195743bb39c9d85))
+* **subscriptions:** a touched cadence field no longer fails to save ([f84b5ba](https://github.com/DawidAdamski/kaleta/commit/f84b5ba8d879dfaf236bd0458456e4bf818bccef))
+
 ## [0.8.0](https://github.com/DawidAdamski/kaleta/compare/v0.7.0...v0.8.0) (2026-10-24)
 
 
