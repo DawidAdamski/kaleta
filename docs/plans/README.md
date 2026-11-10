@@ -146,7 +146,7 @@ with `plan_runner.sh`.
 | 2 | [gate-audit-log](archive/gate-audit-log.md) | archived | medium | 1 |
 | 3 | [critic-narrow-questions](archive/critic-narrow-questions.md) | archived | medium | 2 |
 | 4 | [judge-profile-and-autonomy](archive/judge-profile-and-autonomy.md) | archived | large | 3 |
-| 5 | [critic-calibration-set](critic-calibration-set.md) | draft | large | 3, 4 |
+| 5 | [critic-calibration-set](archive/critic-calibration-set.md) | archived | large | 3, 4 |
 | 6 | [fidelity-independent-critic](archive/fidelity-independent-critic.md) | archived | medium | 1, 2 |
 | 7 | [review-canary](review-canary.md) | draft | medium | 5 |
 
