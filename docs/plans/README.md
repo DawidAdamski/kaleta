@@ -123,7 +123,7 @@ KAL-API-008–009.
 |---|---|---|---|---|
 | 1 | [import-mbank-transfer-account-suffix](archive/import-mbank-transfer-account-suffix.md) | archived | small | — |
 | 2 | [import-preview-final-description](archive/import-preview-final-description.md) | archived | small | — |
-| 3 | [import-remember-mapping-pattern](import-remember-mapping-pattern.md) | draft | small | — |
+| 3 | [import-remember-mapping-pattern](archive/import-remember-mapping-pattern.md) | archived | small | — |
 | 4 | [import-queue-survives-navigation](import-queue-survives-navigation.md) | draft | small | — |
 | 5 | [import-pipeline-service](import-pipeline-service.md) | draft | medium | 1, 2 |
 | 6 | [import-api-endpoint](import-api-endpoint.md) | draft | medium | 5 |
