@@ -1,0 +1,14 @@
+diff --git a/docs/plans/errors-i18n-message-keys.md b/docs/plans/errors-i18n-message-keys.md
+index 9e02e378..4dd09a6d 100644
+--- a/docs/plans/errors-i18n-message-keys.md
++++ b/docs/plans/errors-i18n-message-keys.md
+@@ -95,6 +95,9 @@ Does NOT cover:
+   plural handling until a message needs it.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_errors_i18n_message_keys_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - Keep `message` (English) as the stored/logged/`event_capture` string —
+   observability and the API already read it; only the *toast* localizes.
+ - The fallback path (no `message_key`) is what makes the migration

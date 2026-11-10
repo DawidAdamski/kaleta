@@ -1,0 +1,14 @@
+diff --git a/docs/plans/institution-logo-in-postgres.md b/docs/plans/institution-logo-in-postgres.md
+index 3daf3d05..6dd63f0a 100644
+--- a/docs/plans/institution-logo-in-postgres.md
++++ b/docs/plans/institution-logo-in-postgres.md
+@@ -98,6 +98,9 @@ Explicitly NOT in scope:
+ - `docs/bdd.md` — KAL-INS-010.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_institution_logo_in_postgres_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Why encrypt the bytes.** `institutions.name`, `website` and `description`
+   are `EncryptedText`. A plaintext logo would be a visual oracle for the
+   encrypted name (the mBank mark identifies the bank), so the image is

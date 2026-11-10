@@ -1,0 +1,24 @@
+{
+  "id": "subscription-cadence-float-parse--m-notes",
+  "plan_id": "subscription-cadence-float-parse",
+  "kind": "mutant",
+  "operator": "M-NOTES",
+  "target": "Q-NOTES-TRUTH",
+  "pr": 402,
+  "base": "172b23f28e63efa81ebb1d37211be6f0950ca3a9",
+  "head": "462a671ee0b3de730a4cb8b3ee50bd71db3e23e0",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "yes",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "notes claim tests/unit/test_subscription_cadence_float_parse_edge_cases.py"
+}

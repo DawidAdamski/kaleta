@@ -1,0 +1,14 @@
+diff --git a/docs/plans/import-queue-survives-navigation.md b/docs/plans/import-queue-survives-navigation.md
+index 8456ab17..6afa2451 100644
+--- a/docs/plans/import-queue-survives-navigation.md
++++ b/docs/plans/import-queue-survives-navigation.md
+@@ -78,6 +78,9 @@ Out of scope:
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_import_queue_survives_navigation_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - **Step 1 — trigger (reproduced with Playwright on a demo instance, 2 files
+   queued).** Browser back (`history.back()`) went to `/dashboard` with no
+   warning and the queue was gone; a sidebar click does the same. NiceGUI here

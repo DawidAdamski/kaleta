@@ -1,0 +1,25 @@
+{
+  "id": "institution-logo-in-postgres--m-kal",
+  "plan_id": "institution-logo-in-postgres",
+  "kind": "mutant",
+  "operator": "M-KAL",
+  "target": "Q-KAL-SCENARIO",
+  "pr": 376,
+  "base": "4d7d66c2f512ca78f9ba3ae5339ebbc2ff94db54",
+  "head": "536293abb832be276eb3cb1691ee256c09934d65",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-MIGRATION": "no",
+    "Q-KAL-SCENARIO": "yes",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "KAL-INS-010 removed from docs/bdd.md and Covers:"
+}

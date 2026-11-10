@@ -1,0 +1,23 @@
+{
+  "id": "rules-category-picker-hierarchy--m-notes",
+  "plan_id": "rules-category-picker-hierarchy",
+  "kind": "mutant",
+  "operator": "M-NOTES",
+  "target": "Q-NOTES-TRUTH",
+  "pr": 276,
+  "base": "b0995095b66396e347d535b1c575700fddb227ee",
+  "head": "bd04eb5dd0f6e94b67c8e0e9db17f875627da624",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "yes",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "notes claim tests/unit/test_rules_category_picker_hierarchy_edge_cases.py"
+}

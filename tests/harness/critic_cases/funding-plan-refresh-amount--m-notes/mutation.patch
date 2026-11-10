@@ -1,0 +1,14 @@
+diff --git a/docs/plans/funding-plan-refresh-amount.md b/docs/plans/funding-plan-refresh-amount.md
+index 8b50afd1..41211d6f 100644
+--- a/docs/plans/funding-plan-refresh-amount.md
++++ b/docs/plans/funding-plan-refresh-amount.md
+@@ -77,6 +77,9 @@ scenario literals (180.00 then 240.00).
+ - None blocking. Resolved in decisions below.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_funding_plan_refresh_amount_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Decision — refresh in place, don't error, when the amount changed.** The
+   chore offered two fixes (key the dedupe on the route, or update the existing
+   plan in place); this does both. Keying on the route is what makes "the same

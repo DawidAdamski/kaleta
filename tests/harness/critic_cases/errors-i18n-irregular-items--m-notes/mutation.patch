@@ -1,0 +1,14 @@
+diff --git a/docs/plans/errors-i18n-irregular-items.md b/docs/plans/errors-i18n-irregular-items.md
+index 4ee9902a..38c7a9a8 100644
+--- a/docs/plans/errors-i18n-irregular-items.md
++++ b/docs/plans/errors-i18n-irregular-items.md
+@@ -53,6 +53,9 @@ Does NOT cover:
+ - Resolved to plan defaults (no user input while armed).
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_errors_i18n_irregular_items_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Slice boundary.** This covers `irregular_item_service` only; the parent
+   plan's "remaining services get their own follow-up slices" is honoured.
+   `chores.md` follow-up line stays unticked.

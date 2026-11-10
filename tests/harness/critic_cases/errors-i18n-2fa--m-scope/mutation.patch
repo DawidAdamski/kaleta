@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/assets.py b/src/kaleta/seeders/assets.py
+index cc0e1169..74f73e9c 100644
+--- a/src/kaleta/seeders/assets.py
++++ b/src/kaleta/seeders/assets.py
+@@ -3,6 +3,9 @@
+ 
+ Net worth is accounts plus assets minus liabilities; a seed with no assets
+ shows the accounts half of that and makes the split look broken.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

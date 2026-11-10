@@ -1,0 +1,30 @@
+diff --git a/src/kaleta/views/subscriptions/dialogs.py b/src/kaleta/views/subscriptions/dialogs.py
+index 67624e76..6ff97cef 100644
+--- a/src/kaleta/views/subscriptions/dialogs.py
++++ b/src/kaleta/views/subscriptions/dialogs.py
+@@ -23,6 +23,25 @@ from kaleta.views.error_handling import notify_kaleta_error, resolve_toast_text
+ from kaleta.views.theme import BODY_MUTED
+ 
+ 
++async def _period_spend_total(session: "AsyncSession", account_id: int) -> "Decimal":
++    """Outflows of the current month for this page's header."""
++    import datetime
++    from decimal import Decimal
++
++    from sqlalchemy import func, select
++
++    from kaleta.models.transaction import Transaction
++
++    today = datetime.date.today()
++    stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
++        Transaction.account_id == account_id,
++        Transaction.amount < 0,
++        Transaction.date >= today.replace(day=1),
++    )
++    total = await session.scalar(stmt)
++    return Decimal(total or 0).quantize(Decimal("0.01"))
++
++
+ def build_subscription_dialogs(
+     *,
+     sub_category_opts: dict[int, str],

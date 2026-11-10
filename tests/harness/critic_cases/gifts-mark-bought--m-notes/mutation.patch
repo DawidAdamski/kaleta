@@ -1,0 +1,14 @@
+diff --git a/docs/plans/gifts-mark-bought.md b/docs/plans/gifts-mark-bought.md
+index 0e18f9d3..46c56453 100644
+--- a/docs/plans/gifts-mark-bought.md
++++ b/docs/plans/gifts-mark-bought.md
+@@ -91,6 +91,9 @@ the BDD literals (planned 200.00, actual cost 189.99).
+ - None blocking. Resolved in decisions below.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_gifts_mark_bought_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Decision — bought/actual_cost are derived, not stored.** Like the irregular
+   fund's payments, the link lives on the transaction (`Transaction.gift_id`) and
+   the gift's state is computed: `bought` = a linked transaction exists,

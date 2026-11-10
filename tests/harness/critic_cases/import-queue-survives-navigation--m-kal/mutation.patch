@@ -1,0 +1,67 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index b1061196..c85fb9fa 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -1430,18 +1430,6 @@ Feature: mBank CSV Import
+     And a pattern made only of wildcards and separators, such as "*_*_*.csv",
+       is never suggested and cannot be saved
+ 
+-  KAL-CSV-042 @automated
+-  Scenario: Leaving the import page with an unfinished queue asks first
+-    The queue lives only in the page's memory (it is not persisted: with
+-    Redis/Valkey it would hold plain-text statement rows), so leaving drops it.
+-
+-    Given I have uploaded two files to the import queue and not imported them
+-    When I click a sidebar link, go back, reload or close the tab
+-    Then the browser asks whether to leave the page
+-    And cancelling keeps me on the import page with both files queued
+-    When every file in the queue has been imported
+-    Then leaving the page asks nothing
+-
+   KAL-CSV-017 @automated
+   Scenario: Disabled import rule stops matching; delete removes it
+     Given a saved import rule "mbank-*.csv" that matches my uploads
+diff --git a/tests/e2e/test_import_leave_guard.py b/tests/e2e/test_import_leave_guard.py
+index daa74324..e04c95bb 100644
+--- a/tests/e2e/test_import_leave_guard.py
++++ b/tests/e2e/test_import_leave_guard.py
+@@ -1,7 +1,6 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+ """E2E: leaving /import with an unfinished queue asks first.
+ 
+-Covers: KAL-CSV-042
+ 
+ The queue lives only in the page's memory, so any full navigation away drops
+ it. While a file still waits to be imported, the page arms the browser's own
+@@ -51,8 +50,7 @@ def _sidebar_dashboard(page: Page) -> None:
+ 
+ 
+ def test_leave_guard_active_with_queued_file(page: Page, base_url: str) -> None:
+-    """Covers: KAL-CSV-042
+-
++    """
+     With two files queued, the guard is armed; a sidebar click raises the
+     browser's prompt, and cancelling it keeps the page and both files.
+     """
+@@ -85,8 +83,7 @@ def test_leave_guard_active_with_queued_file(page: Page, base_url: str) -> None:
+ 
+ 
+ def test_leave_guard_cleared_after_import(page: Page, base_url: str) -> None:
+-    """Covers: KAL-CSV-042
+-
++    """
+     After the only queued file is imported, nothing is left to lose: the guard
+     is gone and a sidebar click leaves without a prompt.
+     """
+diff --git a/tests/unit/views/test_import_queue_state.py b/tests/unit/views/test_import_queue_state.py
+index b03d601c..28914d9b 100644
+--- a/tests/unit/views/test_import_queue_state.py
++++ b/tests/unit/views/test_import_queue_state.py
+@@ -44,7 +44,6 @@ def test_pending_and_needs_mapping_are_not_terminal() -> None:
+ class TestLeaveGuardActive:
+     """``leave_guard_active`` — when leaving /import would lose work.
+ 
+-    Covers: KAL-CSV-042
+     """
+ 
+     def test_empty_queue_has_nothing_to_lose(self) -> None:

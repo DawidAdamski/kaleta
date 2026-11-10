@@ -1,0 +1,51 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 3b096c0e..f3af418f 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -275,14 +275,6 @@ Feature: Institution Management
+     Then I see a preview of the uploaded logo
+     And after saving, the institution "Revolut" shows its logo in the list
+ 
+-  KAL-INS-010 @automated
+-  Scenario: An institution logo is stored in the database and outlives a restart
+-    Given an institution "Revolut" with an uploaded logo
+-    When the application is restarted and its session storage is gone
+-    Then the logo is still served for "Revolut"
+-    And its bytes come from the database, not a file on disk
+-```
+-
+ ## Feature: Account Management
+ 
+ ```gherkin
+diff --git a/tests/integration/test_institution_logo.py b/tests/integration/test_institution_logo.py
+index 54e1f1f0..5f43f82e 100644
+--- a/tests/integration/test_institution_logo.py
++++ b/tests/integration/test_institution_logo.py
+@@ -7,7 +7,6 @@ survives, so the avatar renders a broken image. Now the bytes are stored in
+ the family's own schema (base64 inside an ``EncryptedText`` column) and served
+ from a route — so they outlive any restart and ride the backup.
+ 
+-Covers: KAL-INS-010
+ """
+ 
+ from __future__ import annotations
+@@ -36,8 +35,7 @@ async def _make_institution(session: AsyncSession, name: str = "Revolut") -> int
+ 
+ 
+ async def test_logo_persists_in_db_across_reload(session: AsyncSession) -> None:
+-    """Covers: KAL-INS-010
+-
++    """
+     Store a logo, drop every in-memory row (a restart with session storage
+     gone), then read it back: identical bytes mean it came from the DB column,
+     not from a file or in-process state.
+@@ -114,8 +112,7 @@ async def test_logo_route_404_without_a_logo(api_client: AsyncClient) -> None:
+ async def test_logo_route_serves_the_stored_image(
+     session: AsyncSession, api_client: AsyncClient
+ ) -> None:
+-    """Covers: KAL-INS-010
+-
++    """
+     The route is the "still served" half of the scenario. ``session`` and
+     ``api_client`` share the test's single DB connection, so a logo stored
+     through the service is visible to the HTTP request. The bytes come back

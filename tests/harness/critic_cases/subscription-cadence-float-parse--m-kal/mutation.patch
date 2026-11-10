@@ -1,0 +1,59 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index d0778ff7..e3afa34e 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -2526,17 +2526,6 @@ Feature: Subscriptions Panel
+     Then the subscription moves to the cancelled section
+     And a reader filtering on active subscriptions no longer sees it
+ 
+-  KAL-SUB-011 @automated
+-  Scenario: Subscription cadence can be changed to any whole number of days
+-    Given a subscription "Disney+" of 49.99 every 30 days
+-    When I edit it to amount 599.90 and cadence 365 and save
+-    Then no warning is shown
+-    And the subscription is listed as yearly
+-    And the monthly total shows 49.99
+-```
+-
+----
+-
+ # Workflow 4 — Annual cycle
+ 
+ Once a year: review, fund the irregular expenses, plan the gifts.
+diff --git a/tests/e2e/test_subscriptions.py b/tests/e2e/test_subscriptions.py
+index 114af091..d67d326b 100644
+--- a/tests/e2e/test_subscriptions.py
++++ b/tests/e2e/test_subscriptions.py
+@@ -199,8 +199,7 @@ def _expect_saved_without_warning(page: Page) -> None:
+ 
+ 
+ def test_add_yearly_subscription(page: Page, base_url: str) -> None:
+-    """Covers: KAL-SUB-011
+-
++    """
+     A new subscription saved with cadence 365 - typed into the field, so the
+     widget holds 365.0 - is created and listed as yearly.
+     """
+@@ -222,8 +221,7 @@ def test_add_yearly_subscription(page: Page, base_url: str) -> None:
+ 
+ 
+ def test_edit_subscription_cadence(page: Page, base_url: str) -> None:
+-    """Covers: KAL-SUB-011
+-
++    """
+     "Disney+" of 49.99 every 30 days, edited to 599.90 every 365 days, saves
+     without a warning, is listed as yearly, and still counts 49.99 a month.
+     The e2e database is shared by the session, so the header's total holds
+diff --git a/tests/unit/services/test_subscription_service.py b/tests/unit/services/test_subscription_service.py
+index b7d8367d..444277fd 100644
+--- a/tests/unit/services/test_subscription_service.py
++++ b/tests/unit/services/test_subscription_service.py
+@@ -790,7 +790,7 @@ class TestParseFormCadence:
+     """
+ 
+     def test_parse_form_accepts_float_cadence(self) -> None:
+-        """Covers: KAL-SUB-011"""
++        """"""
+         assert _form(365.0).cadence_days == 365
+ 
+     @pytest.mark.parametrize("value", ["365", "365.0", "365,0", " 365 ", Decimal("365.00")])

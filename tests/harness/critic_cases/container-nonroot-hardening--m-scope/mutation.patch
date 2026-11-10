@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/planned.py b/src/kaleta/seeders/planned.py
+index d01ab52d..f586f243 100644
+--- a/src/kaleta/seeders/planned.py
++++ b/src/kaleta/seeders/planned.py
+@@ -6,6 +6,9 @@ the next 60 days on a fresh install; occurrences already past are skipped when
+ the window is generated. Two rows are deliberately already late — the overdue
+ strip and the Overdue card exist for exactly that state, and a seed in which
+ nothing is ever late leaves both untestable.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

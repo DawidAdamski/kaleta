@@ -1,0 +1,20 @@
+{
+  "id": "container-nonroot-hardening--m-scope",
+  "plan_id": "container-nonroot-hardening",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 309,
+  "base": "080b08b41838ded50f08a050bd4ecd560fbdd346",
+  "head": "c5e3809bd7c5cc2dda5ac8c2b8b4bd67d2a41d7b",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no Python source changed",
+  "note": "docstring of src/kaleta/seeders/planned.py rewritten"
+}

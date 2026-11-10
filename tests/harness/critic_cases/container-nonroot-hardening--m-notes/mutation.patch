@@ -1,0 +1,14 @@
+diff --git a/docs/plans/container-nonroot-hardening.md b/docs/plans/container-nonroot-hardening.md
+index 5bda9ece..cb479152 100644
+--- a/docs/plans/container-nonroot-hardening.md
++++ b/docs/plans/container-nonroot-hardening.md
+@@ -69,6 +69,9 @@ assessment here would touch a version of the file that has no F-6 row yet.
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_container_nonroot_hardening_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - uid/gid **10001**, user `app`, `HOME=/home/app`; sessions move from
+   `/root/.kaleta` to `/home/app/.kaleta`.
+ - The `.venv` is built by `uv sync` as root; `chown -R app:app /app /home/app`

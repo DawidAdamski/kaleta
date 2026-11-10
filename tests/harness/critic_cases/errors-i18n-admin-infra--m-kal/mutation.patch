@@ -1,0 +1,34 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index b8660a9f..7e8fa809 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3463,17 +3463,6 @@ Feature: Localized error messages
+     And a key-less raise from these services still renders its English message unchanged
+     And every encryption-cohort error key interpolates its parameters without a missing-placeholder error
+ 
+-  KAL-ERR-009 @automated
+-  Scenario: An admin and infrastructure error toast speaks the session's language
+-    Given an NBP rate fetch over empty JSON carries the key "errors.nbp_rate.empty_response"
+-    Then the Polish message reads "Odpowiedź NBP (tabela A) była pusta lub nieoczekiwana."
+-    And the English message reads "NBP Table A response was empty or unexpected."
+-    And a blank bug-report summary carries the key "errors.bug_report.field_required" reading in English "Summary is required"
+-    And a too-long family name of 100 reads in Polish "Nazwa rodziny może mieć najwyżej 100 znaków."
+-    And a backup-restore raise keeps its English message, as the Data tab renders it inline
+-    And every admin and infrastructure error key interpolates its parameters without a missing-placeholder error
+-```
+-
+ ## Feature: Authentication
+ 
+ ```gherkin
+diff --git a/tests/integration/test_error_i18n_admin_infra.py b/tests/integration/test_error_i18n_admin_infra.py
+index e5e1a955..c2e12076 100644
+--- a/tests/integration/test_error_i18n_admin_infra.py
++++ b/tests/integration/test_error_i18n_admin_infra.py
+@@ -24,7 +24,6 @@ raises whose ``exc.message`` reaches a key-resolving path
+ The cheap, DB-free migrated raises are driven directly; every migrated key is
+ additionally covered by the both-locales presence and locale-format tables.
+ 
+-Covers: KAL-ERR-009
+ """
+ 
+ from __future__ import annotations

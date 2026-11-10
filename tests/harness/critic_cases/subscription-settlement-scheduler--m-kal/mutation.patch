@@ -1,0 +1,44 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 6dc2adbc..7d649b56 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -2511,17 +2511,6 @@ Feature: Subscriptions Panel
+     When the budget builder projects its monthly cost
+     Then it shows 10.00 per month, the same twelfth the panel uses
+ 
+-  KAL-SUB-010 @automated
+-  Scenario: A due cancellation settles without opening the Subscriptions panel
+-    Given subscription "Netflix 49.99 monthly" is tracked
+-    And on 2026-04-15 it was cancelled as of 2026-04-30
+-    When the settlement scheduler runs on 2026-04-30 without the panel being opened
+-    Then the subscription moves to the cancelled section
+-    And a reader filtering on active subscriptions no longer sees it
+-```
+-
+----
+-
+ # Workflow 4 — Annual cycle
+ 
+ Once a year: review, fund the irregular expenses, plan the gifts.
+diff --git a/tests/integration/test_subscription_settlement_scheduler.py b/tests/integration/test_subscription_settlement_scheduler.py
+index 50981695..60159020 100644
+--- a/tests/integration/test_subscription_settlement_scheduler.py
++++ b/tests/integration/test_subscription_settlement_scheduler.py
+@@ -4,7 +4,6 @@
+ One sweep settles due cancellations in every active family's schema and skips
+ a suspended one.
+ 
+-Covers: KAL-SUB-010
+ """
+ 
+ from __future__ import annotations
+@@ -61,8 +60,7 @@ async def _statuses(ctx: TenantContext) -> tuple[list[str], list[str]]:
+ 
+ 
+ async def test_the_scheduler_settles_due_cancellations_in_every_active_family() -> None:
+-    """Covers: KAL-SUB-010
+-
++    """
+     A cancellation scheduled on 2026-04-15 as of 2026-04-30 flips Netflix to
+     cancelled once the scheduler sweeps — no Subscriptions panel opened — and a
+     reader filtering on active subscriptions no longer sees it. A suspended

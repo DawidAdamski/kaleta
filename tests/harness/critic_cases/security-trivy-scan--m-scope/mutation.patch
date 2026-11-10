@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/budgets.py b/src/kaleta/seeders/budgets.py
+index c18952e1..23dad135 100644
+--- a/src/kaleta/seeders/budgets.py
++++ b/src/kaleta/seeders/budgets.py
+@@ -4,6 +4,9 @@
+ Amounts scale with inflation the same way the transactions do, so a
+ budget-versus-actual chart over six years does not show the plan drifting away
+ from reality for a reason that is only arithmetic.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

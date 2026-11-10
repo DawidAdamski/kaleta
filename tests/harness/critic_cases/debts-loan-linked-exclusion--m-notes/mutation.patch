@@ -1,0 +1,14 @@
+diff --git a/docs/plans/debts-loan-linked-exclusion.md b/docs/plans/debts-loan-linked-exclusion.md
+index 7b0ea1a1..e55a7085 100644
+--- a/docs/plans/debts-loan-linked-exclusion.md
++++ b/docs/plans/debts-loan-linked-exclusion.md
+@@ -100,6 +100,9 @@ Raw form: `Transaction.id.not_in(loan_linked_transaction_ids())`; over the
+ None — all resolved into the scope above.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_debts_loan_linked_exclusion_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - The helper returns a NULL-safe `Select[tuple[int]]` embedded as a
+   `NOT IN` operand; each edit imports it exactly as `report_service.py` and
+   `money_flow_service.py` do (`from kaleta.services.loan_links import

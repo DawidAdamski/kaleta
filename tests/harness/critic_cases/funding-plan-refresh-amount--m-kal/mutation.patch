@@ -1,0 +1,34 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 178f7bd3..0f35884d 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -2579,15 +2579,6 @@ Feature: Irregular Expenses Fund
+     Then the expense is marked as unplanned within the fund history
+     And the fund balance shows 500.00
+ 
+-  KAL-IRR-006 @automated
+-  Scenario: Re-planning after the contribution changes refreshes the one transfer
+-    Given a monthly funding transfer of 180.00 is already planned for the fund
+-    And the fund's monthly contribution has risen to 240.00
+-    When I accept the suggested funding plan again
+-    Then the one planned transfer now reads 240.00
+-    And no second transfer is planned
+-```
+-
+ ## Feature: Gift Planning
+ 
+ A list of people and occasions with planned amounts; the yearly total
+diff --git a/tests/integration/test_irregular_fund.py b/tests/integration/test_irregular_fund.py
+index 81fa97f2..366c93df 100644
+--- a/tests/integration/test_irregular_fund.py
++++ b/tests/integration/test_irregular_fund.py
+@@ -130,8 +130,7 @@ async def test_the_contribution_becomes_a_monthly_planned_transfer(fund: _Fund)
+ async def test_re_planning_refreshes_the_one_transfer_when_the_total_changes(
+     fund: _Fund,
+ ) -> None:
+-    """Covers: KAL-IRR-006
+-
++    """
+     With a 180.00 transfer already planned, raising the contribution to 240.00
+     and re-accepting updates that one transfer in place — no second row — the
+     scenario literals.

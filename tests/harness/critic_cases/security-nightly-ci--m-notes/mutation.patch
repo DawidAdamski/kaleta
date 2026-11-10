@@ -1,0 +1,14 @@
+diff --git a/docs/plans/security-nightly-ci.md b/docs/plans/security-nightly-ci.md
+index 7d5efca8..f6783c81 100644
+--- a/docs/plans/security-nightly-ci.md
++++ b/docs/plans/security-nightly-ci.md
+@@ -88,6 +88,9 @@ carries a nightly `schedule`; this slice does not change it.
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_security_nightly_ci_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - **Tooling-only slice.** Like the Trivy/ZAP/schemathesis runner slices, no new
+   `KAL-SEC-*` scenario (a CI workflow is not user-facing app behaviour); short
+   verify gate (no `src/` change).

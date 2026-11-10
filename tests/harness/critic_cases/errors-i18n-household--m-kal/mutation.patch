@@ -1,0 +1,32 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index be562972..62a9acb5 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3438,15 +3438,6 @@ Feature: Localized error messages
+     And a rule, subscription, category, budget and account error each resolves its own key
+     And every core-cohort error key interpolates its parameters without a missing-placeholder error
+ 
+-  KAL-ERR-006 @automated
+-  Scenario: A household-sharing error toast speaks the session's language
+-    Given inviting with a blank e-mail carries the key "errors.household.invite_email_required"
+-    Then the Polish message reads "Podaj adres e-mail."
+-    And the English message reads "Enter an e-mail address."
+-    And a full household of 10 reads in Polish "Gospodarstwo może mieć najwyżej 10 członków, wliczając zaproszenia."
+-    And every household error key interpolates its parameters without a missing-placeholder error
+-```
+-
+ ## Feature: Authentication
+ 
+ ```gherkin
+diff --git a/tests/integration/test_error_i18n_household.py b/tests/integration/test_error_i18n_household.py
+index 60ba8cf1..58bb5226 100644
+--- a/tests/integration/test_error_i18n_household.py
++++ b/tests/integration/test_error_i18n_household.py
+@@ -16,7 +16,6 @@ end, so the two guards reachable from an in-memory membership
+ ``only_owner``) are driven as real raises; every household key is additionally
+ covered by the both-locales presence and locale-format tables below.
+ 
+-Covers: KAL-ERR-006
+ """
+ 
+ from __future__ import annotations

@@ -1,0 +1,20 @@
+{
+  "id": "security-zap-baseline--m-scope",
+  "plan_id": "security-zap-baseline",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 311,
+  "base": "26908c3ba735797d40de228caf5a9c4bafd7e7d1",
+  "head": "37b3d0091a64e7925d567a4684362520a09d1136",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no Python source changed",
+  "note": "docstring of src/kaleta/logging_config.py rewritten"
+}

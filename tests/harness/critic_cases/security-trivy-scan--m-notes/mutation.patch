@@ -1,0 +1,14 @@
+diff --git a/docs/plans/security-trivy-scan.md b/docs/plans/security-trivy-scan.md
+index ea2f8bad..c1efdd48 100644
+--- a/docs/plans/security-trivy-scan.md
++++ b/docs/plans/security-trivy-scan.md
+@@ -72,6 +72,9 @@ Four scan modes, all requested:
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_security_trivy_scan_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - Trivy pinned to **0.76.0** (`TRIVY_VERSION`), severity gate
+   **HIGH,CRITICAL** (`TRIVY_SEVERITY`) — both env-overridable.
+ - No user-facing behaviour, so no `KAL-*` scenario (BDD rule 5 does not

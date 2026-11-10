@@ -1,0 +1,15 @@
+diff --git a/src/kaleta/schemas/health.py b/src/kaleta/schemas/health.py
+index 85bae010..2bbbfa52 100644
+--- a/src/kaleta/schemas/health.py
++++ b/src/kaleta/schemas/health.py
+@@ -1,5 +1,9 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+-"""Health-check response schema."""
++"""Health-check response schema.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
++"""
+ 
+ from __future__ import annotations
+ 

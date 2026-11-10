@@ -1,0 +1,22 @@
+{
+  "id": "errors-i18n-admin-infra--m-notes",
+  "plan_id": "errors-i18n-admin-infra",
+  "kind": "mutant",
+  "operator": "M-NOTES",
+  "target": "Q-NOTES-TRUTH",
+  "pr": 364,
+  "base": "47ec2b61a5a9767169ef5cb9c55ec9c8ab48d985",
+  "head": "3eaf8ac603a25280ce3a76f0e7a00f1b54b2c576",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "yes",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "notes claim tests/unit/test_errors_i18n_admin_infra_edge_cases.py"
+}

@@ -1,0 +1,30 @@
+diff --git a/src/kaleta/views/error_handling.py b/src/kaleta/views/error_handling.py
+index e65d1297..f17af8ea 100644
+--- a/src/kaleta/views/error_handling.py
++++ b/src/kaleta/views/error_handling.py
+@@ -31,6 +31,25 @@ _client_event_ids: dict[str, list[str]] = {}
+ _MAX_TRACKED_EVENTS = 20
+ 
+ 
++async def _period_spend_total(session: "AsyncSession", account_id: int) -> "Decimal":
++    """Outflows of the current month for this page's header."""
++    import datetime
++    from decimal import Decimal
++
++    from sqlalchemy import func, select
++
++    from kaleta.models.transaction import Transaction
++
++    today = datetime.date.today()
++    stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
++        Transaction.account_id == account_id,
++        Transaction.amount < 0,
++        Transaction.date >= today.replace(day=1),
++    )
++    total = await session.scalar(stmt)
++    return Decimal(total or 0).quantize(Decimal("0.01"))
++
++
+ def current_client_id() -> str | None:
+     """The NiceGUI client id, when called inside a client context."""
+     # Before NiceGUI has started (startup handlers that log) there is no

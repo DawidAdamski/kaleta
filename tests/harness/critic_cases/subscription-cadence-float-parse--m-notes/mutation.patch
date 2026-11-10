@@ -1,0 +1,14 @@
+diff --git a/docs/plans/subscription-cadence-float-parse.md b/docs/plans/subscription-cadence-float-parse.md
+index aac06c1a..9ea52fd5 100644
+--- a/docs/plans/subscription-cadence-float-parse.md
++++ b/docs/plans/subscription-cadence-float-parse.md
+@@ -186,6 +186,9 @@ None.
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_subscription_cadence_float_parse_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - **Where the plan came from.** The plan was committed on
+   `docs/subscription-cadence-bug` (worktree `../kaleta-subs-bug`) and never
+   reached `main`. Its commit (plan + four chores) was cherry-picked onto

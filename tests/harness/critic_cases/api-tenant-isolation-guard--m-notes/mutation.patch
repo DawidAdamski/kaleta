@@ -1,0 +1,14 @@
+diff --git a/docs/plans/api-tenant-isolation-guard.md b/docs/plans/api-tenant-isolation-guard.md
+index b1bd3323..43041888 100644
+--- a/docs/plans/api-tenant-isolation-guard.md
++++ b/docs/plans/api-tenant-isolation-guard.md
+@@ -71,6 +71,9 @@ all through `get_session`; only `health` public).
+ - None blocking.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_api_tenant_isolation_guard_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Static, not runtime.** FastAPI 0.143's `_IncludedRouter` keeps included
+   routers lazily nested rather than flattening `app.routes`, so walking the
+   route table for dependants is version-fragile. An AST read of the source is

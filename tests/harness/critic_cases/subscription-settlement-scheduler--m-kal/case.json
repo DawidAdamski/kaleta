@@ -1,0 +1,23 @@
+{
+  "id": "subscription-settlement-scheduler--m-kal",
+  "plan_id": "subscription-settlement-scheduler",
+  "kind": "mutant",
+  "operator": "M-KAL",
+  "target": "Q-KAL-SCENARIO",
+  "pr": 370,
+  "base": "7b320b2ab5ebd9130401f92394a5758cd5f1d9ff",
+  "head": "80676f5b6ca0aae9bfeb6b0ebc520274380256ef",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-SERVICE-TEST": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "yes",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": "KAL-SUB-010 removed from docs/bdd.md and Covers:"
+}

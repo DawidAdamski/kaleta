@@ -1,0 +1,14 @@
+diff --git a/docs/plans/security-site-isolation-headers.md b/docs/plans/security-site-isolation-headers.md
+index 2cd0818a..06c7f598 100644
+--- a/docs/plans/security-site-isolation-headers.md
++++ b/docs/plans/security-site-isolation-headers.md
+@@ -68,6 +68,9 @@ headers and flips the regression guard, clearing ZAP 90004 in full.
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_security_site_isolation_headers_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ - **Why the deferral was lifted — the investigation (2026-10-21).** The original
+   deferral assumed `Cross-Origin-Resource-Policy: same-origin` was incompatible
+   with NiceGUI's websocket navigation. Re-tested under a real Chromium

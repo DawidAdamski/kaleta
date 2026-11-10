@@ -1,0 +1,14 @@
+diff --git a/docs/plans/subscription-settlement-scheduler.md b/docs/plans/subscription-settlement-scheduler.md
+index e0e1be62..546a8b57 100644
+--- a/docs/plans/subscription-settlement-scheduler.md
++++ b/docs/plans/subscription-settlement-scheduler.md
+@@ -64,6 +64,9 @@ Not in scope:
+ None.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_subscription_settlement_scheduler_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - `settle_due_cancellations` commits itself (only when `due` is non-empty),
+   so `_settle_current` mirrors the wizard call site exactly: open a session,
+   `await SubscriptionService(session).settle_due_cancellations()`, no extra

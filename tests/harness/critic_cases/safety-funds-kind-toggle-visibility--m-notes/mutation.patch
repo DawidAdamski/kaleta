@@ -1,0 +1,14 @@
+diff --git a/docs/plans/safety-funds-kind-toggle-visibility.md b/docs/plans/safety-funds-kind-toggle-visibility.md
+index 2ce4e56a..d9ef1723 100644
+--- a/docs/plans/safety-funds-kind-toggle-visibility.md
++++ b/docs/plans/safety-funds-kind-toggle-visibility.md
+@@ -58,6 +58,9 @@ not `e.args`.
+ - `./scripts/verify.sh --e2e` green (view changed → e2e mandatory, rule 8).
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_safety_funds_kind_toggle_visibility_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - One-line cause confirmed by TDD: `_on_kind_change` compared `e.args` (the raw
+   Quasar `update:model-value` payload, not the option key) against the kind
+   value, so it was never `True` for Emergency after a dropdown change. Reading

@@ -1,0 +1,14 @@
+diff --git a/docs/plans/nbp-fetch-throttle.md b/docs/plans/nbp-fetch-throttle.md
+index 93ac3d5a..59e5a0bc 100644
+--- a/docs/plans/nbp-fetch-throttle.md
++++ b/docs/plans/nbp-fetch-throttle.md
+@@ -68,6 +68,9 @@ Explicitly NOT in scope:
+ - `tests/integration/test_nbp_fetch_throttle.py` — covering test.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_nbp_fetch_throttle_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Lock-on-success, not on-attempt.** A failed fetch (network down) must
+   stay retryable, so the interval starts only after `import_latest()`
+   returns. A *successful* fetch on a holiday still starts the interval, so

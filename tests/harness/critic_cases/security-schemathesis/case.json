@@ -1,0 +1,19 @@
+{
+  "id": "security-schemathesis",
+  "plan_id": "security-schemathesis",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 313,
+  "base": "1666b653292d9961ee53603dd98254e705436730",
+  "head": "91f74d58ffbdb6a9a7cc641685ceea046386c1ab",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no Python source changed",
+  "note": ""
+}

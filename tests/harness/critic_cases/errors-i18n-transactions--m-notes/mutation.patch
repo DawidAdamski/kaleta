@@ -1,0 +1,14 @@
+diff --git a/docs/plans/errors-i18n-transactions.md b/docs/plans/errors-i18n-transactions.md
+index 881aba81..4d584243 100644
+--- a/docs/plans/errors-i18n-transactions.md
++++ b/docs/plans/errors-i18n-transactions.md
+@@ -55,6 +55,9 @@ Does NOT cover:
+ - Resolved to plan defaults (no user input while armed).
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_errors_i18n_transactions_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Slice boundary.** This covers `transaction_service` only; the parent
+   plan's "remaining services get their own follow-up slices" is honoured.
+   `chores.md` follow-up line stays unticked.

@@ -1,0 +1,23 @@
+{
+  "id": "budgets-unification-slice-1",
+  "plan_id": "budgets-unification-slice-1",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 322,
+  "base": "a5a4c0945e9b8bd14852742bb7cb5ce53bce5281",
+  "head": "382a3f409edf817114a94b21a1932d3ef9ce9f14",
+  "split": "calib",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": ""
+}

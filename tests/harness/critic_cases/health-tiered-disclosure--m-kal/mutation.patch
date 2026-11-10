@@ -1,0 +1,160 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index d47cf6d4..0304ccbc 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -4800,18 +4800,6 @@ Feature: Public API
+     And it discloses no version, backend, migration state or family ids
+     And the response is 503 when the database is unreachable
+ 
+-  KAL-SEC-001 @automated
+-  Scenario: The health probe discloses by tier, so no family reads another's state
+-    Given a running instance hosting more than one family
+-    When an unauthenticated monitor GETs /api/v1/health
+-    Then it gets liveness only (status and database_ok)
+-    When a signed-in family caller (a family bearer token or a cookie session) GETs it
+-    Then it also gets the version, the sign-in backend and whether migrations are pending
+-    But it does not get the suspended-family ids, the keyring-session count or the pending count
+-    When an instance administrator GETs it (the KALETA_API_TOKEN env token, or an admin cookie session)
+-    Then it additionally gets the suspended-family ids and the cross-family counts
+-    And a family-scoped credential never reaches the administrative tier, whoever owns it
+-
+   KAL-API-005 @automated
+   Scenario: Reading two-factor status over the API
+     Given a valid API bearer token
+diff --git a/tests/integration/test_health.py b/tests/integration/test_health.py
+index 18673235..8b2d7b81 100644
+--- a/tests/integration/test_health.py
++++ b/tests/integration/test_health.py
+@@ -12,7 +12,7 @@ rolled-back connection the fresh factory cannot see, so an end-to-end family
+ call here always resolves to ``public``. The family tier is therefore pinned at
+ the unit level (``tests/unit/api/test_health.py``).
+ 
+-Covers: KAL-API-004, KAL-SEC-001, KAL-OPS-001
++Covers: KAL-API-004 KAL-OPS-001
+ """
+ 
+ from __future__ import annotations
+@@ -45,7 +45,7 @@ async def test_health_without_credentials_is_liveness_only(api_client_unauth: As
+     This is the F-1 fix: the old route returned the whole payload (version,
+     counts and the suspended-family ids) to every unauthenticated caller.
+ 
+-    Covers: KAL-API-004, KAL-SEC-001
++    Covers: KAL-API-004
+     """
+     resp = await api_client_unauth.get("/api/v1/health")
+     assert resp.status_code == 200
+@@ -64,7 +64,7 @@ async def test_env_token_health_reports_a_git_derived_version(
+     and the body gains ``version``. This is the only end-to-end tier above
+     public the integration harness can reach (``is_env_token`` needs no DB read).
+ 
+-    Covers: KAL-OPS-001, KAL-SEC-001
++    Covers: KAL-OPS-001
+     """
+     monkeypatch.setattr(settings, "api_token", _ENV_TOKEN)
+     resp = await api_client_unauth.get(
+diff --git a/tests/unit/api/test_health.py b/tests/unit/api/test_health.py
+index b5641672..d07902f9 100644
+--- a/tests/unit/api/test_health.py
++++ b/tests/unit/api/test_health.py
+@@ -1,7 +1,7 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+ """Unit tests for the tiered health probe and its audience resolver.
+ 
+-Covers: KAL-API-004, KAL-SEC-001
++Covers: KAL-API-004
+ """
+ 
+ from __future__ import annotations
+@@ -52,7 +52,7 @@ def _probe_app(db_engine, audience: HealthAudience | None) -> FastAPI:
+ async def test_public_probe_is_liveness_only(db_engine) -> None:
+     """No credentials resolve to the public tier: liveness only.
+ 
+-    Covers: KAL-API-004, KAL-SEC-001
++    Covers: KAL-API-004
+     """
+     app = _probe_app(db_engine, audience=None)  # the real resolver sees no creds -> public
+     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+@@ -78,7 +78,7 @@ async def test_alias_public_probe_is_liveness_only(db_engine) -> None:
+ async def test_family_tier_adds_version_but_no_cross_family_state(db_engine) -> None:
+     """A signed-in family caller sees the version (KAL-OPS-001) but no cross-family state.
+ 
+-    Covers: KAL-SEC-001, KAL-OPS-001
++    Covers: KAL-OPS-001
+     """
+     app = _probe_app(db_engine, audience="family")
+     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+@@ -92,7 +92,7 @@ async def test_family_tier_adds_version_but_no_cross_family_state(db_engine) ->
+ 
+ @pytest.mark.asyncio
+ async def test_admin_tier_reports_backend_and_keyring_count(db_engine) -> None:
+-    """Covers: KAL-API-004, KAL-SEC-001 — the administrative fields"""
++    """Covers: KAL-API-004 — the administrative fields"""
+     from kaleta.crypto import DataKey, key_ring
+ 
+     app = _probe_app(db_engine, audience="admin")
+@@ -118,7 +118,6 @@ async def test_admin_tier_reports_backend_and_keyring_count(db_engine) -> None:
+ async def test_bearer_env_token_is_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+     """The KALETA_API_TOKEN env token is the instance administrator → admin tier.
+ 
+-    Covers: KAL-SEC-001
+     """
+     monkeypatch.setattr(settings, "api_token", "env-token-long-enough-1234567890")
+     assert await health_module._bearer_audience("env-token-long-enough-1234567890") == "admin"
+@@ -128,7 +127,6 @@ async def test_bearer_env_token_is_admin(monkeypatch: pytest.MonkeyPatch) -> Non
+ async def test_bearer_garbage_token_is_public(monkeypatch: pytest.MonkeyPatch) -> None:
+     """An unparseable bearer never promotes the caller — a probe must not 401.
+ 
+-    Covers: KAL-SEC-001
+     """
+     monkeypatch.setattr(settings, "api_token", None)
+     assert await health_module._bearer_audience("not-a-real-token") == "public"
+@@ -144,7 +142,6 @@ async def test_audience_falls_back_to_public_when_resolution_raises(
+     resolver must not propagate, or ``_health_payload`` never gets to map an
+     unreachable database to 503.
+ 
+-    Covers: KAL-SEC-001
+     """
+ 
+     async def _boom(_token):
+@@ -217,7 +214,6 @@ async def test_family_bearer_through_the_real_resolver_hides_cross_family_state(
+     included — never reaches the admin tier, so another family's suspended ids
+     and cross-family counts stay hidden.
+ 
+-    Covers: KAL-SEC-001
+     """
+     _patch_family_bearer(monkeypatch)
+     app = _probe_app(db_engine, audience=None)  # real resolver, not an override
+@@ -236,7 +232,7 @@ async def test_family_bearer_through_the_real_resolver_hides_cross_family_state(
+ 
+ @pytest.mark.asyncio
+ async def test_cookie_without_session_is_public(monkeypatch: pytest.MonkeyPatch) -> None:
+-    """Covers: KAL-SEC-001"""
++    """"""
+ 
+     async def _no_user(_request):
+         return None
+@@ -251,7 +247,6 @@ async def test_cookie_admin_is_admin_but_non_admin_is_family(
+ ) -> None:
+     """A cookie session is admin only when the registry confirms it — not the nav hint.
+ 
+-    Covers: KAL-SEC-001
+     """
+     from dataclasses import dataclass
+ 
+@@ -289,7 +284,6 @@ async def test_cookie_admin_is_admin_but_non_admin_is_family(
+ async def test_service_public_tier_does_no_registry_reads(session: AsyncSession) -> None:
+     """The public tier fills liveness only; everything else stays None.
+ 
+-    Covers: KAL-SEC-001
+     """
+     snap = await HealthService(session).check(include_family=False, include_admin=False)
+     assert snap.status == "ok"
+@@ -304,7 +298,7 @@ async def test_service_public_tier_does_no_registry_reads(session: AsyncSession)
+ 
+ @pytest.mark.asyncio
+ async def test_service_family_tier_withholds_admin_fields(session: AsyncSession) -> None:
+-    """Covers: KAL-SEC-001"""
++    """"""
+     snap = await HealthService(session).check(include_family=True, include_admin=False)
+     assert snap.version == __version__
+     assert snap.auth_backend is not None

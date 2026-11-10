@@ -1,0 +1,20 @@
+{
+  "id": "security-trivy-scan--m-scope",
+  "plan_id": "security-trivy-scan",
+  "kind": "mutant",
+  "operator": "M-SCOPE",
+  "target": "Q-SCOPE",
+  "pr": 308,
+  "base": "080b08b41838ded50f08a050bd4ecd560fbdd346",
+  "head": "ef15bc1c145846a47608bf550394e91987a1338b",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "yes",
+    "Q-REGRESSION-TEST": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no Python source changed",
+  "note": "docstring of src/kaleta/seeders/budgets.py rewritten"
+}

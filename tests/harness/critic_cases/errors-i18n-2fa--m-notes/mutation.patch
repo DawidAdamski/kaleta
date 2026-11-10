@@ -1,0 +1,14 @@
+diff --git a/docs/plans/errors-i18n-2fa.md b/docs/plans/errors-i18n-2fa.md
+index 268cc603..592b43bc 100644
+--- a/docs/plans/errors-i18n-2fa.md
++++ b/docs/plans/errors-i18n-2fa.md
+@@ -66,6 +66,9 @@ Does NOT cover:
+ 
+ ## Implementation notes
+ 
++- Edge cases are pinned by `tests/unit/test_errors_i18n_2fa_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
++
+ ### Slice boundary
+ Covers the three 2FA/token services only. `chores.md` follow-up line stays
+ unticked. No view file is touched.

@@ -1,0 +1,23 @@
+{
+  "id": "import-queue-survives-navigation",
+  "plan_id": "import-queue-survives-navigation",
+  "kind": "clean",
+  "operator": "",
+  "target": "",
+  "pr": 410,
+  "base": "999a2c913200fc5f54e0027bc91cd97023161bdb",
+  "head": "e017d60381a19c7670c1c13fb1cfaad221dc6ad0",
+  "split": "test",
+  "gold": {
+    "Q-SCOPE": "no",
+    "Q-REGRESSION-TEST": "no",
+    "Q-VIEW-LOGIC": "no",
+    "Q-TENANT-ISOLATION": "no",
+    "Q-AUTH-SURFACE": "no",
+    "Q-KAL-SCENARIO": "no",
+    "Q-NOTES-TRUTH": "no",
+    "Q-SECRET-DATA": "no"
+  },
+  "label": "no fix commit on these files within 30 days",
+  "note": ""
+}

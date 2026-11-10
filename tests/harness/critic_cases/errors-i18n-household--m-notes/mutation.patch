@@ -1,0 +1,14 @@
+diff --git a/docs/plans/errors-i18n-household.md b/docs/plans/errors-i18n-household.md
+index fdfc76d8..b9fb61d8 100644
+--- a/docs/plans/errors-i18n-household.md
++++ b/docs/plans/errors-i18n-household.md
+@@ -57,6 +57,9 @@ Does NOT cover:
+ - Resolved to plan defaults (no user input while armed).
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_errors_i18n_household_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Slice boundary.** Covers `household_service` only. `chores.md` follow-up
+   line stays unticked.
+ - **No API surface.** A full `grep` of `src/kaleta/api/` finds no reference to

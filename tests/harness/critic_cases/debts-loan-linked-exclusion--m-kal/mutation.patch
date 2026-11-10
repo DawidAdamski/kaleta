@@ -1,0 +1,85 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 4d17a264..d677f617 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3126,18 +3126,6 @@ Feature: Debt Tracking
+     When I open the monthly spending summary
+     Then the 400.00 is shown under loans, not regular expenses
+ 
+-  KAL-DBT-005 @automated
+-  Scenario: Lent money is excluded from budget actuals and income baselines
+-    Given this month I earn 3000.00 salary and spend 120.00 on groceries
+-    And I lend 400.00 to "Marek", linked to a grocery-category transfer
+-    And I borrow 900.00 from "Ania", linked to an incoming transaction
+-    When the app reads actuals and baselines across its panels
+-    Then the groceries budget actuals show 120.00, not 520.00 — the loan is not spending
+-    And the salary income baseline for the month shows 3000.00, not 3900.00 — the borrowing is not income
+-    And the safety-fund 3-month burn rate is 40.00 (120.00 ÷ 3), the loan excluded
+-    And the what-if 3-month income baseline is 1000.00 (3000.00 ÷ 3), the borrowing excluded
+-```
+-
+ ## Feature: Investment Tracking
+ 
+ Beyond cash: the value of ETFs, stocks, and bonds tracked alongside
+diff --git a/tests/integration/test_loan_linked_exclusion.py b/tests/integration/test_loan_linked_exclusion.py
+index 03807578..311542c9 100644
+--- a/tests/integration/test_loan_linked_exclusion.py
++++ b/tests/integration/test_loan_linked_exclusion.py
+@@ -136,7 +136,7 @@ async def _setup(session: AsyncSession) -> tuple[int, int]:
+ 
+ class TestLoanLinkedExclusion:
+     async def test_budget_actuals_exclude_the_outgoing_loan(self, session: AsyncSession) -> None:
+-        """Covers: KAL-DBT-005"""
++        """"""
+         _, food = await _setup(session)
+ 
+         grid = await BudgetService(session).actuals_by_category_month(2026)
+@@ -147,7 +147,7 @@ class TestLoanLinkedExclusion:
+     async def test_salary_income_baseline_excludes_the_borrowing(
+         self, session: AsyncSession
+     ) -> None:
+-        """Covers: KAL-DBT-005"""
++        """"""
+         await _setup(session)
+ 
+         months, _ = await SalaryService(session).income_by_month(today=AS_OF)
+@@ -158,7 +158,7 @@ class TestLoanLinkedExclusion:
+     async def test_reserve_burn_rate_excludes_the_outgoing_loan(
+         self, session: AsyncSession
+     ) -> None:
+-        """Covers: KAL-DBT-005"""
++        """"""
+         await _setup(session)
+ 
+         burn = await ReserveFundService(session).trailing_monthly_expense(today=AS_OF)
+@@ -169,7 +169,7 @@ class TestLoanLinkedExclusion:
+     async def test_scenario_trailing_income_excludes_the_borrowing(
+         self, session: AsyncSession
+     ) -> None:
+-        """Covers: KAL-DBT-005"""
++        """"""
+         await _setup(session)
+ 
+         income = await ScenarioService(session).trailing_monthly_income(today=AS_OF)
+diff --git a/tests/unit/services/test_loan_ledger_link.py b/tests/unit/services/test_loan_ledger_link.py
+index d8e3ded5..78bd9790 100644
+--- a/tests/unit/services/test_loan_ledger_link.py
++++ b/tests/unit/services/test_loan_ledger_link.py
+@@ -398,7 +398,7 @@ class TestLoansAreNotSpending:
+         assert flow.total_out == Decimal("120.00")
+ 
+     async def test_budget_actuals_exclude_the_loan(self, session: AsyncSession) -> None:
+-        """Covers: KAL-DBT-005 — budget actuals do not count the 400.00 lent."""
++        """— budget actuals do not count the 400.00 lent."""
+         _, food = await self._setup(session)
+ 
+         grid = await BudgetService(session).actuals_by_category_month(2026)
+@@ -406,7 +406,7 @@ class TestLoansAreNotSpending:
+         assert grid[(food, 9)] == Decimal("120.00")
+ 
+     async def test_reserve_burn_rate_excludes_the_loan(self, session: AsyncSession) -> None:
+-        """Covers: KAL-DBT-005 — the 3-month burn rate is 120.00 ÷ 3, loan out."""
++        """— the 3-month burn rate is 120.00 ÷ 3, loan out."""
+         await self._setup(session)
+ 
+         burn = await ReserveFundService(session).trailing_monthly_expense(

@@ -1,0 +1,14 @@
+diff --git a/docs/plans/mfa-handoff-url-ref.md b/docs/plans/mfa-handoff-url-ref.md
+index facabe5f..715e4d32 100644
+--- a/docs/plans/mfa-handoff-url-ref.md
++++ b/docs/plans/mfa-handoff-url-ref.md
+@@ -75,6 +75,9 @@ Explicitly NOT in scope:
+ - `docs/plans/chores.md` — tick the real-fix item.
+ 
+ ## Implementation notes
++
++- Edge cases are pinned by `tests/unit/test_mfa_handoff_url_ref_edge_cases.py`: an empty input and a repeated one
++  each have their own test, so a regression there fails the suite.
+ - **Security.** `c` is validated against the in-process `hosted_mfa_challenges`
+   store, so a forged value names no challenge and is ignored. A leaked valid
+   ref is a short-lived (`MFA_CHALLENGE_TTL_MINUTES`) capability that still

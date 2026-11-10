@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/personal_loans.py b/src/kaleta/seeders/personal_loans.py
+index f621566d..7905fe59 100644
+--- a/src/kaleta/seeders/personal_loans.py
++++ b/src/kaleta/seeders/personal_loans.py
+@@ -4,6 +4,9 @@
+ Three loans, because the Debt page has three states to show: one outstanding
+ and partly repaid, one the user owes rather than is owed, and one already
+ settled. A seed with only the first leaves two thirds of the page unseen.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

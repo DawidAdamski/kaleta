@@ -1,0 +1,14 @@
+diff --git a/src/kaleta/seeders/taxonomy.py b/src/kaleta/seeders/taxonomy.py
+index 5022f622..c52bd257 100644
+--- a/src/kaleta/seeders/taxonomy.py
++++ b/src/kaleta/seeders/taxonomy.py
+@@ -10,6 +10,9 @@ Every family schema is built by Alembic, and migration ``a4e9b2f1c6d8`` plants
+ an English subscriptions tree in it. That tree is not the user's data: it does
+ not count as "already seeded", and the seeder files its children under that
+ root rather than adding a second one.
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
+ """
+ 
+ from __future__ import annotations

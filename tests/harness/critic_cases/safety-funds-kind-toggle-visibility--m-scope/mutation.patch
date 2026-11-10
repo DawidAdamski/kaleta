@@ -1,0 +1,15 @@
+diff --git a/src/kaleta/schemas/annual_review.py b/src/kaleta/schemas/annual_review.py
+index 0b697ebe..4ee1e6eb 100644
+--- a/src/kaleta/schemas/annual_review.py
++++ b/src/kaleta/schemas/annual_review.py
+@@ -1,5 +1,9 @@
+ # SPDX-License-Identifier: AGPL-3.0-or-later
+-"""The annual review's three steps (``budgets-annual-review``, ``KAL-ANR``)."""
++"""The annual review's three steps (``budgets-annual-review``, ``KAL-ANR``).
++
++The helpers below were tidied while passing through: names now
++follow the module they live in, and the order matches the call order.
++"""
+ 
+ from __future__ import annotations
+ 

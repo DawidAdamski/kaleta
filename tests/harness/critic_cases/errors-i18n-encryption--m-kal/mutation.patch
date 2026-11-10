@@ -1,0 +1,33 @@
+diff --git a/docs/bdd.md b/docs/bdd.md
+index 5ec171e8..1c0f710a 100644
+--- a/docs/bdd.md
++++ b/docs/bdd.md
+@@ -3454,16 +3454,6 @@ Feature: Localized error messages
+     And changing API tokens without a fresh code carries the key "errors.api_token.confirm_code_before_changing" reading in Polish "Potwierdź kodem uwierzytelniania dwuskładnikowego, zanim zmienisz tokeny API."
+     And every 2FA-cohort error key interpolates its parameters without a missing-placeholder error
+ 
+-  KAL-ERR-008 @automated
+-  Scenario: An encryption and local-identity error toast speaks the session's language
+-    Given demoting the last administrator carries the key "errors.local_identity.last_admin_cannot_demote"
+-    Then the Polish message reads "Ostatni administrator nie może przestać nim być."
+-    And the English message reads "The last administrator cannot stop being one."
+-    And unlocking during a re-key carries the key "errors.key.rekeying" reading in Polish "Twoje gospodarstwo jest w trakcie zmiany kluczy. Spróbuj ponownie za chwilę."
+-    And a key-less raise from these services still renders its English message unchanged
+-    And every encryption-cohort error key interpolates its parameters without a missing-placeholder error
+-```
+-
+ ## Feature: Authentication
+ 
+ ```gherkin
+diff --git a/tests/integration/test_error_i18n_encryption.py b/tests/integration/test_error_i18n_encryption.py
+index f2b30d4b..60c10fe6 100644
+--- a/tests/integration/test_error_i18n_encryption.py
++++ b/tests/integration/test_error_i18n_encryption.py
+@@ -27,7 +27,6 @@ unchanged, documenting the deliberate decision.
+ Every migrated key is additionally covered by the both-locales presence and
+ locale-format tables below.
+ 
+-Covers: KAL-ERR-008
+ """
+ 
+ from __future__ import annotations
