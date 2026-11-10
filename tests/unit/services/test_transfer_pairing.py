@@ -15,9 +15,23 @@ from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
-from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
+from kaleta.schemas.transaction import (
+    TransactionCreate,
+    TransactionSplitCreate,
+    TransactionUpdate,
+)
 from kaleta.services import AccountService, CategoryService, TransactionService
 from kaleta.services.import_service import ImportService
+from kaleta.services.transaction_service import (
+    DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
+    DEFAULT_TRANSFER_PAIRING_DAYS,
+)
+from kaleta.views.settings.constants import (
+    DEFAULT_TRANSFER_AMOUNT_TOLERANCE as SETTINGS_TOLERANCE,
+)
+from kaleta.views.settings.constants import (
+    DEFAULT_TRANSFER_PAIRING_DAYS as SETTINGS_PAIRING_DAYS,
+)
 
 DAY = datetime.date(2026, 7, 1)
 
@@ -304,6 +318,87 @@ class TestDetectAndLinkTransfers:
         await ledger.svc.pair_as_transfer(out, inc)
         await ledger.row(ledger.pko, TransactionType.INCOME)
         assert await ImportService(session).detect_and_link_transfers() == 0
+
+
+# ── TransactionService: the pairing's service home ──────────────────────────
+
+
+class TestTransactionServicePairing:
+    async def test_suggestions_carry_account_ids_and_leg_amounts(self, ledger: _Ledger) -> None:
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE, "3123.86")
+        inc = await ledger.row(ledger.pko, TransactionType.INCOME, "3123.86", day=DAY + _days(2))
+        [pair] = await ledger.svc.suggest_transfer_pairs()
+        assert (pair.outgoing_id, pair.incoming_id) == (out, inc)
+        assert (pair.outgoing_account_id, pair.incoming_account_id) == (ledger.mbank, ledger.pko)
+        assert pair.outgoing_amount == pair.incoming_amount == Decimal("3123.86")
+
+    async def test_one_tolerance_for_pairing_by_hand_and_accepting(self, ledger: _Ledger) -> None:
+        assert Decimal("0.01") == DEFAULT_TRANSFER_AMOUNT_TOLERANCE
+        assert SETTINGS_TOLERANCE is DEFAULT_TRANSFER_AMOUNT_TOLERANCE
+        assert SETTINGS_PAIRING_DAYS == DEFAULT_TRANSFER_PAIRING_DAYS == 3
+        # pair_as_transfer used to default to 0: a grosz apart now pairs by default.
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE, "500.00")
+        inc = await ledger.row(ledger.pko, TransactionType.INCOME, "499.99")
+        out_leg, _ = await ledger.svc.pair_as_transfer(out, inc)
+        assert out_leg.linked_transaction_id == inc
+        far_out = await ledger.row(ledger.mbank, TransactionType.EXPENSE, "500.00")
+        far_in = await ledger.row(ledger.pko, TransactionType.INCOME, "499.98")
+        with pytest.raises(ValidationError, match="same amount"):
+            await ledger.svc.accept_transfer_pair(far_out, far_in)
+
+    async def test_dismiss_checks_the_rows_exist(self, ledger: _Ledger) -> None:
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
+        with pytest.raises(NotFoundError):
+            await ledger.svc.dismiss_transfer_pair(out, 9999)
+        with pytest.raises(ValidationError):
+            await ledger.svc.dismiss_transfer_pair(out, out)
+
+    async def test_pairing_a_linked_pair_again_changes_nothing(self, ledger: _Ledger) -> None:
+        # Two import-typed transfer legs, the higher id the outgoing one: re-pairing
+        # must not fall back to "lower id goes out" and flip them.
+        inc = await ledger.row(ledger.pko, TransactionType.TRANSFER, transfer_direction="in")
+        out = await ledger.row(ledger.mbank, TransactionType.TRANSFER)
+        out_leg, in_leg = await ledger.svc.pair_as_transfer(out, inc)
+        stamp = (out_leg.updated_at, in_leg.updated_at)
+        again_out, again_in = await ledger.svc.pair_selected_as_transfer(inc, out)
+        assert (again_out.id, again_in.id) == (out, inc)
+        assert again_out.transfer_direction == TransferDirection.OUT
+        assert (again_out.updated_at, again_in.updated_at) == stamp
+
+
+class TestUpdateLinksBothSides:
+    async def test_linked_row_turned_into_transfer_writes_its_partner(
+        self, ledger: _Ledger
+    ) -> None:
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
+        # A half link, as a client could leave one before links were checked.
+        inc = await ledger.row(ledger.pko, TransactionType.INCOME, linked_transaction_id=out)
+        await ledger.svc.update(inc, TransactionUpdate(type=TransactionType.TRANSFER))
+        out_leg = await ledger.svc.get(out)
+        in_leg = await ledger.svc.get(inc)
+        assert out_leg is not None and in_leg is not None
+        assert out_leg.type == TransactionType.TRANSFER
+        assert out_leg.linked_transaction_id == inc
+        assert (out_leg.transfer_direction, in_leg.transfer_direction) == (
+            TransferDirection.OUT,
+            TransferDirection.IN,
+        )
+
+    async def test_linked_row_turned_into_transfer_is_validated(self, ledger: _Ledger) -> None:
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE, "500.00")
+        inc = await ledger.row(
+            ledger.pko, TransactionType.INCOME, "400.00", linked_transaction_id=out
+        )
+        with pytest.raises(ValidationError, match="same amount"):
+            await ledger.svc.update(inc, TransactionUpdate(type=TransactionType.TRANSFER))
+
+    async def test_link_moved_to_another_account_reads_that_currency(self, ledger: _Ledger) -> None:
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
+        inc = await ledger.row(ledger.pko, TransactionType.INCOME)
+        with pytest.raises(ValidationError, match="currencies"):
+            await ledger.svc.update(
+                inc, TransactionUpdate(account_id=ledger.wise_eur, linked_transaction_id=out)
+            )
 
 
 class TestTransferReviewWindow:

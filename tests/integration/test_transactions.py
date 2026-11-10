@@ -350,3 +350,121 @@ class TestTransactionNotes:
         resp = await api_client.put(f"/api/v1/transactions/{created['id']}", json={"notes": None})
         assert resp.status_code == 200
         assert resp.json()["notes"] is None
+
+
+class TestPutTransferLink:
+    """``linked_transaction_id`` through PUT is a pairing: checked, and written on both legs.
+
+    Covers: KAL-API-009
+    """
+
+    async def _legs(
+        self, client: AsyncClient, *, in_currency: str = "PLN", in_amount: str = "3123.86"
+    ) -> tuple[int, int]:
+        self._n = getattr(self, "_n", 0) + 1
+        n = self._n
+        mkonto = await create_account(client, name=f"mKonto {n}")
+        savings = await create_account(client, name=f"Savings {n}", currency=in_currency)
+        spend = await create_category(client, name=f"Other {n}")
+        earn = await create_category(client, name=f"Inflow {n}", type="income")
+        out_resp = await client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(
+                mkonto["id"], spend["id"], amount="3123.86", date="2026-11-07"
+            ),
+        )
+        in_resp = await client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(
+                savings["id"], earn["id"], type="income", amount=in_amount, date="2026-11-09"
+            ),
+        )
+        return out_resp.json()["id"], in_resp.json()["id"]
+
+    async def _get(self, client: AsyncClient, tx_id: int) -> dict:
+        return (await client.get(f"/api/v1/transactions/{tx_id}")).json()
+
+    async def test_put_link_writes_both_sides(self, api_client: AsyncClient):
+        out_id, in_id = await self._legs(api_client)
+        resp = await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": in_id}
+        )
+        assert resp.status_code == 200, resp.text
+        out_leg, in_leg = await self._get(api_client, out_id), await self._get(api_client, in_id)
+        assert out_leg["linked_transaction_id"] == in_id
+        assert in_leg["linked_transaction_id"] == out_id
+        for leg in (out_leg, in_leg):
+            assert leg["type"] == "transfer"
+            assert leg["category_id"] is None
+            assert leg["is_internal_transfer"] is True
+        assert (out_leg["transfer_direction"], in_leg["transfer_direction"]) == ("out", "in")
+
+        # The second hand-written PUT of the 2026-11-09 fix, naming the same pair: still fine.
+        again = await api_client.put(
+            f"/api/v1/transactions/{in_id}",
+            json={"linked_transaction_id": out_id, "type": "transfer", "transfer_direction": "in"},
+        )
+        assert again.status_code == 200
+        assert (await self._get(api_client, out_id))["linked_transaction_id"] == in_id
+
+    async def test_put_link_clear_clears_both_sides(self, api_client: AsyncClient):
+        out_id, in_id = await self._legs(api_client)
+        await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": in_id}
+        )
+        resp = await api_client.put(
+            f"/api/v1/transactions/{in_id}", json={"linked_transaction_id": None}
+        )
+        assert resp.status_code == 200
+        assert (await self._get(api_client, out_id))["linked_transaction_id"] is None
+        assert (await self._get(api_client, in_id))["linked_transaction_id"] is None
+
+    async def test_put_link_validates(self, api_client: AsyncClient):
+        # Different currencies: 422, and neither row changes.
+        out_id, eur_in = await self._legs(api_client, in_currency="EUR")
+        resp = await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": eur_in}
+        )
+        assert resp.status_code == 422
+        assert (await self._get(api_client, out_id))["linked_transaction_id"] is None
+        assert (await self._get(api_client, eur_in))["linked_transaction_id"] is None
+
+        # Different amounts: 422.
+        out_id, short_in = await self._legs(api_client, in_amount="3000.00")
+        resp = await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": short_in}
+        )
+        assert resp.status_code == 422
+
+        # Unknown partner: 404. Itself: 422.
+        resp = await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": 999_999}
+        )
+        assert resp.status_code == 404
+        resp = await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": out_id}
+        )
+        assert resp.status_code == 422
+
+        # A leg already linked elsewhere: 409.
+        out_id, in_id = await self._legs(api_client)
+        await api_client.put(
+            f"/api/v1/transactions/{out_id}", json={"linked_transaction_id": in_id}
+        )
+        other_out, _ = await self._legs(api_client)
+        resp = await api_client.put(
+            f"/api/v1/transactions/{other_out}", json={"linked_transaction_id": in_id}
+        )
+        assert resp.status_code == 409
+        assert (await self._get(api_client, in_id))["linked_transaction_id"] == out_id
+
+    async def test_put_link_validates_two_outgoing_legs(self, api_client: AsyncClient):
+        out_id, in_id = await self._legs(api_client)
+        await api_client.put(
+            f"/api/v1/transactions/{in_id}", json={"type": "transfer", "transfer_direction": "out"}
+        )
+        resp = await api_client.put(
+            f"/api/v1/transactions/{out_id}",
+            json={"type": "transfer", "transfer_direction": "out", "linked_transaction_id": in_id},
+        )
+        assert resp.status_code == 422

@@ -28,12 +28,12 @@ from kaleta.services.import_service import (
     ColumnMapping,
     ImportService,
     ParseQueuedFileResult,
-    TransferPairSuggestion,
     build_known_account_digits,
     decode_upload,
     default_remember_mapping,
     inherit_queue_settings,
 )
+from kaleta.services.transaction_service import TransferPairSuggestion
 from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.error_handling import notify_kaleta_error, resolve_toast_text
 from kaleta.views.import_view.constants import GENERIC_PROFILE, METADATA_PROFILES
