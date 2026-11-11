@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from sqlalchemy import func, select
@@ -89,15 +91,14 @@ class _Setup:
         ).id
         return self
 
-    def options(self, **extra: object) -> ImportOptions:
-        base: dict[str, object] = {
-            "filename": "mkonto_2026-07.csv",
-            "account_id": self.mkonto,
-            "expense_category_id": self.spend,
-            "income_category_id": self.earn,
-        }
-        base.update(extra)
-        return ImportOptions(**base)  # type: ignore[arg-type]
+    def options(self, **changes: Any) -> ImportOptions:
+        base = ImportOptions(
+            filename="mkonto_2026-07.csv",
+            account_id=self.mkonto,
+            expense_category_id=self.spend,
+            income_category_id=self.earn,
+        )
+        return dataclasses.replace(base, **changes)
 
     async def counts(self) -> tuple[int, int, int]:
         async def count(model: type) -> int:

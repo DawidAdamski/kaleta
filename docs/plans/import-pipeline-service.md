@@ -93,12 +93,12 @@ Out of scope:
 
 New tests:
 
-- `test_build_writes_nothing` checks that the row, payee and import-run counts
+- Build: `test_build_writes_nothing` checks that the row, payee and import-run counts
   are unchanged after `build`.
-- `test_apply_is_atomic` injects a failure in `save_external_number`. No rows,
+- Apply: `test_apply_is_atomic` injects a failure in `save_external_number`. No rows,
   payees or import run must remain.
-- `test_account_resolution_order` checks that explicit beats rule and rule beats number.
-- `test_pipeline_matches_golden_rows` imports `current-account-sample.csv` and
+- Resolution: `test_account_resolution_order` checks that explicit beats rule and rule beats number.
+- Golden: `test_pipeline_matches_golden_rows` imports `current-account-sample.csv` and
   compares the stored descriptions, types and categories with fixed literal
   expectations (Working Agreement rule 11: BDD literals, not "same as before").
 
@@ -167,6 +167,10 @@ New tests:
   are defined in `transaction_service.py` and re-exported by
   `views/settings/constants.py` — the same lines `import-transfer-pairs-api` adds,
   so whichever branch merges second resolves a trivial conflict in those two files.
+- **Acceptance list format.** The DoD gate runs every acceptance bullet that
+  starts with a backtick as a shell command, so the four "New tests" bullets were
+  read as commands. They now start with a word ("Build:", "Apply:", …); the test
+  names and the tests are unchanged and run under the first two criteria.
 - **Upload limit.** `import_pipeline.upload_exceeds_limit(size)` holds the
   `settings.max_upload_bytes` check; `upload_guard.upload_exceeds_cap` keeps the
   UI's `size()` probe and calls it.
