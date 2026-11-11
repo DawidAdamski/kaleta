@@ -176,3 +176,12 @@ New tests:
   UI's `size()` probe and calls it.
 
 ## Implementation (filled by plan-archiver)
+- **KAL-CSV-039 e2e race (gate attempt 1, after the rebase).** In one full
+  `verify.sh --e2e` run, `test_mbank_transfer_detected_against_stored_suffix_and_earlier_file`
+  failed on its second file: the Preview panel stayed hidden although the
+  snapshot showed all three settings filled and the Preview node clickable.
+  The test's `_step` clicked the node right after the last select, and a click
+  sent before the server has that choice is dropped (the node is not yet
+  walkable). It now waits for `cursor-pointer` first, like `_step` in
+  `test_csv_import.py` always has. The view and the pipeline are unchanged by
+  this; the file passes alone and in the import e2e subset (38/38).
