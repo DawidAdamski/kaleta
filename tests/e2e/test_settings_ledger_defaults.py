@@ -42,3 +42,10 @@ def test_ledger_opens_on_the_settings_page_size_and_grouping(page: Page, base_ur
         page.goto(f"{base_url}/settings?tab=features")
         page.get_by_role("button", name="50", exact=True).click()
         page.get_by_role("button", name="None", exact=True).click()
+        # A click is only a websocket message: the test ending here can close
+        # the browser before the server stores it, and every ledger test after
+        # this file then opens on Month — a separator row more than it counts
+        # — and 200 rows a page. Read the defaults back off a fresh ledger.
+        page.goto(f"{base_url}/transactions")
+        expect(page.locator(".k-ledger-foot .q-select")).to_contain_text("50", timeout=10000)
+        expect(page.locator(".k-segment button.bg-primary")).to_have_text("None")

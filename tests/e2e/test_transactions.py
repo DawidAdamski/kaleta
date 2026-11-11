@@ -12,6 +12,7 @@ Page URL: /transactions
 from __future__ import annotations
 
 import re
+import uuid
 
 from playwright.sync_api import Locator, Page, expect
 
@@ -24,6 +25,16 @@ from tests.e2e.seed_helpers import (
     seed_transaction,
     seed_transfer_pair,
 )
+
+
+def _attempt_tag() -> str:
+    """A suffix unique to this attempt, for the names a split-dialog test seeds.
+
+    These tests are the e2e tier's known timing flake, so the conftest reruns
+    them; a rerun that seeded the same names again would hit the category
+    name's uniqueness (409) and find the first attempt's rows beside its own.
+    """
+    return f"E2E {uuid.uuid4().hex[:6]}"
 
 
 def _fill_number(scope: Page, label: str, value: str) -> None:
@@ -83,10 +94,11 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     description and amount, then create a split transaction across two
     categories and edit the saved split lines.
     """
-    account_name = "PKO Main Tx E2E"
-    food_cat = "Food Tx E2E"
-    split_cat_a = "Food Split A Tx E2E"
-    split_cat_b = "Food Split B Tx E2E"
+    tag = _attempt_tag()
+    account_name = f"PKO Main Tx {tag}"
+    food_cat = f"Food Tx {tag}"
+    split_cat_a = f"Food Split A Tx {tag}"
+    split_cat_b = f"Food Split B Tx {tag}"
 
     seed_account(account_name)
     seed_category(food_cat)
@@ -100,7 +112,7 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     # ── Add expense ───────────────────────────────────────────────────────
     _select_option(page, dialog, 1, account_name)
     _fill_number(dialog, "Amount", "45.50")
-    dialog.get_by_label("Description (optional)").fill("Supermarket Tx E2E")
+    dialog.get_by_label("Description (optional)").fill(f"Supermarket Tx {tag}")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(food_cat, exact=True).click()
     dialog.get_by_role("button", name="Save", exact=True).click()
@@ -108,11 +120,11 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     # The dialog reuses the date of the day's last save (QuickEntryMemory), so
     # the row need not be on today's first page: find it through the search.
     search_ledger(page, "Supermarket")
-    expect(page.get_by_text("Supermarket Tx E2E").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text(f"Supermarket Tx {tag}").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-45.50").first).to_be_visible(timeout=5000)
 
     # ── Edit ──────────────────────────────────────────────────────────────
-    row = page.locator(".q-table tbody tr").filter(has_text="Supermarket Tx E2E")
+    row = page.locator(".q-table tbody tr").filter(has_text=f"Supermarket Tx {tag}")
     row.get_by_role("button", name="Edit").click()
 
     edit_dialog = page.get_by_role("dialog")
@@ -120,11 +132,11 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
 
     desc_field = edit_dialog.get_by_label("Description (optional)")
     desc_field.click(click_count=3)
-    desc_field.fill("Supermarket Updated Tx E2E")
+    desc_field.fill(f"Supermarket Updated Tx {tag}")
     _fill_number(edit_dialog, "Amount", "50.00")
     edit_dialog.get_by_role("button", name="Save", exact=True).click()
 
-    expect(page.get_by_text("Supermarket Updated Tx E2E").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text(f"Supermarket Updated Tx {tag}").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-50.00").first).to_be_visible(timeout=5000)
 
     # ── Split ─────────────────────────────────────────────────────────────
@@ -134,7 +146,7 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
 
     _select_option(page, dialog, 1, account_name)
     _fill_number(dialog, "Amount", "100")
-    dialog.get_by_label("Description (optional)").fill("Split Grocery Tx E2E")
+    dialog.get_by_label("Description (optional)").fill(f"Split Grocery Tx {tag}")
     dialog.get_by_text("Split", exact=True).click()
 
     split_rows = dialog.locator(".split-cat-select")
@@ -153,18 +165,18 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
 
     _save_when_balanced(dialog)
 
-    search_ledger(page, "Split Grocery Tx E2E")
-    expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
+    search_ledger(page, f"Split Grocery Tx {tag}")
+    expect(page.get_by_text(f"Split Grocery Tx {tag}").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Split (2)", exact=True).first).to_be_visible(timeout=5000)
     expect(
         page.locator(".q-table tbody tr")
-        .filter(has_text="Split Grocery Tx E2E")
+        .filter(has_text=f"Split Grocery Tx {tag}")
         .locator(".split-row-icon")
     ).to_be_visible(timeout=5000)
 
     # ── Edit split ────────────────────────────────────────────────────────
-    split_row = page.locator(".q-table tbody tr").filter(has_text="Split Grocery Tx E2E")
+    split_row = page.locator(".q-table tbody tr").filter(has_text=f"Split Grocery Tx {tag}")
     split_row.get_by_role("button", name="Edit").click()
 
     split_edit_dialog = page.get_by_role("dialog")
@@ -179,7 +191,7 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     _set_split_amount(split_amount_fields.nth(1), "30")
     _save_when_balanced(split_edit_dialog)
 
-    expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text(f"Split Grocery Tx {tag}").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Split (2)", exact=True).first).to_be_visible(timeout=5000)
 
@@ -190,10 +202,11 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     After creating a split and a plain expense, only the split row shows
     the call_split icon and ``Split (2)`` category label.
     """
-    account_name = "PKO Split Ind E2E"
-    plain_cat = "Food Plain Ind E2E"
-    split_cat_a = "Food SplitA Ind E2E"
-    split_cat_b = "Food SplitB Ind E2E"
+    tag = _attempt_tag()
+    account_name = f"PKO Split Ind {tag}"
+    plain_cat = f"Food Plain Ind {tag}"
+    split_cat_a = f"Food SplitA Ind {tag}"
+    split_cat_b = f"Food SplitB Ind {tag}"
 
     seed_account(account_name)
     seed_category(plain_cat)
@@ -206,11 +219,11 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     expect(dialog).to_be_visible(timeout=5000)
     _select_option(page, dialog, 1, account_name)
     _fill_number(dialog, "Amount", "20.00")
-    dialog.get_by_label("Description (optional)").fill("Plain Ind E2E")
+    dialog.get_by_label("Description (optional)").fill(f"Plain Ind {tag}")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(plain_cat, exact=True).click()
     dialog.get_by_role("button", name="Save", exact=True).click()
-    expect(page.get_by_text("Plain Ind E2E").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text(f"Plain Ind {tag}").first).to_be_visible(timeout=5000)
 
     # Split expense
     page.goto(f"{base_url}/transactions?new=1")
@@ -218,7 +231,7 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     expect(dialog).to_be_visible(timeout=5000)
     _select_option(page, dialog, 1, account_name)
     _fill_number(dialog, "Amount", "100")
-    dialog.get_by_label("Description (optional)").fill("Split Ind E2E")
+    dialog.get_by_label("Description (optional)").fill(f"Split Ind {tag}")
     dialog.get_by_text("Split", exact=True).click()
     split_rows = dialog.locator(".split-cat-select")
     expect(split_rows).to_have_count(2, timeout=5000)
@@ -235,9 +248,9 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
 
     # The dialog reuses the date of the day's last save (QuickEntryMemory), so
     # the row need not be on today's first page: find it through the search.
-    search_ledger(page, "Ind E2E")
-    split_row = page.locator(".q-table tbody tr").filter(has_text="Split Ind E2E")
-    plain_row = page.locator(".q-table tbody tr").filter(has_text="Plain Ind E2E")
+    search_ledger(page, f"Ind {tag}")
+    split_row = page.locator(".q-table tbody tr").filter(has_text=f"Split Ind {tag}")
+    plain_row = page.locator(".q-table tbody tr").filter(has_text=f"Plain Ind {tag}")
 
     expect(split_row.get_by_text("Split (2)", exact=True)).to_be_visible(timeout=5000)
     expect(split_row.locator(".split-row-icon")).to_be_visible(timeout=5000)
@@ -252,10 +265,11 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     The row Split action opens the edit dialog with the split switch ON;
     saving two balanced lines then shows the table indicator.
     """
-    account_name = "PKO Split Act E2E"
-    food_cat = "Food Act E2E"
-    split_cat_a = "Food SplitA Act E2E"
-    split_cat_b = "Food SplitB Act E2E"
+    tag = _attempt_tag()
+    account_name = f"PKO Split Act {tag}"
+    food_cat = f"Food Act {tag}"
+    split_cat_a = f"Food SplitA Act {tag}"
+    split_cat_b = f"Food SplitB Act {tag}"
 
     seed_account(account_name)
     seed_category(food_cat)
@@ -267,16 +281,16 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     expect(dialog).to_be_visible(timeout=5000)
     _select_option(page, dialog, 1, account_name)
     _fill_number(dialog, "Amount", "80.00")
-    dialog.get_by_label("Description (optional)").fill("Arm Split E2E")
+    dialog.get_by_label("Description (optional)").fill(f"Arm Split {tag}")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(food_cat, exact=True).click()
     dialog.get_by_role("button", name="Save", exact=True).click()
     # The dialog reuses the date of the day's last save (QuickEntryMemory), so
     # the row need not be on today's first page: find it through the search.
-    search_ledger(page, "Arm Split E2E")
-    expect(page.get_by_text("Arm Split E2E").first).to_be_visible(timeout=5000)
+    search_ledger(page, f"Arm Split {tag}")
+    expect(page.get_by_text(f"Arm Split {tag}").first).to_be_visible(timeout=5000)
 
-    row = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
+    row = page.locator(".q-table tbody tr").filter(has_text=f"Arm Split {tag}")
     row.get_by_role("button", name="Split").click()
 
     edit_dialog = page.get_by_role("dialog")
@@ -298,7 +312,7 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     edit_dialog.get_by_role("button", name="Fill last").click()
     _save_when_balanced(edit_dialog)
 
-    updated = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
+    updated = page.locator(".q-table tbody tr").filter(has_text=f"Arm Split {tag}")
     expect(updated.get_by_text("Split (2)", exact=True)).to_be_visible(timeout=5000)
     expect(updated.locator(".split-row-icon")).to_be_visible(timeout=5000)
 
