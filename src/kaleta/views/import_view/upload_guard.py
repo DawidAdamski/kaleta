@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from kaleta.config import settings
+from kaleta.services.import_pipeline import upload_exceeds_limit
 
 
 class SupportsSize(Protocol):
@@ -22,6 +22,9 @@ class SupportsSize(Protocol):
 
 
 def upload_exceeds_cap(file: SupportsSize, cap_bytes: int | None = None) -> bool:
-    """Whether ``file`` is larger than the cap (``settings.max_upload_bytes`` by default)."""
-    cap = settings.max_upload_bytes if cap_bytes is None else cap_bytes
-    return file.size() > cap
+    """Whether ``file`` is larger than the cap (``settings.max_upload_bytes`` by default).
+
+    The limit itself is the service layer's (``upload_exceeds_limit``), so the
+    page and the API refuse the same sizes; this keeps the UI's size() probe.
+    """
+    return upload_exceeds_limit(file.size(), cap_bytes)

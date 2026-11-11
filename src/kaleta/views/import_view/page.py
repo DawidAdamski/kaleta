@@ -16,22 +16,26 @@ from kaleta.services import (
     AccountService,
     CategoryService,
     ImportRuleService,
-    TransactionService,
     with_session,
+)
+from kaleta.services.import_pipeline import (
+    AccountResolution,
+    ImportOptions,
+    ImportOutcome,
+    ImportPipeline,
 )
 from kaleta.services.import_service import (
     ColumnMapping,
-    ImportReadinessCheck,
     ImportService,
+    ParseQueuedFileResult,
     TransferPairSuggestion,
     build_known_account_digits,
     decode_upload,
     default_remember_mapping,
     inherit_queue_settings,
-    validate_import_readiness,
 )
 from kaleta.views.components.amount_label import spaced_thousands
-from kaleta.views.error_handling import notify_kaleta_error
+from kaleta.views.error_handling import notify_kaleta_error, resolve_toast_text
 from kaleta.views.import_view.constants import GENERIC_PROFILE, METADATA_PROFILES
 from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
@@ -399,20 +403,27 @@ async def import_page() -> None:
         _sync_step()
 
     async def _auto_match_account(queued_file: QueuedFile) -> bool:
+        """Point an mBank file at its account; True when its own number found it.
+
+        The order is the pipeline's (``ImportPipeline.resolve_account``): a
+        filename rule wins over the statement number. A rule's account was
+        already set on upload; the number fills in when no rule matched.
+        """
         if queued_file.profile != "mbank" or not queued_file.metadata:
             return False
-        digits = queued_file.metadata.account_number_digits
-        if not digits:
-            return False
 
-        async def _match(session: Any) -> Any:
-            return await AccountService(session).find_by_external_number(digits[-10:])
+        async def _resolve(session: Any) -> AccountResolution:
+            return await ImportPipeline(session).resolve_account(
+                filename=queued_file.filename,
+                profile=queued_file.profile,
+                metadata=queued_file.metadata,
+            )
 
-        matched = await with_session(_match)
-        if matched and matched.id in account_options:
-            queued_file.target_account_id = matched.id
-            return True
-        return False
+        resolution = await with_session(_resolve)
+        if resolution.source == "number" and resolution.account_id in account_options:
+            queued_file.target_account_id = resolution.account_id
+        number_id = resolution.number_account_id
+        return number_id is not None and number_id == queued_file.target_account_id
 
     async def _apply_import_rule(queued_file: QueuedFile) -> bool:
         async def _match(session: Any) -> Any:
@@ -589,90 +600,48 @@ async def import_page() -> None:
         queued_file.status_msg = ""
         _render_queue()
 
-        account = next((a for a in accounts if a.id == queued_file.target_account_id), None)
-        error_key, error_params = validate_import_readiness(
-            ImportReadinessCheck(
-                target_account_id=queued_file.target_account_id,
-                expense_cat_id=queued_file.expense_cat_id,
-                income_cat_id=queued_file.income_cat_id,
-                profile=queued_file.profile,
-                metadata=queued_file.metadata,
-                account_currency=account.currency if account else None,
-            )
-        )
-        if error_key is not None:
+        if queued_file.target_account_id is None:
+            # The reader cleared the account: ask for one, as before, rather
+            # than let the pipeline pick one by rule or number behind their back.
             queued_file.status = "failed"
-            queued_file.status_msg = t(error_key, **error_params)
+            queued_file.status_msg = t("import.select_account_hint")
             return
 
-        target_account_id = queued_file.target_account_id
-        expense_cat_id = queued_file.expense_cat_id
-        income_cat_id = queued_file.income_cat_id
-        if target_account_id is None or expense_cat_id is None or income_cat_id is None:
-            # validate_import_readiness() reported no error, so all three are set.
-            raise RuntimeError("Import readiness passed with an unmapped account or category.")
+        parsed = ParseQueuedFileResult(
+            profile=queued_file.profile,
+            rows=queued_file.parsed_rows,
+            metadata=queued_file.metadata,
+            ok=True,
+        )
+        options = ImportOptions(
+            filename=queued_file.filename,
+            account_id=queued_file.target_account_id,
+            expense_category_id=queued_file.expense_cat_id,
+            income_category_id=queued_file.income_cat_id,
+            skip_duplicates=queued_file.skip_duplicates,
+            pairing_days=get_transfer_pairing_days(),
+        )
+
+        async def _persist(session: Any) -> ImportOutcome:
+            pipeline = ImportPipeline(session)
+            return await pipeline.apply(await pipeline.build(parsed, options))
 
         try:
-
-            async def _persist(session: Any) -> tuple[int, list[Any]]:
-                svc_import = ImportService(session)
-                if queued_file.profile == "mbank":
-                    # Fresh from the database: an earlier file in this batch,
-                    # or Settings, may have stored a number since the page loaded.
-                    for fresh in await AccountService(session).list():
-                        external_numbers[fresh.id] = fresh.external_account_number
-                    creates = await svc_import.to_transaction_creates_with_payees(
-                        queued_file.parsed_rows,
-                        account_id=target_account_id,
-                        default_expense_category_id=expense_cat_id,
-                        default_income_category_id=income_cat_id,
-                        known_account_digits=_known_digits(),
-                        target_account_digits=_target_digits(queued_file),
-                    )
-                else:
-                    creates = svc_import.to_transaction_creates(
-                        queued_file.parsed_rows,
-                        account_id=target_account_id,
-                        default_expense_category_id=expense_cat_id,
-                        default_income_category_id=income_cat_id,
-                    )
-
-                skipped_rows: list[Any] = []
-                if queued_file.skip_duplicates:
-                    creates, skipped_rows = await svc_import.filter_duplicates(creates)
-
-                creates = await svc_import.apply_categorisation_rules(creates)
-                dates = [c.date for c in creates]
-                svc_import.record_import_run(
-                    account_id=target_account_id,
-                    filename=queued_file.filename,
-                    profile=queued_file.profile,
-                    imported_count=len(creates),
-                    skipped_count=len(skipped_rows),
-                    row_date_min=min(dates) if dates else None,
-                    row_date_max=max(dates) if dates else None,
-                )
-                count = await TransactionService(session).create_bulk(creates)
-
-                if (
-                    queued_file.profile == "mbank"
-                    and queued_file.metadata
-                    and queued_file.metadata.account_number_digits
-                ):
-                    await AccountService(session).save_external_number(
-                        target_account_id,
-                        queued_file.metadata.account_number_digits,
-                    )
-                    # Already digits (MBankFileMetadata), as save_external_number stores them.
-                    external_numbers[target_account_id] = queued_file.metadata.account_number_digits
-                return count, skipped_rows
-
-            count, skipped_rows = await with_session(_persist)
+            outcome = await with_session(_persist)
+        except KaletaError as exc:
+            queued_file.status = "failed"
+            queued_file.status_msg = resolve_toast_text(exc)
+            return
         except Exception as exc:
             queued_file.status = "failed"
             queued_file.status_msg = str(exc)
             return
 
+        if outcome.saved_account_number:
+            # Files later in this batch classify rows against it (KAL-CSV-039).
+            external_numbers[outcome.account_id] = outcome.saved_account_number
+        count = outcome.imported_count
+        skipped_rows = [skip.create for skip in outcome.skipped]
         queued_file.imported_count = count
         queued_file.skipped_rows = skipped_rows
         queued_file.skipped_dupes = len(skipped_rows)
