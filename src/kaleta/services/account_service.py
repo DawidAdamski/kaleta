@@ -285,17 +285,22 @@ class AccountService:
             raise ConflictError(msg, message_key="errors.account.ambiguous_external_number")
         return matches[0] if matches else None
 
-    async def save_external_number(self, account_id: int, number: str) -> None:
+    async def save_external_number(
+        self, account_id: int, number: str, *, commit: bool = True
+    ) -> None:
         """Persist an external account number, all of its digits, for auto-matching.
 
         Kept whole: transfer detection on import compares it with the
         statement's full counterparty number (``account_number_matches``), and
         a full number the user typed must not be cut down by the next import.
+        ``commit=False`` stages it inside a caller's transaction
+        (``ImportPipeline.apply``).
         """
         account = await self.get(account_id)
         if account is not None:
             account.external_account_number = digits_only(number)
-            await self.session.commit()
+            if commit:
+                await self.session.commit()
 
     @staticmethod
     def is_stale(newest_transaction_date: date | None, *, today: date | None = None) -> bool:

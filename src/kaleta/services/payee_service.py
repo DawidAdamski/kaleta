@@ -168,7 +168,26 @@ class PayeeService:
         Does NOT commit — the caller owns the transaction; ``flush()`` makes the
         new ID available within the current session.
         """
-        cleaned = " ".join(name.split())
+        existing = await self.match_from_name(name)
+        if existing is not None:
+            return existing
+        payee = Payee(name=self.clean_name(name))
+        self.session.add(payee)
+        await self.session.flush()
+        return payee
+
+    @staticmethod
+    def clean_name(name: str) -> str:
+        """A raw payee name as it is matched and stored: inner whitespace collapsed."""
+        return " ".join(name.split())
+
+    async def match_from_name(self, name: str) -> Payee | None:
+        """Steps 1–3 of :meth:`match_or_create_from_name`, writing nothing.
+
+        ``None`` means the name would become a new payee. The import pipeline's
+        read-only ``build`` uses this; ``apply`` then creates the missing ones.
+        """
+        cleaned = self.clean_name(name)
         # An exact spelling has the same key as a case-insensitive one, so the
         # blind index finds both; which of them actually matches is decided on
         # the decrypted patterns below.
@@ -189,14 +208,7 @@ class PayeeService:
         named = await self.session.execute(
             select(Payee).where(Payee.name_bidx == exact_index(cleaned))
         )
-        existing = named.scalar_one_or_none()
-        if existing is not None:
-            return existing
-
-        payee = Payee(name=cleaned)
-        self.session.add(payee)
-        await self.session.flush()
-        return payee
+        return named.scalar_one_or_none()
 
     # ── Identities ────────────────────────────────────────────────────────
 
