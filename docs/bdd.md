@@ -1408,6 +1408,20 @@ Feature: mBank CSV Import
     And the account and column mapping are pre-filled from the rule
     And I can still override them before importing
 
+  KAL-CSV-043 @automated
+  Scenario: A saved filename rule decides the account before the statement number
+    The import resolves the target account in one order, on the page and in the
+    import service alike: an account chosen explicitly, else a saved filename
+    rule, else the account whose stored number matches the mBank statement.
+
+    Given an account "Savings" registered with number "55 1140 2004 0000 3302 9999 6836"
+    And a saved import rule "mkonto_*" for account "mKonto"
+    When I upload the mBank statement "mkonto_2026-07.csv" of account "55 1140 2004 0000 3302 9999 6836"
+    Then the account is "mKonto", from the rule
+    When I upload the same statement as "statement.csv", which no rule matches
+    Then the account is "Savings", from its number
+    And importing a file whose rows are all duplicates creates no payees for them
+
   KAL-CSV-016 @planned
   Scenario: More specific filename pattern wins on match
     Given saved rules "mbank-*.csv" and "mbank-2025-*.csv" for different accounts
