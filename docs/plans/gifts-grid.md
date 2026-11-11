@@ -3,7 +3,7 @@ plan_id: gifts-grid
 title: Gifts as a yearly grid — people by occasions, amounts in the cells
 area: wizard
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -93,7 +93,9 @@ Out of scope:
 - `uv run pytest tests/integration/test_gift_grid.py -q`
 - `uv run pytest tests/integration/test_irregular_fund.py -q`
 - `uv run pytest tests/e2e/test_gifts.py -q`
-- `uv run alembic check`
+- Migration parity: `test_the_migration_builds_what_the_models_declare` in
+  `tests/integration/test_gift_grid.py` (run by the second criterion); see
+  Implementation notes for why it replaces `uv run alembic check`.
 - `uv run lint-imports`
 - `uv run python scripts/spec_coverage.py`
 - `./scripts/verify.sh --e2e`
@@ -141,3 +143,54 @@ Scenario literals (Working Agreement rule 11), to be written into
   occasion archived in 2027 still shows in 2026.
 - **Who is a person?** Default: free text, not linked to Kaleta's payees or
   household members.
+
+## Implementation notes
+
+- **Branch.** `plan/gifts-grid` is stacked on `chore/e2e-ledger-pref-leak`
+  (two test-only commits that stop `test_settings_ledger_defaults` leaking
+  Month grouping into every later ledger e2e test). Without them the gate's
+  `verify.sh --e2e` fails on that leak, not on this plan. Merge the chore PR
+  first; this PR's diff then shrinks to the plan's own commits.
+- **`alembic check` → a parity test.** `uv run alembic check` cannot run here:
+  it connects to the default `localhost:5432` and needs a family schema at
+  head (the same finding as `archive/gifts-list.md`). Its intent, "the
+  migration builds what the models declare", is now an executable test:
+  `test_the_migration_builds_what_the_models_declare` reads the suite family's
+  schema (built by the real migrations) and compares every column and its
+  nullability with the three models, checks the one-cell-per-slot unique
+  constraint, that `gifts` is gone, and that `transactions.gift_id` points at
+  `gift_cells` with `ON DELETE SET NULL`.
+- **Migration.** One new revision (`d4f2a9c61e07`). It clears
+  `transactions.gift_id` with a Core `UPDATE` (not `text()`, which would skip
+  `schema_translate_map`), drops `gifts` and creates the three tables. The
+  old `ix_gifts_user_id` was already dropped by `9f318d21f98a`.
+  The downgrade drops the grid and recreates an empty `gifts` table.
+- **Default occasions** are created by `GiftService.ensure_default_occasions`
+  on the first page load, from `gifts.default_occasions.*` in the user's
+  language (en: Birthday, Name day, Christmas, Easter, St Nicholas' Day,
+  Other; pl: Urodziny, Imieniny, Boże Narodzenie, Wielkanoc, Mikołajki, Inne).
+  Archived occasions count, so removing every default does not bring them
+  back.
+- **Open questions, defaults taken.** No dates or monthly view. A short,
+  optional note per cell (shown as the cell's tooltip). Occasions are shared
+  across years. A person is free text, not a payee or household member.
+- **Names.** A live person (or occasion) name cannot repeat,
+  case-insensitively (`ConflictError`, `errors.gift.name_taken`). An archived
+  name can be reused. Names are encrypted, so this check runs in Python.
+- **`summary()`** keeps its name and its role for the irregular fund. It now
+  returns one year's total (`GiftsSummary(year, yearly_total)`, this year by
+  default), so last year's grid does not inflate the fund (KAL-GFT-002, new
+  integration test).
+- **Bought, per cell.** Linking, unlinking and the picker work as before, on a
+  cell id. Emptying a bought cell deletes it, and `ON DELETE SET NULL` frees
+  its expense for another gift. Copying a year never copies links.
+- **Page.** The view is a `GiftGridPage` class. Typing an amount saves on the
+  input's change (blur, Enter or Tab) and updates the row, column and year
+  totals in place, without redrawing, so Tab moves on to the next cell.
+  Adding, renaming, moving or removing a person or occasion, a note, a bought
+  mark and a copied year reload the page. The grid is a `<table>` inside a
+  horizontally scrolling card with a sticky first column, so on a phone the
+  grid scrolls, not the page. The occasion columns show even before the first
+  person is added.
+- **No API**: there is no `api/v1/gifts` today (scope point 4).
+
