@@ -194,3 +194,13 @@ Scenario literals (Working Agreement rule 11), to be written into
   person is added.
 - **No API**: there is no `api/v1/gifts` today (scope point 4).
 
+- **Removed assertions in `test_gift_service.py` (rule 4).** The old file
+  tested the flat `Gift` list (create/update/delete a gift row, its
+  `occasion`/`date`/`status` fields), and that model and table no longer
+  exist. The file is rewritten, not loosened: 34 tests over the grid — lanes,
+  cells, totals, copy-a-year and bought-per-cell — with BDD literals.
+- **Unrelated flake on the gate's re-run.** One gate run failed on
+  `test_wizard_action_service.py::TestPerformance` (216 ms vs a 200 ms
+  wall-clock limit) while the machine's load average was ~32 from other apps;
+  that test is untouched by this branch and passes alone (0.74 s run). Left as
+  is (no raised limit) and logged in `chores.md`.
