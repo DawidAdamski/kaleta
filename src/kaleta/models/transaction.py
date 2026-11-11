@@ -79,10 +79,11 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
         nullable=True,
         index=True,
     )
-    # The gift this expense paid for (``KAL-GFT-003``). A gift is "bought" when
-    # a transaction points at it; its actual cost is the sum of those amounts.
+    # The gift-grid cell this expense paid for (``KAL-GFT-003``). A cell is
+    # "bought" when a transaction points at it; its actual cost is the sum of
+    # those amounts.
     gift_id: Mapped[int | None] = mapped_column(
-        ForeignKey("gifts.id", ondelete="SET NULL"),
+        ForeignKey("gift_cells.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
