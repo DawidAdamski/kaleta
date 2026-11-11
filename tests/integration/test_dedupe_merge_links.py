@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
-from kaleta.models.gift import Gift
+from kaleta.models.gift import GiftCell, GiftOccasion, GiftPerson
 from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundKind
@@ -57,7 +57,12 @@ async def _irregular_item(session: AsyncSession, fund_id: int, name: str) -> int
 
 
 async def _gift(session: AsyncSession) -> int:
-    gift = Gift(person="Anna", occasion="Urodziny", amount=Decimal("150.00"))
+    person, occasion = GiftPerson(name="Anna"), GiftOccasion(name="Urodziny")
+    session.add_all([person, occasion])
+    await session.flush()
+    gift = GiftCell(
+        year=2026, person_id=person.id, occasion_id=occasion.id, amount=Decimal("150.00")
+    )
     session.add(gift)
     await session.commit()
     await session.refresh(gift)

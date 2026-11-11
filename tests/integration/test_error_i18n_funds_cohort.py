@@ -51,6 +51,12 @@ _FUNDS_COHORT: dict[str, dict[str, object]] = {
     "errors.gift.transaction_not_found": {"transaction_id": 7},
     "errors.gift.only_expense_pays": {},
     "errors.gift.transaction_pays_another": {},
+    "errors.gift.person_not_found": {"id": 999_999},
+    "errors.gift.occasion_not_found": {"id": 999_999},
+    "errors.gift.name_taken": {"name": "Mama"},
+    "errors.gift.name_required": {},
+    "errors.gift.year_not_empty": {"year": 2027},
+    "errors.gift.nothing_to_copy": {"year": 2026},
     "errors.salary.window_at_least_one_month": {},
     "errors.salary.override_not_negative": {},
     "errors.salary.source_target_differ": {},
@@ -128,7 +134,7 @@ class TestMigratedCohortRaisesCarryWorkingKeys:
     async def test_gift_missing_gift_carries_its_key(self, session: AsyncSession) -> None:
         svc = GiftService(session)
         with pytest.raises(NotFoundError) as missing:
-            await svc.delete(999_999)
+            await svc.mark_not_bought(999_999)
         _assert_localizes(missing.value, "errors.gift.not_found")
         assert missing.value.message == "Gift 999999 not found"
 

@@ -2744,9 +2744,9 @@ Feature: Irregular Expenses Fund
 
 ## Feature: Gift Planning
 
-A list of people and occasions with planned amounts; the yearly total
-feeds the Irregular Expenses Fund, so Christmas never raids December's
-budget.
+A yearly grid: one row per person, one column per occasion, an amount in each
+cell, with totals per person, per occasion and for the year. The year's total
+feeds the Irregular Expenses Fund, so Christmas never raids December's budget.
 
 ```gherkin
 Feature: Gift Planning
@@ -2755,23 +2755,45 @@ Feature: Gift Planning
   So that gift money is saved up ahead of time
 
   KAL-GFT-001 @automated
-  Scenario: Maintain the gift list
+  Scenario: Maintain the gift grid
     Given I am on the Gifts page
-    When I add "Mum — birthday — 200.00" and "Mum — Christmas — 150.00"
-    Then both entries appear grouped under "Mum"
-    And the yearly gifts total shows 350.00
+    And the grid has the default occasions "Birthday", "Name day", "Christmas",
+      "Easter", "St Nicholas' Day" and "Other"
+    When I add the people "Mama" and "Tata"
+    And I type Mama — Birthday 200.00, Mama — Christmas 150.00
+      and Tata — Christmas 100.00
+    Then Mama's row totals 350.00 and Tata's 100.00
+    And the Christmas column totals 250.00
+    And the year's gifts total shows 450.00
 
   KAL-GFT-002 @automated
-  Scenario: Gift total feeds the irregular fund
-    Given the yearly gifts total is 350.00
+  Scenario: This year's gift total feeds the irregular fund
+    Given this year's gift grid totals 350.00
     When I open the Irregular Fund page
     Then a "Gifts" item with yearly amount 350.00 is included
+    And last year's grid does not count
 
   KAL-GFT-003 @automated
   Scenario: Mark a gift as bought
-    Given gift "Mum — birthday — 200.00" is planned
-    When I link a 189.99 transaction to that gift
-    Then the gift is marked bought with its actual cost
+    Given gift "Mum — Birthday — 200.00" is planned for this year
+    When I link a 189.99 transaction to that cell
+    Then the cell shows "Bought 189.99" and keeps its planned 200.00
+
+  KAL-GFT-004 @automated
+  Scenario: A new year starts as a copy of the last
+    Given 2041 has Mama — Birthday 200.00, Mama — Christmas 150.00
+      and Tata — Christmas 100.00
+    And 2042 has no gifts
+    When I open 2042 and choose "Copy from 2041"
+    Then 2042's gifts total shows 450.00
+    And no cell of 2042 is marked bought, even where 2041's was
+
+  KAL-GFT-005 @automated
+  Scenario: Add an occasion
+    Given Mama — Birthday 200.00 is planned
+    When I add the occasion "Rocznica ślubu"
+    Then a "Rocznica ślubu" column appears, empty, with a total of 0.00
+    And the year's gifts total stays 200.00
 ```
 
 ---

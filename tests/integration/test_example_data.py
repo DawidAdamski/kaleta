@@ -24,7 +24,7 @@ from kaleta.models.asset import Asset
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
 from kaleta.models.credit import CreditCardProfile
-from kaleta.models.gift import Gift
+from kaleta.models.gift import GiftCell, GiftOccasion, GiftPerson
 from kaleta.models.institution import Institution
 from kaleta.models.payee import Payee
 from kaleta.models.personal_loan import Counterparty, PersonalLoan, PersonalLoanRepayment
@@ -52,7 +52,9 @@ SEEDED_TABLES = (
     Category,
     Counterparty,
     CreditCardProfile,
-    Gift,
+    GiftCell,
+    GiftOccasion,
+    GiftPerson,
     Institution,
     Payee,
     PersonalLoan,

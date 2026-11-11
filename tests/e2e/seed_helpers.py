@@ -496,34 +496,67 @@ def get_subscription(subscription_id: int) -> dict[str, Any]:
     return _run_async_worker(_get)
 
 
-def seed_gift(person: str, occasion: str, amount: float) -> int:
-    """Create a planned gift via the service layer; return its ID."""
+def seed_gift(person: str, occasion: str, amount: float, year: int | None = None) -> int:
+    """Set one gift-grid cell (this year by default), creating the person and
+    occasion when the grid has no live one of that name; return the cell ID."""
+    import datetime
     from decimal import Decimal
 
     from kaleta.db import AsyncSessionFactory
-    from kaleta.schemas.gift import GiftCreate
+    from kaleta.schemas.gift import GiftCellSet, GiftName
     from kaleta.services import GiftService
 
     async def _create() -> int:
         async with AsyncSessionFactory() as session:
-            gift = await GiftService(session).create(
-                GiftCreate(person=person, occasion=occasion, amount=Decimal(str(amount)))
+            svc = GiftService(session)
+            people = {p.name: p.id for p in await svc.people() if not p.archived}
+            occasions = {o.name: o.id for o in await svc.occasions() if not o.archived}
+            if person not in people:
+                people[person] = (await svc.add_person(GiftName(name=person))).id
+            if occasion not in occasions:
+                occasions[occasion] = (await svc.add_occasion(GiftName(name=occasion))).id
+            cell = await svc.set_cell(
+                year if year is not None else datetime.date.today().year,
+                people[person],
+                occasions[occasion],
+                GiftCellSet(amount=Decimal(str(amount))),
             )
-            return gift.id
+            if cell is None:
+                raise RuntimeError("seed_gift: the cell was not stored")
+            return cell.id
 
     return _run_async_worker(_create)
 
 
+def gift_lane_ids() -> dict[str, int]:
+    """Live gift-grid people and occasions, name → id (the page's test ids use them)."""
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.services import GiftService
+
+    async def _ids() -> dict[str, int]:
+        async with AsyncSessionFactory() as session:
+            svc = GiftService(session)
+            lanes = [*await svc.people(), *await svc.occasions()]
+            return {lane.name: lane.id for lane in lanes if not lane.archived}
+
+    return _run_async_worker(_ids)
+
+
 def clear_gifts() -> None:
-    """Delete every gift — the gift total is sum-based, so tests start clean."""
+    """Empty the gift grid — totals are sums over the family, so tests start clean.
+
+    Occasions go too; the page recreates the six defaults on its next load.
+    """
     from sqlalchemy import delete
 
     from kaleta.db import AsyncSessionFactory
-    from kaleta.models.gift import Gift
+    from kaleta.models.gift import GiftCell, GiftOccasion, GiftPerson
 
     async def _clear() -> None:
         async with AsyncSessionFactory() as session:
-            await session.execute(delete(Gift))
+            await session.execute(delete(GiftCell))
+            await session.execute(delete(GiftPerson))
+            await session.execute(delete(GiftOccasion))
             await session.commit()
 
     _run_async_worker(_clear)

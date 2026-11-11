@@ -18,7 +18,7 @@ from kaleta.exceptions import ConflictError, ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.schemas.account import AccountCreate
-from kaleta.schemas.gift import GiftCreate
+from kaleta.schemas.gift import GiftCellSet, GiftName
 from kaleta.schemas.irregular_item import IrregularFundingCreate, IrregularItemCreate
 from kaleta.schemas.reserve_fund import ReserveFundCreate, ReserveFundKind
 from kaleta.schemas.transaction import TransactionType
@@ -63,9 +63,19 @@ class _Fund:
             fund_id, IrregularItemCreate(name=name, yearly_amount=Decimal(yearly))
         )
 
-    async def gift(self, person: str, occasion: str, amount: str) -> None:
-        await self.gifts.create(
-            GiftCreate(person=person, occasion=occasion, amount=Decimal(amount))
+    async def gift(self, person: str, occasion: str, amount: str, year: int | None = None) -> None:
+        """One cell of the gift grid (this year unless ``year`` says otherwise)."""
+        people = {p.name: p.id for p in await self.gifts.people()}
+        occasions = {o.name: o.id for o in await self.gifts.occasions()}
+        if person not in people:
+            people[person] = (await self.gifts.add_person(GiftName(name=person))).id
+        if occasion not in occasions:
+            occasions[occasion] = (await self.gifts.add_occasion(GiftName(name=occasion))).id
+        await self.gifts.set_cell(
+            year if year is not None else datetime.date.today().year,
+            people[person],
+            occasions[occasion],
+            GiftCellSet(amount=Decimal(amount)),
         )
 
 
@@ -211,6 +221,24 @@ async def test_only_the_primary_irregular_fund_carries_the_gift_line(fund: _Fund
 
     assert [d.source for d in (await fund.items.plan(first)).derived_items] == ["gifts"]
     assert (await fund.items.plan(second)).derived_items == []
+
+
+async def test_only_this_years_grid_feeds_the_fund(fund: _Fund) -> None:
+    """Covers: KAL-GFT-002
+
+    The grid is kept per year; last year's gifts are history, not money to set
+    aside now.
+    """
+    fund_id = await fund.fund(await fund.account("Konto funduszu"))
+    last_year = datetime.date.today().year - 1
+    await fund.gift("Mama", "Urodziny", "999.00", year=last_year)
+    await fund.gift("Mama", "Urodziny", "200.00")
+    await fund.gift("Tata", "Boże Narodzenie", "100.00")
+
+    plan = await fund.items.plan(fund_id)
+    assert [(d.source, d.yearly_amount) for d in plan.derived_items] == [
+        ("gifts", Decimal("300.00"))
+    ]
 
 
 async def test_no_gift_line_when_there_are_no_gifts(fund: _Fund) -> None:
