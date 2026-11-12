@@ -3,8 +3,9 @@ plan_id: import-pipeline-service
 title: Move the import pipeline out of the view into one service (build, then apply once)
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-12
+roadmap_ref: ../../roadmap.md
 ---
 
 # Move the import pipeline out of the view into one service (build, then apply once)
@@ -199,3 +200,36 @@ New tests:
   The test now waits for `of 55` before paging and seeds its account under a
   per-attempt name, so a rerun still filters to exactly 55 rows. Test-only;
   it is in this branch only because the gate's verify must be green.
+
+## Implementation
+
+Landed on 2026-11-12 (PR #418).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0f868fad` | Dawid Adamski | 2026-11-12 | Merge pull request #418 from DawidAdamski/plan/import-pipeline-service |
+
+**Files changed:**
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/import-pipeline-service.md
+- src/kaleta/services/account_service.py
+- src/kaleta/services/import_pipeline.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/upload_guard.py
+- src/kaleta/views/settings/constants.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_transactions_keep_place.py
+- tests/e2e/test_transfer_detection.py
+- tests/e2e/test_transfer_section_layout.py
+- tests/integration/test_import_pipeline.py
+- tests/unit/services/test_import_pipeline.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
