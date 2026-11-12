@@ -77,7 +77,10 @@ async def list_transactions(
         "- `exchange_rate` is only relevant for cross-currency internal transfers "
         "(destination currency units per 1 source currency unit).\n"
         "- `tag_ids` must reference existing tag IDs.\n"
-        "- `linked_transaction_id` links the matching leg of an internal transfer."
+        "- `linked_transaction_id` links the matching leg of an internal transfer.\n\n"
+        "The row is stored exactly as sent: no categorisation rules, no duplicate skip, no "
+        "importer description format and no import run. To load a bank statement, use "
+        "`POST /api/v1/imports`."
     ),
 )
 async def create_transaction(

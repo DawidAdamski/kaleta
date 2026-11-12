@@ -21,6 +21,8 @@ class ImportRun(TimestampMixin, UserOwnedMixin, Base):
     __table_args__ = (
         Index("ix_import_runs_account_id", "account_id"),
         Index("ix_import_runs_created_at", "created_at"),
+        Index("ix_import_runs_idempotency_key", "idempotency_key"),
+        Index("ix_import_runs_file_hmac", "file_hmac"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,6 +36,11 @@ class ImportRun(TimestampMixin, UserOwnedMixin, Base):
     skipped_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     row_date_min: Mapped[date | None] = mapped_column(Date, nullable=True)
     row_date_max: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: The API client's ``Idempotency-Key``: a repeat with it replays this run.
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: Keyed HMAC-SHA256 of the uploaded file (hex): the same statement again
+    #: is recognised without the digest revealing its content.
+    file_hmac: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     account: Mapped[Account] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Account"
