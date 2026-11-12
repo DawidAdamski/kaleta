@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.11.0](https://github.com/DawidAdamski/kaleta/compare/v0.10.0...v0.11.0) (2026-11-12)
+
+
+### Features
+
+* **api:** POST /api/v1/imports — a raw statement body through the import pipeline ([03560af](https://github.com/DawidAdamski/kaleta/commit/03560af37ae2be632b185c1fccb25924bb451091))
+* **api:** POST /api/v1/imports — import a bank statement through the pipeline ([2025dde](https://github.com/DawidAdamski/kaleta/commit/2025dde3106d2a52e7679c765dd7af7754d370cb))
+* **import:** import runs keep an idempotency key and a keyed file hash; API row cap and 413 error ([d1a1fa5](https://github.com/DawidAdamski/kaleta/commit/d1a1fa594b3e81efbae6956d2ff2daf85fd9dc80))
+* **import:** ImportPipeline parses an upload, refuses the same file, locks the account and replays a key ([e0060d7](https://github.com/DawidAdamski/kaleta/commit/e0060d72fdcb2d66380dfa482e250b562ecb5b68))
+
 ## [0.10.0](https://github.com/DawidAdamski/kaleta/compare/v0.9.0...v0.10.0) (2026-11-12)
 
 
