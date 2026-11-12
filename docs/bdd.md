@@ -5278,6 +5278,23 @@ Feature: Public API
     Given a running instance
     When I GET /api/v1/auth/mfa without credentials
     Then the response is 401
+
+  KAL-API-008 @automated
+  Scenario: Import a bank statement through the API, as the import page would
+    Given a valid API bearer token, an account and the default categories "Zakupy" and "Wpływy"
+    And a categorisation rule "LIDL" for the category "Spożywcze"
+    When I POST an mBank statement with three rows to /api/v1/imports as the raw body
+    Then the response is 201 with imported_count 3 and an import run id
+    And the stored descriptions are "LIDL WARSZAWA", "ACME Sp. z o.o. — Wynagrodzenie 03/2024" and "Spółdzielnia Mieszkaniowa — Czynsz marzec"
+    And their categories are "Spożywcze", "Wpływy" and "Zakupy"
+    When I POST the same file again
+    Then the response is 409 naming the earlier import run
+    And a repeat carrying the first request's Idempotency-Key returns 200 with the same import run id and imports nothing
+    And dry_run=true returns the three rows with their final descriptions and writes nothing
+    And a body over KALETA_MAX_UPLOAD_BYTES, or more rows than KALETA_API_IMPORT_MAX_ROWS, is 413
+    And a statement whose number matches two accounts is 409, and one with no account is 422
+    And an unauthenticated request is 401 before its body is read
+    And two simultaneous imports of the file into one account store its rows once
 ```
 
 ## Feature: Build version
