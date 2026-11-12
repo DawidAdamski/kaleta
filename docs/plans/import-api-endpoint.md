@@ -115,16 +115,17 @@ Out of scope:
 - `grep -c "KAL-API-008" docs/bdd.md | grep -qE '^[1-9]'`
 - `uv run python scripts/spec_coverage.py`
 
-Tests in `tests/integration/test_api_imports.py`:
+Tests in tests/integration/test_api_imports.py (names written plainly: the gate runs
+every backticked bullet in this section as a command):
 
-- `test_import_mbank_statement_happy_path` asserts literal stored descriptions
+- test_import_mbank_statement_happy_path asserts literal stored descriptions
   and categories.
-- `test_dry_run_writes_nothing`.
-- `test_same_file_twice_returns_409`; `test_idempotency_key_replays_result`.
-- `test_unauthenticated_upload_rejected_before_body_read`.
-- `test_body_over_cap_413`; `test_rows_over_cap_413`.
-- `test_no_account_422`; `test_ambiguous_number_409`.
-- `test_concurrent_imports_do_not_double_insert` (two tasks, one advisory lock).
+- test_dry_run_writes_nothing.
+- test_same_file_twice_returns_409; test_idempotency_key_replays_result.
+- test_unauthenticated_upload_rejected_before_body_read.
+- test_body_over_cap_413; test_rows_over_cap_413.
+- test_no_account_422; test_ambiguous_number_409.
+- test_concurrent_imports_do_not_double_insert (two tasks, one advisory lock).
 
 ## Touchpoints
 
