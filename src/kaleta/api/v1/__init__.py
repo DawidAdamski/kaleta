@@ -7,6 +7,7 @@ from kaleta.api.v1.auth import router as auth_router
 from kaleta.api.v1.budgets import router as budgets_router
 from kaleta.api.v1.categories import router as categories_router
 from kaleta.api.v1.import_rules import router as import_rules_router
+from kaleta.api.v1.imports import router as imports_router
 from kaleta.api.v1.institutions import router as institutions_router
 from kaleta.api.v1.net_worth import router as net_worth_router
 from kaleta.api.v1.payees import router as payees_router
@@ -22,6 +23,7 @@ v1_router.include_router(auth_router)
 v1_router.include_router(institutions_router)
 v1_router.include_router(categories_router)
 v1_router.include_router(import_rules_router)
+v1_router.include_router(imports_router)
 v1_router.include_router(transactions_router)
 v1_router.include_router(budgets_router)
 v1_router.include_router(payees_router)
