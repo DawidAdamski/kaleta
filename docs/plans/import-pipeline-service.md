@@ -192,3 +192,10 @@ New tests:
   Format/Upload clicks elsewhere stay as they are, those nodes are always
   walkable. No view or service code is involved: the settings handlers are
   untouched by this branch.
+- **Gate attempt 5: an unrelated ledger race.** After the plan was done (attempt 3)
+  the armed gate re-ran on a later stop and `test_transactions_keep_place.py`
+  failed: the page-2 chevron was clicked while the account filter was still
+  repainting (`of 951` → `of 55`), and the repaint put the ledger back on page 1.
+  The test now waits for `of 55` before paging and seeds its account under a
+  per-attempt name, so a rerun still filters to exactly 55 rows. Test-only;
+  it is in this branch only because the gate's verify must be green.

@@ -14,6 +14,7 @@ is not asserted here.)
 from __future__ import annotations
 
 import datetime
+import uuid
 
 from playwright.sync_api import Page, expect
 
@@ -28,7 +29,8 @@ def test_editing_a_row_keeps_the_current_page(page: Page, base_url: str) -> None
     ledger to that account, step to page 2, edit a row there and save. The
     ledger must stay on page 2 — old code reset the page on every save.
     """
-    account_name = "Keep Place Tx E2E"
+    # Its own account per attempt, so a rerun still filters to exactly 55 rows.
+    account_name = f"Keep Place Tx E2E {uuid.uuid4().hex[:6]}"
     category_name = "Keep Place Cat E2E"
     account_id = seed_account(account_name)
     category_id = seed_category(category_name)
@@ -50,6 +52,9 @@ def test_editing_a_row_keeps_the_current_page(page: Page, base_url: str) -> None
 
     foot = page.locator(".k-ledger-foot")
     expect(foot).to_contain_text("Page 1 /", timeout=10000)
+    # The account filter repaints the table; a click on the chevron before
+    # that lands on the unfiltered ledger and the repaint puts it back on page 1.
+    expect(foot).to_contain_text("of 55", timeout=10000)
 
     # Step to page 2 via the forward chevron. The button is icon-only with no
     # accessible name, so match the Material icon ligature in its text.
