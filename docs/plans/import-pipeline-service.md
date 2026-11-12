@@ -185,3 +185,10 @@ New tests:
   walkable). It now waits for `cursor-pointer` first, like `_step` in
   `test_csv_import.py` always has. The view and the pipeline are unchanged by
   this; the file passes alone and in the import e2e subset (38/38).
+  Gate attempt 2 hit the same drop in `test_rules.py::test_rules_apply_during_csv_import`
+  (its `_import_step(page, 5)` right after the last select). The two other
+  helpers that clicked a step node without waiting (`test_rules.py`,
+  `test_transfer_section_layout.py`) now wait for `cursor-pointer` too; the
+  Format/Upload clicks elsewhere stay as they are, those nodes are always
+  walkable. No view or service code is involved: the settings handlers are
+  untouched by this branch.
