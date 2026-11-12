@@ -3,8 +3,9 @@ plan_id: import-api-endpoint
 title: POST /api/v1/imports — import a bank statement through the API
 area: api, import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-12
+roadmap_ref: ../../roadmap.md
 ---
 
 # POST /api/v1/imports — import a bank statement through the API
@@ -198,3 +199,31 @@ every backticked bullet in this section as a command):
   is its own piece of work.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-12 (PR #421).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2025dde3` | Dawid Adamski | 2026-11-12 | Merge pull request #421 from DawidAdamski/plan/import-api-endpoint |
+
+**Files changed:**
+- alembic/versions/e7a3c5b19d42_import_run_idempotency.py
+- docs/bdd.md
+- docs/plans/import-api-endpoint.md
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/imports.py
+- src/kaleta/api/v1/transactions.py
+- src/kaleta/config/settings.py
+- src/kaleta/exceptions.py
+- src/kaleta/models/import_run.py
+- src/kaleta/schemas/imports.py
+- src/kaleta/services/import_pipeline.py
+- tests/integration/test_api_imports.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
