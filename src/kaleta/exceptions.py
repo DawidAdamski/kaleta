@@ -78,6 +78,12 @@ class ForecastUnavailableError(KaletaError):
     code = "forecast_unavailable"
 
 
+class PayloadTooLargeError(KaletaError):
+    """A request body, or what it parses into, is over a configured cap."""
+
+    code = "payload_too_large"
+
+
 class ExternalServiceError(KaletaError):
     """Remote dependency unreachable or returned an unusable response."""
 
@@ -129,6 +135,8 @@ def kaleta_error_http_status(exc: KaletaError) -> int:
         return 422
     if isinstance(exc, ConflictError):
         return 409
+    if isinstance(exc, PayloadTooLargeError):
+        return 413
     if isinstance(exc, (ForecastUnavailableError, ExternalServiceError, MigrationError)):
         return 503
     return 500

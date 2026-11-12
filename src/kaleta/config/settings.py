@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     #: the two cannot drift; the handler rejects anything larger before reading it
     #: (security assessment F-4), independent of the browser limit.
     max_upload_bytes: int = 50 * 1024 * 1024
+    #: Most rows one ``POST /api/v1/imports`` may carry (default 5 000). It
+    #: bounds the per-row payee and duplicate queries of a single request.
+    api_import_max_rows: int = 5000
     session_ttl_hours: int = 72
     #: Hours without a request after which a UI session ends, however young it
     #: is (``0`` disables). Never longer than ``session_ttl_hours``.
@@ -310,6 +313,13 @@ class Settings(BaseSettings):
     def _validate_max_upload_bytes(cls, value: int) -> int:
         if value < 1:
             raise ValueError("KALETA_MAX_UPLOAD_BYTES must be >= 1")
+        return value
+
+    @field_validator("api_import_max_rows")
+    @classmethod
+    def _validate_api_import_max_rows(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_API_IMPORT_MAX_ROWS must be >= 1")
         return value
 
     @model_validator(mode="after")
