@@ -1926,11 +1926,17 @@ class ImportService:
     async def apply_categorisation_rules(
         self,
         creates: list[TransactionCreate],
+        *,
+        new_payee_names: list[str | None] | None = None,
     ) -> list[TransactionCreate]:
         """Override category_id from matching active rules (import-time only).
 
         Internal transfers are skipped. Manual edits after import are never
         overwritten because rules are not re-applied outside this path.
+
+        ``new_payee_names`` (aligned with ``creates``) names the payee of a row
+        whose payee does not exist yet — the import pipeline's ``build`` writes
+        nothing, so such a row has no ``payee_id`` to look the name up by.
         """
         if not creates:
             return creates
@@ -1946,11 +1952,13 @@ class ImportService:
             payee_names = {p.id: p.name for p in result.scalars()}
 
         updated: list[TransactionCreate] = []
-        for create in creates:
+        for index, create in enumerate(creates):
             if create.is_internal_transfer or create.type == TransactionType.TRANSFER:
                 updated.append(create)
                 continue
             payee_name = payee_names.get(create.payee_id) if create.payee_id else None
+            if payee_name is None and new_payee_names is not None:
+                payee_name = new_payee_names[index]
             matched_category_id: int | None = None
             for rule in rules:
                 if RuleService.matches(
@@ -1976,48 +1984,85 @@ class ImportService:
         known_account_digits: set[str] | None = None,
         target_account_digits: str | None = None,
     ) -> list[TransactionCreate]:
-        """mBank-aware: resolves payees and detects transfers to registered accounts.
+        """mBank-aware creates, payees resolved and created as needed.
+
+        :meth:`draft_creates_with_payees` followed by creating the payees it
+        did not find. Does NOT commit — the caller owns the transaction boundary.
+        """
+        from kaleta.services.payee_service import PayeeService
+
+        drafts = await self.draft_creates_with_payees(
+            rows,
+            account_id=account_id,
+            default_expense_category_id=default_expense_category_id,
+            default_income_category_id=default_income_category_id,
+            known_account_digits=known_account_digits,
+            target_account_digits=target_account_digits,
+        )
+        payee_svc = PayeeService(self.session)
+        creates: list[TransactionCreate] = []
+        for create, new_payee in drafts:
+            if new_payee is not None:
+                payee = await payee_svc.match_or_create_from_name(new_payee)
+                create = create.model_copy(update={"payee_id": payee.id})
+            creates.append(create)
+        return creates
+
+    async def draft_creates_with_payees(
+        self,
+        rows: list[ParsedRow],
+        account_id: int,
+        default_expense_category_id: int | None = None,
+        default_income_category_id: int | None = None,
+        known_account_digits: set[str] | None = None,
+        target_account_digits: str | None = None,
+    ) -> list[tuple[TransactionCreate, str | None]]:
+        """mBank-aware: one ``(create, new_payee_name)`` per row, writing nothing.
+
+        A row whose payee already exists carries its ``payee_id``; a row whose
+        payee would be new carries ``payee_id=None`` and the cleaned name as
+        ``new_payee_name``, for the caller to create when it writes.
 
         A transaction is marked as TRANSFER only when the counterparty account
         number (``Numer rachunku`` column) matches one of the user's own accounts
         (identified by their stored ``external_account_number`` digits, see
         ``account_number_matches``) and is not the account being imported into
         (*target_account_digits*).
-
-        Does NOT commit — the caller owns the transaction boundary.
         """
         from kaleta.services.payee_service import PayeeService
 
         payee_svc = PayeeService(self.session)
         known = known_account_digits or set()
-        creates: list[TransactionCreate] = []
+        drafts: list[tuple[TransactionCreate, str | None]] = []
 
         for row in rows:
             description = row.description  # built at parse time (_apply_mbank_descriptions)
             payee_raw = row.raw.get("Nadawca/Odbiorca", "").strip()
             payee_id: int | None = None
+            new_payee: str | None = None
             if payee_raw:
-                payee = await payee_svc.match_or_create_from_name(payee_raw)
-                payee_id = payee.id
+                payee = await payee_svc.match_from_name(payee_raw)
+                if payee is not None:
+                    payee_id = payee.id
+                else:
+                    new_payee = PayeeService.clean_name(payee_raw)
 
             # Transfer only when the counterparty account is one of ours
             if is_counterparty_transfer(row, known, target_digits=target_account_digits):
-                creates.append(
-                    TransactionCreate(
-                        account_id=account_id,
-                        category_id=None,
-                        payee_id=payee_id,
-                        amount=abs(row.amount),
-                        type=TransactionType.TRANSFER,
-                        # The statement's sign is the only record of which way
-                        # the money went; ``amount`` drops it.
-                        transfer_direction=(
-                            TransferDirection.OUT if row.amount < 0 else TransferDirection.IN
-                        ),
-                        date=row.date,
-                        description=description,
-                        is_internal_transfer=True,
-                    )
+                create = TransactionCreate(
+                    account_id=account_id,
+                    category_id=None,
+                    payee_id=payee_id,
+                    amount=abs(row.amount),
+                    type=TransactionType.TRANSFER,
+                    # The statement's sign is the only record of which way
+                    # the money went; ``amount`` drops it.
+                    transfer_direction=(
+                        TransferDirection.OUT if row.amount < 0 else TransferDirection.IN
+                    ),
+                    date=row.date,
+                    description=description,
+                    is_internal_transfer=True,
                 )
             else:
                 tx_type = TransactionType.INCOME if row.amount >= 0 else TransactionType.EXPENSE
@@ -2026,18 +2071,17 @@ class ImportService:
                     if tx_type == TransactionType.INCOME
                     else default_expense_category_id
                 )
-                creates.append(
-                    TransactionCreate(
-                        account_id=account_id,
-                        category_id=cat_id,
-                        payee_id=payee_id,
-                        amount=abs(row.amount),
-                        type=tx_type,
-                        date=row.date,
-                        description=description,
-                    )
+                create = TransactionCreate(
+                    account_id=account_id,
+                    category_id=cat_id,
+                    payee_id=payee_id,
+                    amount=abs(row.amount),
+                    type=tx_type,
+                    date=row.date,
+                    description=description,
                 )
-        return creates
+            drafts.append((create, new_payee))
+        return drafts
 
     # ── Duplicate detection ───────────────────────────────────────────────────
 

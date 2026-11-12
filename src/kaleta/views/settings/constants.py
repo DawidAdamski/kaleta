@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE as _DEFAULT_WEEK_START_MODE
+from kaleta.services.transaction_service import (
+    DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
+    DEFAULT_TRANSFER_PAIRING_DAYS,
+)
 
 DEFAULT_DATE_FORMAT = "iso"
 DEFAULT_WEEK_START = "monday"
@@ -17,8 +19,6 @@ DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS = 30
 DEFAULT_AUTO_POST_DUE_ON_STARTUP = False
 DEFAULT_NUMBER_FORMAT = "eu"
 DEFAULT_BUDGET_MONTH_START_DAY = 1
-DEFAULT_TRANSFER_PAIRING_DAYS = 3
-DEFAULT_TRANSFER_AMOUNT_TOLERANCE = Decimal("0.01")
 DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE = 2
 #: Auto-merging payees is opt-in: users turn it on once they trust the proposals.
 DEFAULT_PAYEE_AUTOMERGE_ENABLED = False

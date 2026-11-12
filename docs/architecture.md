@@ -57,6 +57,22 @@ else a new payee. Merges move the merged payees' identities to the keeper.
 user opts in, merges confident pairs automatically; each automatic merge is
 logged in `payee_auto_merges` so it can be undone for 7 days.
 
+### Import pipeline
+
+Importing one parsed statement is `ImportPipeline` (`services/import_pipeline.py`),
+in two calls. `build(parsed, options)` resolves the account (explicit, then a
+filename rule, then the mBank statement number), checks readiness (account,
+both default categories, the file's currency), turns the rows into
+transactions — payees and own-account transfers for mBank, read through
+`PayeeService.match_from_name()` without creating anything — marks duplicates
+and applies the categorisation rules. It writes nothing; payees that do not
+exist yet come back as `new_payee_names`. `apply(plan)` creates those payees,
+the rows, the `ImportRun` and the statement's account number, and commits
+once: a failure rolls all of it back. Parsing (`ImportService.parse_queued_file`)
+stays separate, because the import page parses on upload. The page calls
+`build` + `apply` and keeps only UI choices (remembered filename rules, the
+queue); the REST API, which may not import views, calls the same two methods.
+
 ## Directory Structure
 
 ```
@@ -106,6 +122,7 @@ kaleta/
 │   │   ├── budget_service.py
 │   │   ├── category_service.py
 │   │   ├── import_service.py
+│   │   ├── import_pipeline.py  # ImportPipeline: build (read-only) → apply (one commit)
 │   │   ├── report_service.py
 │   │   ├── forecast_service.py
 │   │   ├── institution_service.py

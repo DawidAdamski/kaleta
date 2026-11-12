@@ -61,9 +61,16 @@ def _pick_import_option(page: Page, label: str, option: str) -> None:
 
 
 def _step(page: Page, step: int) -> None:
-    """Walk the import wizard to *step* — it shows one at a time."""
+    """Walk the import wizard to *step* — it shows one at a time.
+
+    A node is clickable only once the server has the choices that reach it,
+    so wait for that first: a click fired before the last option's websocket
+    message lands is dropped, and the panel never opens.
+    """
     page.keyboard.press("Escape")
-    page.locator(f'[data-step="{step}"]').click()
+    node = page.locator(f'[data-step="{step}"]')
+    expect(node).to_have_class(re.compile(r"cursor-pointer"), timeout=5000)
+    node.click()
     expect(page.locator(f'[data-step-panel="{step}"]')).to_be_visible(timeout=5000)
 
 

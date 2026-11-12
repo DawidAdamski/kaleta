@@ -69,6 +69,14 @@ LEDGER_CSV_HEADERS: tuple[str, ...] = (
 )
 
 
+#: How many days apart the two legs of a suggested transfer may be.
+DEFAULT_TRANSFER_PAIRING_DAYS = 3
+#: How far apart two legs' amounts may be and still pair, in the account's
+#: currency: one grosz/cent absorbs a bank rounding. One value for the
+#: suggester, accepting a suggestion, pairing by hand and linking through PUT.
+DEFAULT_TRANSFER_AMOUNT_TOLERANCE = Decimal("0.01")
+
+
 class TransactionService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -309,19 +317,23 @@ class TransactionService:
             raise KaletaError(f"Transaction id={transaction.id} not found after commit")
         return fetched
 
-    async def create_bulk(self, creates: builtins.list[TransactionCreate]) -> int:
+    async def create_bulk(
+        self, creates: builtins.list[TransactionCreate], *, commit: bool = True
+    ) -> int:
         """Insert many simple transactions in a single commit (no splits, no tags).
 
         Significantly faster than calling ``create()`` in a loop — intended for CSV
         import where transactions have no splits and no tags.
-        Returns the number of inserted rows.
+        Returns the number of inserted rows. ``commit=False`` only stages them,
+        for a caller that commits several writes as one (``ImportPipeline.apply``).
         """
         objects = [
             Transaction(**c.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
             for c in creates
         ]
         self.session.add_all(objects)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return len(objects)
 
     async def create_transfer(

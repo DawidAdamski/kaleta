@@ -3,7 +3,7 @@ plan_id: import-pipeline-service
 title: Move the import pipeline out of the view into one service (build, then apply once)
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -93,12 +93,12 @@ Out of scope:
 
 New tests:
 
-- `test_build_writes_nothing` checks that the row, payee and import-run counts
+- Build: `test_build_writes_nothing` checks that the row, payee and import-run counts
   are unchanged after `build`.
-- `test_apply_is_atomic` injects a failure in `save_external_number`. No rows,
+- Apply: `test_apply_is_atomic` injects a failure in `save_external_number`. No rows,
   payees or import run must remain.
-- `test_account_resolution_order` checks that explicit beats rule and rule beats number.
-- `test_pipeline_matches_golden_rows` imports `current-account-sample.csv` and
+- Resolution: `test_account_resolution_order` checks that explicit beats rule and rule beats number.
+- Golden: `test_pipeline_matches_golden_rows` imports `current-account-sample.csv` and
   compares the stored descriptions, types and categories with fixed literal
   expectations (Working Agreement rule 11: BDD literals, not "same as before").
 
@@ -119,4 +119,83 @@ New tests:
 
 ## Implementation notes
 
+- **Names.** The plan's `ImportResult` is `ImportOutcome`:
+  `import_service.ImportResult` already exists as the parser's result, and two
+  service classes with one name would be read as one. Fields as the plan lists
+  (`imported_count`, `skipped`, `import_run_id`, `transfer_window`), plus
+  `account_id`, `saved_account_number` and `created_payee_count`. `options` is
+  `ImportOptions`; `parsed_file` is the parser's own `ParseQueuedFileResult`.
+- **Build writes nothing, payees included.** `PayeeService.match_from_name()`
+  is steps 1–3 of `match_or_create_from_name()` (which now calls it), so `build`
+  can tell an existing payee from a new one without creating it.
+  `ImportService.draft_creates_with_payees()` returns `(create, new_payee_name)`
+  per row; `to_transaction_creates_with_payees()` is now that draft plus
+  creating the missing payees, unchanged for its existing callers. The new name
+  is kept beside the create, not in `TransactionCreate.payee_name`: that field is
+  capped at 200 characters and a bank's payee column is not.
+- **Rules see a payee that is not created yet.** `apply_categorisation_rules`
+  takes `new_payee_names` (aligned with the creates) so a rule on a payee name
+  still matches in `build`. The name used is the cleaned raw name, which is what
+  `match_or_create_from_name` stores for a new payee.
+- **One commit.** `apply` creates payees (flush), stages the rows
+  (`create_bulk(commit=False)`), the run (`record_import_run`) and the number
+  (`save_external_number(commit=False)`), flushes for the run id and commits once;
+  any exception rolls back and re-raises (`test_apply_is_atomic`).
+- **Two behaviour differences, both corner cases, both deliberate:**
+  - *Payees of skipped duplicates are no longer created.* The old flow created
+    every row's payee before dropping duplicates, which left a payee behind for
+    a row that was never stored — one of the orphans the plan's Intent names.
+  - *A filename rule now beats the mBank number on the page too.* The page used
+    to let the statement number override the account a rule had set (and an
+    inherited or bulk default). The plan fixes the order explicit → rule →
+    number; the page now asks `resolve_account`, so a rule wins, while the
+    number still overrides an inherited or bulk default as before. "Remember
+    mapping" starts unticked exactly when the number points at the chosen
+    account (`number_account_id`), so a rule and number that agree behave as
+    before.
+- **What stays in the view.** A cleared account fails with the same
+  "Select a target account" message before the pipeline is called — otherwise
+  `build` would quietly resolve one by rule or number. Saving/touching the
+  remembered filename rule, the queue and the per-batch `external_numbers` used
+  by the preview (updated from `ImportOutcome.saved_account_number`) are UI.
+  Readiness errors come back as `ValidationError` with the old i18n key and
+  params; the page shows them through `resolve_toast_text`, so the text is the
+  same.
+- **Known numbers** are listed from the accounts inside every `build`; the page's
+  old "refresh before an mBank import" loop is gone with `_persist`.
+- **Constants.** `DEFAULT_TRANSFER_PAIRING_DAYS` / `DEFAULT_TRANSFER_AMOUNT_TOLERANCE`
+  are defined in `transaction_service.py` and re-exported by
+  `views/settings/constants.py` — the same lines `import-transfer-pairs-api` adds,
+  so whichever branch merges second resolves a trivial conflict in those two files.
+- **Acceptance list format.** The DoD gate runs every acceptance bullet that
+  starts with a backtick as a shell command, so the four "New tests" bullets were
+  read as commands. They now start with a word ("Build:", "Apply:", …); the test
+  names and the tests are unchanged and run under the first two criteria.
+- **Upload limit.** `import_pipeline.upload_exceeds_limit(size)` holds the
+  `settings.max_upload_bytes` check; `upload_guard.upload_exceeds_cap` keeps the
+  UI's `size()` probe and calls it.
+
 ## Implementation (filled by plan-archiver)
+- **KAL-CSV-039 e2e race (gate attempt 1, after the rebase).** In one full
+  `verify.sh --e2e` run, `test_mbank_transfer_detected_against_stored_suffix_and_earlier_file`
+  failed on its second file: the Preview panel stayed hidden although the
+  snapshot showed all three settings filled and the Preview node clickable.
+  The test's `_step` clicked the node right after the last select, and a click
+  sent before the server has that choice is dropped (the node is not yet
+  walkable). It now waits for `cursor-pointer` first, like `_step` in
+  `test_csv_import.py` always has. The view and the pipeline are unchanged by
+  this; the file passes alone and in the import e2e subset (38/38).
+  Gate attempt 2 hit the same drop in `test_rules.py::test_rules_apply_during_csv_import`
+  (its `_import_step(page, 5)` right after the last select). The two other
+  helpers that clicked a step node without waiting (`test_rules.py`,
+  `test_transfer_section_layout.py`) now wait for `cursor-pointer` too; the
+  Format/Upload clicks elsewhere stay as they are, those nodes are always
+  walkable. No view or service code is involved: the settings handlers are
+  untouched by this branch.
+- **Gate attempt 5: an unrelated ledger race.** After the plan was done (attempt 3)
+  the armed gate re-ran on a later stop and `test_transactions_keep_place.py`
+  failed: the page-2 chevron was clicked while the account filter was still
+  repainting (`of 951` → `of 55`), and the repaint put the ledger back on page 1.
+  The test now waits for `of 55` before paging and seeds its account under a
+  per-attempt name, so a rerun still filters to exactly 55 rows. Test-only;
+  it is in this branch only because the gate's verify must be green.

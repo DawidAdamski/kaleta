@@ -141,7 +141,11 @@ def test_rule_category_picker_shows_the_tree(page: Page, base_url: str) -> None:
 def _import_step(page: Page, step: int) -> None:
     """Walk the import wizard to *step* — it shows one at a time."""
     page.keyboard.press("Escape")
-    page.locator(f'[data-step="{step}"]').click()
+    # Clickable only once the server has the choices that reach it; a click
+    # sent before the last option's websocket message lands is dropped.
+    node = page.locator(f'[data-step="{step}"]')
+    expect(node).to_have_class(re.compile(r"cursor-pointer"), timeout=5000)
+    node.click()
     expect(page.locator(f'[data-step-panel="{step}"]')).to_be_visible(timeout=5000)
 
 
