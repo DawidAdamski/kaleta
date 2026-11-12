@@ -3,8 +3,9 @@ plan_id: gifts-grid
 title: Gifts as a yearly grid — people by occasions, amounts in the cells
 area: wizard
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-12
+roadmap_ref: ../../roadmap.md
 ---
 
 # Gifts as a yearly grid — people by occasions, amounts in the cells
@@ -204,3 +205,44 @@ Scenario literals (Working Agreement rule 11), to be written into
   wall-clock limit) while the machine's load average was ~32 from other apps;
   that test is untouched by this branch and passes alone (0.74 s run). Left as
   is (no raised limit) and logged in `chores.md`.
+
+## Implementation
+
+Landed on 2026-11-12 (PR #415).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `88d93c5c` | Dawid Adamski | 2026-11-12 | Merge pull request #415 from DawidAdamski/plan/gifts-grid |
+
+**Files changed:**
+- alembic/versions/d4f2a9c61e07_gift_grid.py
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/chores.md
+- docs/plans/gifts-grid.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/__init__.py
+- src/kaleta/models/gift.py
+- src/kaleta/models/transaction.py
+- src/kaleta/schemas/gift.py
+- src/kaleta/seeders/gifts.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/gift_service.py
+- src/kaleta/views/gifts.py
+- tests/backup_helpers.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_gifts.py
+- tests/integration/test_dedupe_merge_links.py
+- tests/integration/test_error_i18n_funds_cohort.py
+- tests/integration/test_example_data.py
+- tests/integration/test_gift_grid.py
+- tests/integration/test_irregular_fund.py
+- tests/unit/seeders/test_registry.py
+- tests/unit/services/test_gift_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
