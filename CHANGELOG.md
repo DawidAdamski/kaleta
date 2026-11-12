@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.0](https://github.com/DawidAdamski/kaleta/compare/v0.9.0...v0.10.0) (2026-11-12)
+
+
+### Features
+
+* **gifts:** GiftService over the grid — cells, totals, copy a year, bought per cell ([4d2ebe2](https://github.com/DawidAdamski/kaleta/commit/4d2ebe24b1063dd283e34d4d00a599df71eed79e))
+* **gifts:** people, occasions and yearly cells replace the flat gift list ([a4d96dc](https://github.com/DawidAdamski/kaleta/commit/a4d96dc70dc9898d3a1ff81abde59a055248e8e1))
+* **gifts:** the Gifts page is a people-by-occasions grid with a year switcher ([2efd1a8](https://github.com/DawidAdamski/kaleta/commit/2efd1a874bc0562821a8cc5f4db0765463fd13b0))
+* **gifts:** yearly gift grid — people × occasions ([88d93c5](https://github.com/DawidAdamski/kaleta/commit/88d93c5c479f808ea5bc2db2b7a8c96f8b0268f2))
+* **import:** ImportPipeline service — build (read-only), apply (one commit) ([261ef35](https://github.com/DawidAdamski/kaleta/commit/261ef35368e51147baa1a19d145a798d06805a9a))
+
 ## [0.9.0](https://github.com/DawidAdamski/kaleta/compare/v0.8.0...v0.9.0) (2026-11-10)
 
 
