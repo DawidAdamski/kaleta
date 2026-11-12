@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from kaleta.config import settings
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import Account, AccountType
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.import_run import ImportRun
@@ -34,8 +35,11 @@ from kaleta.models.transaction import Transaction
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.categorisation_rule import CategorisationRuleCreate
 from kaleta.schemas.category import CategoryCreate
+from kaleta.schemas.import_rule import ImportRuleCreate
 from kaleta.services import AccountService, CategoryService
 from kaleta.services.import_pipeline import ImportOptions, ImportPipeline
+from kaleta.services.import_rule_service import ImportRuleService
+from kaleta.services.import_service import ImportService, ParseQueuedFileResult
 from kaleta.services.rule_service import RuleService
 from tests.conftest import _POSTGRES_URL, SUITE_FAMILY
 
@@ -317,6 +321,75 @@ async def test_ambiguous_number_409(api_client: AsyncClient, session: AsyncSessi
     resp = await _post(api_client, MBANK_CSV, params)
     assert resp.status_code == 409
     assert await _stored(session, ids["account"]) == []
+
+
+#: A generic CSV whose headers no alias recognises: only a saved mapping reads it.
+GENERIC_CSV = "Kiedy;Ile;Co\n2024-03-05;-12.50;Kawa Mokotów\n".encode()
+
+
+async def test_generic_csv_without_a_mapping_422_lists_headers(
+    api_client: AsyncClient, session: AsyncSession
+) -> None:
+    """Covers: KAL-API-008"""
+    ids = await _setup(session)
+    resp = await _post(api_client, GENERIC_CSV, _params(ids, filename="kawiarnia_03.csv"))
+    assert resp.status_code == 422
+    error = resp.json()["error"]
+    assert error["code"] == "import_needs_mapping"
+    assert "Detected headers: Kiedy, Ile, Co." in error["message"]
+
+
+async def test_generic_csv_uses_the_filename_rules_saved_mapping(
+    api_client: AsyncClient, session: AsyncSession
+) -> None:
+    """Covers: KAL-API-008
+
+    No ``account_id``: the rule names the account as well as the columns.
+    """
+    ids = await _setup(session)
+    await ImportRuleService(session).create(
+        ImportRuleCreate(
+            filename_pattern="kawiarnia_*",
+            account_id=ids["account"],
+            column_mapping={"date": 0, "amount": 1, "description": 2},
+        )
+    )
+    await session.commit()
+    params = _params(ids, filename="kawiarnia_03.csv")
+    del params["account_id"]
+    resp = await _post(api_client, GENERIC_CSV, params)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["account_id"] == ids["account"]
+    assert await _stored(session, ids["account"]) == [("Kawa Mokotów", "Zakupy")]
+
+
+async def test_a_header_only_csv_is_422(api_client: AsyncClient, session: AsyncSession) -> None:
+    """Covers: KAL-API-008
+
+    The headers map, but there is nothing under them: the page would send the
+    reader to the mapping step, so the API names the headers it found.
+    """
+    ids = await _setup(session)
+    resp = await _post(api_client, b"date;amount;description\n", _params(ids))
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "import_needs_mapping"
+    assert await _stored(session, ids["account"]) == []
+
+
+async def test_a_file_the_parser_refuses_is_422(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-API-008
+
+    A parse that fails outright (no mapping step to offer, e.g. a workbook
+    without the XLSX extra) surfaces as ``import_unreadable`` with its key.
+    """
+    refused = ParseQueuedFileResult(profile="wise", error_key="import.xlsx_extra_missing")
+    monkeypatch.setattr(ImportService, "parse_queued_file", lambda *_a, **_k: refused)
+    with pytest.raises(ValidationError) as caught:
+        await ImportPipeline(session).parse_upload(b"PK\x03\x04", "statement.xlsx")
+    assert caught.value.code == "import_unreadable"
+    assert caught.value.message_key == "import.xlsx_extra_missing"
 
 
 # ── two requests at once, on two real connections ─────────────────────────────
