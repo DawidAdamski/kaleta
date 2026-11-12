@@ -30,7 +30,9 @@ from kaleta.models import (
     DismissedCandidate,
     DismissedPayeeMerge,
     DismissedTransferPair,
-    Gift,
+    GiftCell,
+    GiftOccasion,
+    GiftPerson,
     ImportRule,
     ImportRun,
     Institution,
@@ -342,11 +344,17 @@ async def seed_every_model(session: AsyncSession) -> None:
             user_id=user.id,
         )
     )
+    gift_person = GiftPerson(name="Mum", user_id=user.id)
+    gift_occasion = GiftOccasion(name="Birthday", user_id=user.id)
+    session.add_all([gift_person, gift_occasion])
+    await session.flush()
     session.add(
-        Gift(
-            person="Mum",
-            occasion="birthday",
+        GiftCell(
+            year=2024,
+            person_id=gift_person.id,
+            occasion_id=gift_occasion.id,
             amount=Decimal("200.00"),
+            note="flowers",
             user_id=user.id,
         )
     )
