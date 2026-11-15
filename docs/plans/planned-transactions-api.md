@@ -3,7 +3,7 @@ plan_id: planned-transactions-api
 title: Planned transactions REST API
 area: api, planned
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -50,3 +50,25 @@ already implements `list`, `get`, `create`, `update`, `delete`, `toggle_active`,
   service (422), the way subscriptions-api-write did.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-012 (free on `main`).
+- **Path:** `/planned-transactions` (the plan default); the router module is
+  `src/kaleta/api/v1/planned.py`.
+- **Occurrence window:** `start` and `end` are both inclusive, matching
+  `get_occurrences`. `end < start` or a span over `MAX_OCCURRENCE_SPAN_DAYS = 366` is 422.
+  A paused plan still lists its schedule (`active_only=False`): the endpoint answers "when does
+  this plan fall", not "what will the calendar post". The service gained a `planned_id` filter so
+  the route does not filter every plan's occurrences itself.
+- **Reference checks:** `create` let an unknown `account_id`, `target_account_id`,
+  `category_id` or `payee_id` reach the foreign key (500). `_check_references` now refuses them
+  with 422 (`unknown_account`, `unknown_category`, `unknown_payee`). `update` checks only an
+  `account_id`/`category_id` that changes, so the UI form (which resends every field) is
+  unaffected; `PlannedTransactionUpdate` has no `target_account_id`/`payee_id`, and changing that
+  schema is out of scope.
+- **Null on PUT:** an explicit `null` for a NOT NULL column (`name`, `amount`, `type`,
+  `account_id`, `frequency`, `interval`, `start_date`, `is_active`) also reached the database as a
+  500. `update` now refuses it with 422 `null_field` before touching the row.
+- **Response:** `PlannedTransactionResponse` gained `target_account_id` (the column already
+  existed), so a client can see that a plan is a self-transfer. New `PlannedOccurrenceResponse`
+  carries date, amount, type, account and category for each occurrence.
+- **`list(active=)`:** filtering moved into the service as an optional keyword; existing callers
+  pass nothing and see every plan as before.

@@ -5311,6 +5311,25 @@ Feature: Public API
     Then that pair is not suggested again
     And a suggestion request without dates, or spanning more than 92 days, is refused with 422
     And a PUT that sets linked_transaction_id is checked the same way and writes both legs
+
+  KAL-API-012 @automated
+  Scenario: Manage a standing order through the API
+    Given a valid API bearer token and the accounts "mKonto" and "Oszczędności"
+    When I POST a planned transfer "Przelew na oszczędności" of 2049.07 monthly from 2026-01-10 on "mKonto" with target_account_id "Oszczędności"
+    Then the response is 201, active, with that target_account_id
+    And GET /api/v1/planned-transactions/{id} returns it
+    When I GET its occurrences from 2026-01-01 to 2026-03-31
+    Then they are 2026-01-10, 2026-02-10 and 2026-03-10, each of 2049.07
+    When I PUT amount 5378.00
+    Then the amount is 5378.00, the name is unchanged, and the next occurrences are of 5378.00
+    When I POST /toggle-active
+    Then is_active is false, and GET /api/v1/planned-transactions?active=false lists it while ?active=true does not
+    When I DELETE it
+    Then the response is 204 and a GET is 404
+    And an account, target account, category or payee that does not exist is 422 on create
+    And a PUT that sets a required field to null is 422 and changes nothing
+    And an occurrences window whose end is before its start, or that spans more than 366 days, is 422
+    And GET, PUT, DELETE, toggle-active and occurrences of an unknown id are 404
 ```
 
 ## Feature: Build version

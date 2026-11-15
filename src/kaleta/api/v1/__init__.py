@@ -12,6 +12,7 @@ from kaleta.api.v1.institutions import router as institutions_router
 from kaleta.api.v1.net_worth import router as net_worth_router
 from kaleta.api.v1.payees import router as payees_router
 from kaleta.api.v1.personal_loans import router as personal_loans_router
+from kaleta.api.v1.planned import router as planned_router
 from kaleta.api.v1.reports import router as reports_router
 from kaleta.api.v1.reserve_funds import router as reserve_funds_router
 from kaleta.api.v1.subscriptions import router as subscriptions_router
@@ -30,6 +31,7 @@ v1_router.include_router(transfer_pairs_router)
 v1_router.include_router(budgets_router)
 v1_router.include_router(payees_router)
 v1_router.include_router(subscriptions_router)
+v1_router.include_router(planned_router)
 v1_router.include_router(personal_loans_router)
 v1_router.include_router(reserve_funds_router)
 v1_router.include_router(net_worth_router)
