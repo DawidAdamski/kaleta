@@ -17,7 +17,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from kaleta.exceptions import ConflictError, NotFoundError
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
+from kaleta.models.account import Account
+from kaleta.models.category import Category
+from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
@@ -25,6 +28,11 @@ from kaleta.services.text_order import text_key
 from kaleta.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
+
+# Columns a partial update may leave out but never clear: they are NOT NULL.
+_NOT_NULL_FIELDS = frozenset(
+    {"name", "amount", "type", "account_id", "frequency", "interval", "start_date", "is_active"}
+)
 
 # ── Date arithmetic helpers ───────────────────────────────────────────────────
 
@@ -126,8 +134,11 @@ class PlannedTransactionService:
             selectinload(PlannedTransaction.category),
         ]
 
-    async def list(self) -> builtins.list[PlannedTransaction]:
+    async def list(self, *, active: bool | None = None) -> builtins.list[PlannedTransaction]:
+        """Every plan by start date, then name; ``active`` keeps only (in)active ones."""
         stmt = select(PlannedTransaction).options(*self._opts())
+        if active is not None:
+            stmt = stmt.where(PlannedTransaction.is_active.is_(active))
         result = await self._session.execute(stmt)
         return sorted(result.scalars().all(), key=lambda p: (p.start_date, text_key(p.name)))
 
@@ -138,7 +149,32 @@ class PlannedTransactionService:
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def _check_references(
+        self,
+        *,
+        account_id: int | None = None,
+        target_account_id: int | None = None,
+        category_id: int | None = None,
+        payee_id: int | None = None,
+    ) -> None:
+        """Refuse an id that points nowhere before it reaches a foreign key."""
+        checks: builtins.list[tuple[int | None, type[Account | Category | Payee], str, str]] = [
+            (account_id, Account, "Account", "unknown_account"),
+            (target_account_id, Account, "Target account", "unknown_account"),
+            (category_id, Category, "Category", "unknown_category"),
+            (payee_id, Payee, "Payee", "unknown_payee"),
+        ]
+        for ref_id, model, label, code in checks:
+            if ref_id is not None and await self._session.get(model, ref_id) is None:
+                raise ValidationError(f"{label} {ref_id} does not exist", code=code)
+
     async def create(self, payload: PlannedTransactionCreate) -> PlannedTransaction:
+        await self._check_references(
+            account_id=payload.account_id,
+            target_account_id=payload.target_account_id,
+            category_id=payload.category_id,
+            payee_id=payload.payee_id,
+        )
         pt = PlannedTransaction(**payload.model_dump())
         self._session.add(pt)
         await self._session.commit()
@@ -150,7 +186,20 @@ class PlannedTransactionService:
         pt = await self._session.get(PlannedTransaction, pt_id)
         if pt is None:
             return None
-        for key, val in payload.model_dump(exclude_unset=True).items():
+        data = payload.model_dump(exclude_unset=True)
+        cleared = sorted(k for k in _NOT_NULL_FIELDS if k in data and data[k] is None)
+        if cleared:
+            raise ValidationError(
+                f"These fields cannot be null: {', '.join(cleared)}", code="null_field"
+            )
+        # Only a reference that changes is checked, so an unrelated edit still saves.
+        new_account = data.get("account_id")
+        new_category = data.get("category_id")
+        await self._check_references(
+            account_id=new_account if new_account != pt.account_id else None,
+            category_id=new_category if new_category != pt.category_id else None,
+        )
+        for key, val in data.items():
             setattr(pt, key, val)
         await self._session.commit()
         return await self.get(pt_id)
@@ -234,9 +283,15 @@ class PlannedTransactionService:
         active_only: bool = True,
         *,
         exclude_posted: bool = False,
+        planned_id: int | None = None,
     ) -> builtins.list[PlannedOccurrence]:
-        """Generate every occurrence of planned transactions in [start_date, end_date]."""
+        """Generate every occurrence of planned transactions in [start_date, end_date].
+
+        ``planned_id`` limits the result to that one plan.
+        """
         stmt = select(PlannedTransaction).options(*self._opts())
+        if planned_id is not None:
+            stmt = stmt.where(PlannedTransaction.id == planned_id)
         if active_only:
             stmt = stmt.where(PlannedTransaction.is_active.is_(True))
         if account_id is not None:

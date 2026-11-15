@@ -10,6 +10,7 @@ from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.transaction import TransactionType
 
 __all__ = [
+    "PlannedOccurrenceResponse",
     "PlannedPriceDrift",
     "PlannedTransactionCreate",
     "PlannedTransactionResponse",
@@ -59,6 +60,7 @@ class PlannedTransactionResponse(BaseModel):
     amount: Decimal
     type: TransactionType
     account_id: int
+    target_account_id: int | None = None
     category_id: int | None
     description: str | None
     payee_id: int | None = None
@@ -69,6 +71,18 @@ class PlannedTransactionResponse(BaseModel):
     is_active: bool
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+
+class PlannedOccurrenceResponse(BaseModel):
+    """One date a plan falls on, with what it moves that day."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    date: datetime.date
+    amount: Decimal
+    type: TransactionType
+    account_id: int
+    category_id: int | None
 
 
 class PlannedPriceDrift(BaseModel):
