@@ -3,8 +3,9 @@ plan_id: irregular-fund-items-api
 title: Irregular fund items REST API
 area: api, funds
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-15
+roadmap_ref: ../../roadmap.md
 ---
 
 # Irregular fund items REST API
@@ -69,3 +70,24 @@ the list in sync with the budget plan. `IrregularItemService` already implements
   `#rest-api` anchor (the doc link checker fails on it), so it now points at the
   roadmap itself. The first acceptance bullet mixed a command with prose, so the prose
   moved into its own bullet.
+
+## Implementation
+
+Landed on 2026-11-15 (PR #428).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `beba279e` | Dawid Adamski | 2026-11-16 | Merge pull request #428 from DawidAdamski/plan/irregular-fund-items-api |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/irregular-fund-items-api.md
+- src/kaleta/api/v1/reserve_funds.py
+- src/kaleta/services/irregular_item_service.py
+- tests/integration/test_api_irregular_items.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
