@@ -5296,6 +5296,21 @@ Feature: Public API
     And an unauthenticated request is 401 before its body is read
     And two simultaneous imports of the file into one account store its rows once
 
+  KAL-API-011 @automated
+  Scenario: Keep an irregular fund's items through the API
+    Given a valid API bearer token and an irregular fund "Wydatki nieregularne" backed by a savings account
+    When I POST item "Ubezpieczenie auta" with yearly amount 1200.00 and due month 3 to /api/v1/reserve-funds/{id}/items
+    Then the response is 201 with a monthly contribution of 120.00
+    And I POST item "Podatek od nieruchomości" with yearly amount 600.00
+    And GET /api/v1/reserve-funds/{id}/items lists "Ubezpieczenie auta" before "Podatek od nieruchomości"
+    And with a 300.00 gift planned this year, GET /api/v1/reserve-funds/{id}/plan shows a "gifts" line and a monthly total of 210.00
+    When I PUT yearly amount 1500.00 on "Ubezpieczenie auta"
+    Then its monthly contribution is 150.00 and its name is unchanged
+    When I DELETE "Podatek od nieruchomości"
+    Then the response is 204 and the list holds one item
+    And an item addressed through another irregular fund, or an unknown fund, is 404
+    And the items of an emergency fund are 422
+
   KAL-API-009 @automated
   Scenario: Pair two rows as one transfer through the API
     Given a valid API bearer token
@@ -5311,6 +5326,26 @@ Feature: Public API
     Then that pair is not suggested again
     And a suggestion request without dates, or spanning more than 92 days, is refused with 422
     And a PUT that sets linked_transaction_id is checked the same way and writes both legs
+
+  KAL-API-010 @automated
+  Scenario: Manage a subscription through the API
+    Given a valid API bearer token, the Subscriptions category tree and a payee "Amazon"
+    When I POST a subscription "Amazon Prime" for 49.00 every 365 days under the Subscriptions child "Streaming"
+    Then the response is 201 with status "active"
+    And GET /api/v1/subscriptions/{id} returns it
+    When I PUT notes "plan roczny", amount 59.00 and cadence_days 30
+    Then those three fields change and the name stays "Amazon Prime"
+    When I POST /cancel without a date
+    Then its status is "cancelled", and GET /api/v1/subscriptions?status=cancelled lists it
+    When I POST /cancel with effective_on in the future on another subscription
+    Then that one stays "active" with cancelled_at set to that date
+    When I POST /reactivate
+    Then its status is "active" and cancelled_at is empty
+    When I DELETE it
+    Then the response is 204 and a GET is 404
+    And a category outside the Subscriptions tree, or a payee that does not exist, is 422 on create and update
+    And GET, PUT, DELETE, cancel and reactivate of an unknown id are 404
+    And the OpenAPI schema gives every subscription operation a summary
 
   KAL-API-012 @automated
   Scenario: Manage a standing order through the API

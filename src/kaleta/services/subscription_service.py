@@ -212,7 +212,18 @@ class SubscriptionService:
         result = await self.session.execute(stmt)
         return by_name(result.scalars().all())
 
+    async def _check_references(self, *, category_id: int | None, payee_id: int | None) -> None:
+        """A subscription files under the Subscriptions tree (ADR-028) and a real payee."""
+        if category_id is not None and category_id not in await self._subscription_category_ids():
+            raise ValidationError(
+                f"Category {category_id} is not the Subscriptions root or one of its children",
+                code="invalid_subscription_category",
+            )
+        if payee_id is not None and await self.session.get(Payee, payee_id) is None:
+            raise ValidationError(f"Payee {payee_id} does not exist", code="unknown_payee")
+
     async def create(self, payload: SubscriptionCreate) -> Subscription:
+        await self._check_references(category_id=payload.category_id, payee_id=payload.payee_id)
         sub = Subscription(
             name=payload.name,
             amount=payload.amount,
@@ -224,6 +235,7 @@ class SubscriptionService:
             or _project_next_expected(payload.first_seen_at, payload.cadence_days),
             url=payload.url,
             auto_renew=payload.auto_renew,
+            notes=payload.notes,
             status=SubscriptionStatus.ACTIVE,
         )
         self.session.add(sub)
@@ -236,6 +248,14 @@ class SubscriptionService:
         if sub is None:
             return None
         data = payload.model_dump(exclude_unset=True)
+        # Only a reference that changes is checked: a row filed before ADR-028
+        # can still be edited without first being moved into the tree.
+        new_category = data.get("category_id")
+        new_payee = data.get("payee_id")
+        await self._check_references(
+            category_id=new_category if new_category != sub.category_id else None,
+            payee_id=new_payee if new_payee != sub.payee_id else None,
+        )
         for key, value in data.items():
             setattr(sub, key, value)
         await self.session.commit()

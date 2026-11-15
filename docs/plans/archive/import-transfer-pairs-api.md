@@ -3,8 +3,9 @@ plan_id: import-transfer-pairs-api
 title: Transfer pairs through the API, and validated links on PUT
 area: api, transactions
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-15
+roadmap_ref: ../../roadmap.md
 ---
 
 # Transfer pairs through the API, and validated links on PUT
@@ -182,3 +183,36 @@ None blocking.
   The result goes in this section before the plan is archived.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-11-15 (PR #425).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `91252de8` | Dawid Adamski | 2026-11-15 | Merge pull request #425 from DawidAdamski/plan/import-transfer-pairs-api |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-transfer-pairs-api.md
+- scripts/check_transfer_links.py
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/transactions.py
+- src/kaleta/api/v1/transfer_pairs.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/transfer_pair.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/transfer_section.py
+- tests/integration/test_api_transfer_pairs.py
+- tests/integration/test_check_transfer_links.py
+- tests/integration/test_transactions.py
+- tests/unit/services/test_transfer_pairing.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

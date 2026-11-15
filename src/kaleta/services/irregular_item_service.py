@@ -157,8 +157,24 @@ class IrregularItemService:
             )
         return item
 
-    async def update(self, item_id: int, data: IrregularItemUpdate) -> IrregularItem:
+    async def _item_in(self, item_id: int, fund_id: int | None) -> IrregularItem:
+        """The item; with ``fund_id``, only if it is that irregular fund's (else not found)."""
+        if fund_id is None:
+            return await self._item(item_id)
+        await self._fund(fund_id)
         item = await self._item(item_id)
+        if item.fund_id != fund_id:
+            raise NotFoundError(
+                f"Item {item_id} not found in fund {fund_id}.",
+                message_key="errors.irregular_item.item_not_found",
+                params={"item_id": item_id},
+            )
+        return item
+
+    async def update(
+        self, item_id: int, data: IrregularItemUpdate, *, fund_id: int | None = None
+    ) -> IrregularItem:
+        item = await self._item_in(item_id, fund_id)
         for field, value in data.model_dump(exclude_unset=True).items():
             if field in ("name", "yearly_amount") and value is None:
                 continue
@@ -167,8 +183,8 @@ class IrregularItemService:
         await self.session.refresh(item)
         return item
 
-    async def delete(self, item_id: int) -> None:
-        await self.session.delete(await self._item(item_id))
+    async def delete(self, item_id: int, *, fund_id: int | None = None) -> None:
+        await self.session.delete(await self._item_in(item_id, fund_id))
         await self.session.commit()
 
     # ── The funding proposal (``KAL-IRR-003``) ────────────────────────────
