@@ -4,7 +4,7 @@ title: Subscriptions REST API — create, update, delete, cancel
 area: api, subscriptions
 effort: small
 status: in-progress
-roadmap_ref: ../roadmap.md#rest-api
+roadmap_ref: ../roadmap.md
 ---
 
 # Subscriptions REST API — create, update, delete, cancel
@@ -74,3 +74,6 @@ Prime, BIK, Beeper or Bitwarden. Expose the existing service through the API.
 - The `/api/docs` criterion is now an assertion on `app.openapi()`
   (`test_openapi_gives_every_subscription_operation_a_summary`). The gate runs
   backticked criteria as commands, so a bare `/api/docs` cannot be one.
+- `roadmap_ref` pointed at `#rest-api`, which `docs/roadmap.md` does not have, so the
+  doc link checker failed. The plan now points at the roadmap itself, like
+  import-transfer-pairs-api does.
