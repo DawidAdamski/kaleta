@@ -50,3 +50,22 @@ the list in sync with the budget plan. `IrregularItemService` already implements
   must match (else NotFoundError). The UI keeps calling them without it.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-011 (009 = transfer pairs, 010 = subscriptions-api-write).
+- **Fund-scoped update/delete:** `IrregularItemService.update`/`delete` gained an optional
+  keyword `fund_id`. When it is given, `_item_in` first checks the fund (unknown → 404,
+  not irregular → 422, the service's existing `_fund` errors). It then raises `NotFoundError`
+  when the item belongs to another fund, so a PUT through the wrong path changes nothing
+  (`test_item_through_another_fund_is_404`). The existing `_fund_item` raises
+  `ValidationError` (422) for the payment flows. I left it unchanged: an item addressed
+  under another fund's URL is "not found" in REST terms. The UI (`views/irregular_fund.py`)
+  still calls both without `fund_id`, so its behaviour is unchanged.
+- **No new schemas:** the routes reuse `IrregularItemResponse` (with its computed
+  `monthly_contribution`) and `IrregularFundPlan`. The plan route returns the service's
+  Pydantic model directly.
+- **Plan total in the test:** 1200.00 + 600.00 items plus a 300.00 gift (the derived
+  "gifts" line, on the oldest live irregular fund) at the ÷10 rule gives 120 + 60 + 30 =
+  210.00, the literal in KAL-API-011.
+- The plan file came from another agent's draft. Its `roadmap_ref` pointed at a missing
+  `#rest-api` anchor (the doc link checker fails on it), so it now points at the
+  roadmap itself. The first acceptance bullet mixed a command with prose, so the prose
+  moved into its own bullet.
