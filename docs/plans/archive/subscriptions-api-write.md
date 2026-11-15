@@ -3,8 +3,9 @@ plan_id: subscriptions-api-write
 title: Subscriptions REST API — create, update, delete, cancel
 area: api, subscriptions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-15
+roadmap_ref: ../../roadmap.md
 ---
 
 # Subscriptions REST API — create, update, delete, cancel
@@ -77,3 +78,24 @@ Prime, BIK, Beeper or Bitwarden. Expose the existing service through the API.
 - `roadmap_ref` pointed at `#rest-api`, which `docs/roadmap.md` does not have, so the
   doc link checker failed. The plan now points at the roadmap itself, like
   import-transfer-pairs-api does.
+
+## Implementation
+
+Landed on 2026-11-15 (PR #427).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f741e9e4` | Dawid Adamski | 2026-11-16 | Merge pull request #427 from DawidAdamski/plan/subscriptions-api-write |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/subscriptions-api-write.md
+- src/kaleta/api/v1/subscriptions.py
+- src/kaleta/services/subscription_service.py
+- tests/integration/test_api_subscriptions.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
