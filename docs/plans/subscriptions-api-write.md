@@ -53,3 +53,24 @@ Prime, BIK, Beeper or Bitwarden. Expose the existing service through the API.
   derived, compute it the same way the UI does and record that here.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-010. KAL-API-009 belongs to import-transfer-pairs-api (PR #425).
+- **`muted` filter:** `SubscriptionStatus` has a real `MUTED` value (`mute_one_cycle` sets
+  it), so `?status=` is the enum and passes through to `SubscriptionService.list(status=)`.
+  Mute itself is not exposed: the plan's scope does not list it.
+- **Validation lives in the service** (`SubscriptionService._check_references`), so it
+  applies to the UI too. A category outside the Subscriptions tree raises
+  `ValidationError(code="invalid_subscription_category")`, and an unknown payee raises
+  `code="unknown_payee"`. Both are 422 through the error envelope. On `update`, only a
+  reference that *changes* is checked. A row filed outside the tree before ADR-028
+  can still be edited (e.g. notes) without first being moved. The UI dialog sends the
+  stored `category_id` back on every save, so without this the dialog would refuse the
+  edit. The UI dialog only offers tree children, so it never sends a new invalid id.
+- **Bug fixed in scope:** `SubscriptionService.create` dropped `notes` from the payload.
+  A POST with notes would have silently lost them, so `create` now stores them
+  (`test_notes_are_kept_on_create`).
+- **Cancel date** is a query parameter (`effective_on`), not a body, matching the service
+  signature. A future date only schedules: the row stays active with `cancelled_at`
+  set (existing behaviour, `test_future_cancel_only_schedules`).
+- The `/api/docs` criterion is now an assertion on `app.openapi()`
+  (`test_openapi_gives_every_subscription_operation_a_summary`). The gate runs
+  backticked criteria as commands, so a bare `/api/docs` cannot be one.
