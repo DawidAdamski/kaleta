@@ -127,7 +127,7 @@ KAL-API-008–009.
 | 4 | [import-queue-survives-navigation](archive/import-queue-survives-navigation.md) | archived | small | — |
 | 5 | [import-pipeline-service](archive/import-pipeline-service.md) | archived | medium | 1, 2 |
 | 6 | [import-api-endpoint](archive/import-api-endpoint.md) | archived | medium | 5 |
-| 7 | [import-transfer-pairs-api](import-transfer-pairs-api.md) | draft | medium | 5 (constants); ship after 6 |
+| 7 | [import-transfer-pairs-api](archive/import-transfer-pairs-api.md) | archived | medium | 5 (constants); ship after 6 |
 
 1–4 are independent; 1 and 2 go before 5 so the extraction moves fixed logic.
 
