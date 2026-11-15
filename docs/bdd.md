@@ -5295,6 +5295,26 @@ Feature: Public API
     And a statement whose number matches two accounts is 409, and one with no account is 422
     And an unauthenticated request is 401 before its body is read
     And two simultaneous imports of the file into one account store its rows once
+
+  KAL-API-010 @automated
+  Scenario: Manage a subscription through the API
+    Given a valid API bearer token, the Subscriptions category tree and a payee "Amazon"
+    When I POST a subscription "Amazon Prime" for 49.00 every 365 days under the Subscriptions child "Streaming"
+    Then the response is 201 with status "active"
+    And GET /api/v1/subscriptions/{id} returns it
+    When I PUT notes "plan roczny", amount 59.00 and cadence_days 30
+    Then those three fields change and the name stays "Amazon Prime"
+    When I POST /cancel without a date
+    Then its status is "cancelled", and GET /api/v1/subscriptions?status=cancelled lists it
+    When I POST /cancel with effective_on in the future on another subscription
+    Then that one stays "active" with cancelled_at set to that date
+    When I POST /reactivate
+    Then its status is "active" and cancelled_at is empty
+    When I DELETE it
+    Then the response is 204 and a GET is 404
+    And a category outside the Subscriptions tree, or a payee that does not exist, is 422 on create and update
+    And GET, PUT, DELETE, cancel and reactivate of an unknown id are 404
+    And the OpenAPI schema gives every subscription operation a summary
 ```
 
 ## Feature: Build version
