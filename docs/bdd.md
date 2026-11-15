@@ -5295,6 +5295,22 @@ Feature: Public API
     And a statement whose number matches two accounts is 409, and one with no account is 422
     And an unauthenticated request is 401 before its body is read
     And two simultaneous imports of the file into one account store its rows once
+
+  KAL-API-009 @automated
+  Scenario: Pair two rows as one transfer through the API
+    Given a valid API bearer token
+    And an expense of 3123.86 PLN on "mKonto" dated 2026-11-07
+    And an income of 3123.86 PLN on "Savings" dated 2026-11-09
+    When I GET /api/v1/transfer-pairs/suggestions from 2026-11-01 to 2026-11-30
+    Then the response holds one pair of 3123.86 PLN, the mKonto row outgoing and the Savings row incoming
+    When I POST both ids to /api/v1/transfer-pairs, in either order
+    Then the response is 200 and both rows are type transfer, without a category, linked to each other
+    And repeating the POST returns 200 and changes nothing
+    And a pair across currencies is refused with 422, a leg linked elsewhere with 409, an unknown id with 404
+    When I POST a suggested pair to /api/v1/transfer-pairs/dismiss
+    Then that pair is not suggested again
+    And a suggestion request without dates, or spanning more than 92 days, is refused with 422
+    And a PUT that sets linked_transaction_id is checked the same way and writes both legs
 ```
 
 ## Feature: Build version

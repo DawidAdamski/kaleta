@@ -141,6 +141,7 @@
       "transfer_currency_mismatch": "Parowanie wierszy w różnych walutach nie jest obsługiwane.",
       "transfer_amount_mismatch": "Obie strony przelewu muszą mieć tę samą kwotę.",
       "already_linked": "Transakcja {transaction_id} jest już powiązana z innym wierszem.",
+      "account_not_found": "Nie znaleziono konta {account_id}.",
       "split_cannot_be_transfer": "Transakcja podzielona nie może być częścią przelewu.",
       "split_needs_at_least_one": "Transakcja podzielona musi mieć co najmniej jedną pozycję.",
       "split_sum_mismatch": "Kwoty pozycji muszą sumować się do {amount}; pozostało {remaining:+.2f}.",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import builtins
 import datetime
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -19,7 +20,9 @@ from kaleta.exceptions import (
     StaleWriteError,
     ValidationError,
 )
+from kaleta.models.account import Account
 from kaleta.models.category import Category, CategoryType
+from kaleta.models.dismissed_transfer_pair import DismissedTransferPair
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import (
     Transaction,
@@ -75,6 +78,50 @@ DEFAULT_TRANSFER_PAIRING_DAYS = 3
 #: currency: one grosz/cent absorbs a bank rounding. One value for the
 #: suggester, accepting a suggestion, pairing by hand and linking through PUT.
 DEFAULT_TRANSFER_AMOUNT_TOLERANCE = Decimal("0.01")
+
+
+@dataclass(frozen=True, slots=True)
+class TransferPairSuggestion:
+    """Two existing rows that look like one transfer between own accounts."""
+
+    outgoing_id: int
+    incoming_id: int
+    amount: Decimal
+    currency: str
+    outgoing_account_id: int
+    incoming_account_id: int
+    outgoing_account: str
+    incoming_account: str
+    outgoing_date: datetime.date
+    incoming_date: datetime.date
+    outgoing_amount: Decimal
+    incoming_amount: Decimal
+    outgoing_description: str
+    incoming_description: str
+
+    @classmethod
+    def from_legs(cls, outgoing: Transaction, incoming: Transaction) -> TransferPairSuggestion:
+        return cls(
+            outgoing_id=outgoing.id,
+            incoming_id=incoming.id,
+            amount=abs(outgoing.amount),
+            currency=outgoing.account.currency,
+            outgoing_account_id=outgoing.account_id,
+            incoming_account_id=incoming.account_id,
+            outgoing_account=outgoing.account.name,
+            incoming_account=incoming.account.name,
+            outgoing_date=outgoing.date,
+            incoming_date=incoming.date,
+            outgoing_amount=outgoing.amount,
+            incoming_amount=incoming.amount,
+            outgoing_description=outgoing.description,
+            incoming_description=incoming.description,
+        )
+
+
+def transfer_pair_key(id_a: int, id_b: int) -> tuple[int, int]:
+    """Order-independent key of a pair: lowest id first."""
+    return (id_a, id_b) if id_a < id_b else (id_b, id_a)
 
 
 class TransactionService:
@@ -373,7 +420,7 @@ class TransactionService:
         expense_id: int,
         income_id: int,
         *,
-        amount_tolerance: Decimal = Decimal("0"),
+        amount_tolerance: Decimal = DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
     ) -> tuple[Transaction, Transaction]:
         """Turn two existing rows into the two legs of one internal transfer.
 
@@ -410,7 +457,70 @@ class TransactionService:
             )
         # ``get`` eager-loads ``account``; the currency check below reads it.
         self._validate_transfer_pair(outgoing, incoming, amount_tolerance)
+        self._link_transfer_legs(outgoing, incoming)
+        await self.session.commit()
+        fetched_out = await self.get(expense_id)
+        fetched_in = await self.get(income_id)
+        if fetched_out is None or fetched_in is None:
+            raise KaletaError("Transfer legs not found after commit")
+        return fetched_out, fetched_in
 
+    async def pair_selected_as_transfer(
+        self, first_id: int, second_id: int
+    ) -> tuple[Transaction, Transaction]:
+        """Pair two rows given in any order; return ``(outgoing, incoming)``.
+
+        The ledger's "Mark as transfer" and ``POST /api/v1/transfer-pairs``
+        know two ids, not which leg is which; the rows' own types say that
+        (see :meth:`orient_transfer_legs`). Two rows already linked to each
+        other are returned unchanged, so a retried request is safe.
+        """
+        if first_id == second_id:
+            raise ValidationError(
+                "A transfer needs two different transactions.",
+                message_key="errors.transaction.transfer_needs_two_rows",
+            )
+        first = await self._get_or_raise(first_id)
+        second = await self._get_or_raise(second_id)
+        if first.linked_transaction_id == second.id and second.linked_transaction_id == first.id:
+            linked = self._orient_linked_legs(first, second)
+            if linked is not None:
+                return linked
+        oriented = self.orient_transfer_legs(first, second)
+        if oriented is None:
+            raise ValidationError(
+                "A transfer needs money leaving one account and entering another.",
+                message_key="errors.transaction.transfer_needs_both_directions",
+            )
+        outgoing, incoming = oriented
+        return await self.pair_as_transfer(outgoing.id, incoming.id)
+
+    async def _get_or_raise(self, transaction_id: int) -> Transaction:
+        transaction = await self.get(transaction_id)
+        if transaction is None:
+            raise NotFoundError(
+                f"Transaction {transaction_id} not found.",
+                message_key="errors.transaction.not_found_id",
+                params={"transaction_id": transaction_id},
+            )
+        return transaction
+
+    @staticmethod
+    def _orient_linked_legs(
+        row_a: Transaction, row_b: Transaction
+    ) -> tuple[Transaction, Transaction] | None:
+        """``(outgoing, incoming)`` of a linked pair, from the legs' directions."""
+        if row_a.transfer_direction == TransferDirection.OUT == row_b.transfer_direction:
+            return None
+        if row_a.transfer_direction == TransferDirection.OUT:
+            return row_a, row_b
+        if row_b.transfer_direction == TransferDirection.OUT:
+            return row_b, row_a
+        return None
+
+    @staticmethod
+    def _link_transfer_legs(outgoing: Transaction, incoming: Transaction) -> None:
+        """Write both sides of one transfer: type, direction, flag, no category, links."""
         for leg, direction in (
             (outgoing, TransferDirection.OUT),
             (incoming, TransferDirection.IN),
@@ -421,34 +531,144 @@ class TransactionService:
             leg.category_id = None
         outgoing.linked_transaction_id = incoming.id
         incoming.linked_transaction_id = outgoing.id
-        await self.session.commit()
-        fetched_out = await self.get(expense_id)
-        fetched_in = await self.get(income_id)
-        if fetched_out is None or fetched_in is None:
-            raise KaletaError("Transfer legs not found after commit")
-        return fetched_out, fetched_in
 
-    async def pair_selected_as_transfer(self, first_id: int, second_id: int) -> None:
-        """Pair two rows picked in the ledger, whichever order they were picked in.
+    # ── Transfer suggestions ─────────────────────────────────────────────────
 
-        The ledger's "Mark as transfer" knows two ids, not which leg is which;
-        the rows' own types say that (see :meth:`orient_transfer_legs`).
+    async def suggest_transfer_pairs(
+        self,
+        *,
+        max_days_apart: int = DEFAULT_TRANSFER_PAIRING_DAYS,
+        amount_tolerance: Decimal = DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
+        date_from: datetime.date | None = None,
+        date_to: datetime.date | None = None,
+    ) -> builtins.list[TransferPairSuggestion]:
+        """Find pairs of unlinked rows that look like one transfer between own accounts.
+
+        Two rows are a candidate pair when they sit on different accounts in
+        the same currency, carry the same amount (within ``amount_tolerance``),
+        are at most ``max_days_apart`` days apart and point in opposite
+        directions: an expense with an income, or a row an import already
+        typed ``transfer`` with an expense, an income or another such row.
+        Two expenses (or two incomes) are never a transfer.
+
+        Nothing is written: the caller shows the pairs and the user accepts
+        (:meth:`accept_transfer_pair`) or dismisses
+        (:meth:`dismiss_transfer_pair`) each one. A dismissed pair is never
+        suggested again. Every row appears in at most one suggestion; when a
+        row could pair with several, the closest date wins.
+
+        ``date_from`` / ``date_to`` bound the rows considered — the import
+        review passes the span of the rows it just imported, widened by the
+        window, so years of unrelated history are not offered at once.
         """
-        first = await self.get(first_id)
-        second = await self.get(second_id)
-        if first is None or second is None:
-            raise NotFoundError(
-                "Transaction not found.",
-                message_key="errors.transaction.not_found",
+        stmt = (
+            select(Transaction)
+            .options(selectinload(Transaction.account))
+            .where(
+                Transaction.linked_transaction_id.is_(None),
+                Transaction.is_split.is_(False),
             )
-        oriented = self.orient_transfer_legs(first, second)
-        if oriented is None:
+            .order_by(Transaction.amount, Transaction.date, Transaction.id)
+        )
+        if date_from is not None:
+            stmt = stmt.where(Transaction.date >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(Transaction.date <= date_to)
+        rows = builtins.list((await self.session.execute(stmt)).scalars().all())
+        dismissed = await self._dismissed_transfer_pairs()
+
+        # Sorted by amount, so every partner of a row lies in the short run
+        # after it whose amounts are still within tolerance. Amounts are
+        # stored unsigned (direction lives in ``type``), which is what lets an
+        # expense and an income of the same size sit next to each other here.
+        candidates: builtins.list[tuple[int, Decimal, int, int, Transaction, Transaction]] = []
+        for i, row_a in enumerate(rows):
+            for row_b in rows[i + 1 :]:
+                amount_gap = abs(row_b.amount - row_a.amount)
+                if amount_gap > amount_tolerance:
+                    break
+                day_gap = abs((row_a.date - row_b.date).days)
+                if day_gap > max_days_apart:
+                    continue
+                oriented = self._orient_candidate(row_a, row_b)
+                if oriented is None:
+                    continue
+                outgoing, incoming = oriented
+                if transfer_pair_key(outgoing.id, incoming.id) in dismissed:
+                    continue
+                candidates.append(
+                    (day_gap, amount_gap, outgoing.id, incoming.id, outgoing, incoming)
+                )
+
+        candidates.sort(key=lambda c: (c[0], c[1], c[2], c[3]))
+        taken: set[int] = set()
+        suggestions: builtins.list[TransferPairSuggestion] = []
+        for _day_gap, _amount_gap, out_id, in_id, outgoing, incoming in candidates:
+            if out_id in taken or in_id in taken:
+                continue
+            taken.update((out_id, in_id))
+            suggestions.append(TransferPairSuggestion.from_legs(outgoing, incoming))
+        suggestions.sort(key=lambda s: (s.outgoing_date, s.outgoing_id))
+        return suggestions
+
+    @classmethod
+    def _orient_candidate(
+        cls, row_a: Transaction, row_b: Transaction
+    ) -> tuple[Transaction, Transaction] | None:
+        """Return ``(outgoing, incoming)`` when the two rows can be one transfer."""
+        if row_a.account_id == row_b.account_id:
+            return None
+        if row_a.account.currency != row_b.account.currency:
+            return None
+        return cls.orient_transfer_legs(row_a, row_b)
+
+    async def _dismissed_transfer_pairs(self) -> set[tuple[int, int]]:
+        result = await self.session.execute(
+            select(
+                DismissedTransferPair.first_transaction_id,
+                DismissedTransferPair.second_transaction_id,
+            )
+        )
+        return {(int(first), int(second)) for first, second in result.all()}
+
+    async def accept_transfer_pair(
+        self,
+        outgoing_id: int,
+        incoming_id: int,
+        *,
+        amount_tolerance: Decimal = DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
+    ) -> tuple[Transaction, Transaction]:
+        """Make a suggested pair one transfer (see :meth:`pair_as_transfer`)."""
+        return await self.pair_as_transfer(
+            outgoing_id, incoming_id, amount_tolerance=amount_tolerance
+        )
+
+    async def dismiss_transfer_pair(self, first_id: int, second_id: int) -> None:
+        """Remember that these two rows are not one transfer. Idempotent.
+
+        Both rows are looked up first, so an unknown id is a ``NotFoundError``
+        rather than a foreign-key failure at commit.
+        """
+        if first_id == second_id:
             raise ValidationError(
-                "A transfer needs money leaving one account and entering another.",
-                message_key="errors.transaction.transfer_needs_both_directions",
+                "A transfer needs two different transactions.",
+                message_key="errors.transaction.transfer_needs_two_rows",
             )
-        outgoing, incoming = oriented
-        await self.pair_as_transfer(outgoing.id, incoming.id)
+        await self._get_or_raise(first_id)
+        await self._get_or_raise(second_id)
+        first, second = transfer_pair_key(first_id, second_id)
+        existing = await self.session.execute(
+            select(DismissedTransferPair.id).where(
+                DismissedTransferPair.first_transaction_id == first,
+                DismissedTransferPair.second_transaction_id == second,
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            return
+        self.session.add(
+            DismissedTransferPair(first_transaction_id=first, second_transaction_id=second)
+        )
+        await self.session.commit()
 
     async def set_category_bulk(self, transaction_ids: builtins.list[int], category_id: int) -> int:
         """Assign one category to many rows at once; return how many changed.
@@ -546,8 +766,10 @@ class TransactionService:
                 "Both legs of a transfer must have the same amount.",
                 message_key="errors.transaction.transfer_amount_mismatch",
             )
-        for leg in (outgoing, incoming):
-            if leg.linked_transaction_id is not None:
+        for leg, other in ((outgoing, incoming), (incoming, outgoing)):
+            # Already linked to each other is not a conflict: it is the pair
+            # being re-stated (a retried request, a PUT naming the same leg).
+            if leg.linked_transaction_id not in (None, other.id):
                 raise ConflictError(
                     f"Transaction {leg.id} is already linked to another row.",
                     message_key="errors.transaction.already_linked",
@@ -583,7 +805,14 @@ class TransactionService:
         fields_set = data.model_fields_set
         updates = data.model_dump(
             exclude_unset=True,
-            exclude={"splits", "is_split", "tag_ids", "payee_name", "expected_updated_at"},
+            exclude={
+                "splits",
+                "is_split",
+                "tag_ids",
+                "payee_name",
+                "expected_updated_at",
+                "linked_transaction_id",
+            },
         )
         # A typed payee resolves to an id here too, so the edit dialog can name a
         # payee that does not exist yet. No learned defaults on update: the row
@@ -640,10 +869,111 @@ class TransactionService:
             for split_data in splits:
                 transaction.splits.append(TransactionSplit(**split_data.model_dump()))
 
+        await self._apply_link_update(transaction, data, previous_type)
+
         if tag_ids is not None:
             transaction.tags = await self._load_tags(tag_ids)
         await self.session.commit()
         return await self.get(transaction_id)
+
+    async def _apply_link_update(
+        self, transaction: Transaction, data: TransactionUpdate, previous_type: TransactionType
+    ) -> None:
+        """Keep a transfer link two-sided and valid when an update touches it.
+
+        Runs after the other fields are applied, so the checks see the row as
+        it is about to be saved. Three cases:
+
+        - the update names a new partner: the pair is validated as
+          :meth:`pair_as_transfer` does (accounts, currency, amount, roles,
+          neither leg linked elsewhere) and both legs are written;
+        - the update clears the link: the partner's link back is cleared too
+          (both rows stay transfers; turning one back into an expense or an
+          income is an edit of its own);
+        - a linked row is turned into a transfer: the pair is validated and
+          both legs written, as for a new partner.
+        """
+        current = transaction.linked_transaction_id
+        if "linked_transaction_id" in data.model_fields_set:
+            wanted = data.linked_transaction_id
+            if wanted is None:
+                if current is not None:
+                    await self._clear_link(transaction, current)
+                return
+            if wanted != current:
+                await self._link_by_update(transaction, wanted)
+                return
+        if (
+            current is not None
+            and transaction.type == TransactionType.TRANSFER
+            and previous_type != TransactionType.TRANSFER
+        ):
+            await self._link_by_update(transaction, current)
+
+    async def _clear_link(self, transaction: Transaction, partner_id: int) -> None:
+        transaction.linked_transaction_id = None
+        partner = await self.session.get(Transaction, partner_id)
+        if partner is not None and partner.linked_transaction_id == transaction.id:
+            partner.linked_transaction_id = None
+
+    async def _link_by_update(self, transaction: Transaction, partner_id: int) -> None:
+        # The row already carries the update's fields; a lookup below must not
+        # flush them first (a missing account would surface as a foreign-key
+        # error instead of ``account_not_found``). Nothing is written until the
+        # checks pass.
+        with self.session.no_autoflush:
+            await self._check_and_link(transaction, partner_id)
+
+    async def _check_and_link(self, transaction: Transaction, partner_id: int) -> None:
+        if partner_id == transaction.id:
+            raise ValidationError(
+                "A transfer needs two different transactions.",
+                message_key="errors.transaction.transfer_needs_two_rows",
+            )
+        partner = await self._get_or_raise(partner_id)
+        oriented = self._orient_for_link(transaction, partner)
+        if oriented is None:
+            raise ValidationError(
+                "A transfer needs money leaving one account and entering another.",
+                message_key="errors.transaction.transfer_needs_both_directions",
+            )
+        outgoing, incoming = oriented
+        if transaction.account_id != transaction.account.id:
+            # The update moved the row to another account; the currency check
+            # must read the new one, not the account loaded with the row.
+            account = await self.session.get(Account, transaction.account_id)
+            if account is None:
+                raise NotFoundError(
+                    f"Account {transaction.account_id} not found.",
+                    message_key="errors.transaction.account_not_found",
+                    params={"account_id": transaction.account_id},
+                )
+            transaction.account = account
+        self._validate_transfer_pair(outgoing, incoming, DEFAULT_TRANSFER_AMOUNT_TOLERANCE)
+        self._link_transfer_legs(outgoing, incoming)
+
+    @classmethod
+    def _orient_for_link(
+        cls, row: Transaction, partner: Transaction
+    ) -> tuple[Transaction, Transaction] | None:
+        """``(outgoing, incoming)`` for a link set through an update.
+
+        A transfer leg that already says which way its money went decides the
+        roles; two legs that both say the same way cannot be one transfer.
+        Otherwise the types decide, as in :meth:`orient_transfer_legs`.
+        """
+        directed = [
+            leg
+            for leg in (row, partner)
+            if leg.type == TransactionType.TRANSFER and leg.transfer_direction is not None
+        ]
+        if len(directed) == 2 and row.transfer_direction == partner.transfer_direction:
+            return None
+        if directed:
+            leg = directed[0]
+            other = partner if leg is row else row
+            return (leg, other) if leg.transfer_direction == TransferDirection.OUT else (other, leg)
+        return cls.orient_transfer_legs(row, partner)
 
     async def _refuse_stale_write(
         self, transaction: Transaction, expected: datetime.datetime | None

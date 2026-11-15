@@ -3,7 +3,7 @@ plan_id: import-transfer-pairs-api
 title: Transfer pairs through the API, and validated links on PUT
 area: api, transactions
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -92,13 +92,13 @@ Out of scope:
 
 Tests in `tests/integration/test_api_transfer_pairs.py`:
 
-- `test_suggest_requires_date_range`, `test_suggest_span_capped`
-- `test_accept_links_both_legs` (checks `type=transfer`, no category, links in
-  both directions)
-- `test_accept_is_idempotent`, `test_accept_unordered_ids`
-- `test_accept_different_currency_422`, `test_accept_already_linked_409`,
-  `test_accept_unknown_id_404`
-- `test_dismiss_unknown_id_404`, `test_dismissed_pair_not_suggested`
+- Suggest: `test_suggest_requires_date_range`, `test_suggest_span_capped`
+- Accept: `test_accept_links_both_legs` (checks `type=transfer`, no category,
+  links in both directions)
+- Accept: `test_accept_is_idempotent`, `test_accept_unordered_ids`
+- Accept errors: `test_accept_different_currency_422`,
+  `test_accept_already_linked_409`, `test_accept_unknown_id_404`
+- Dismiss: `test_dismiss_unknown_id_404`, `test_dismissed_pair_not_suggested`
 - In the PUT tests file: `test_put_link_validates`, `test_put_link_writes_both_sides`.
 
 ## Touchpoints
@@ -116,5 +116,69 @@ Tests in `tests/integration/test_api_transfer_pairs.py`:
 None blocking.
 
 ## Implementation notes
+
+- **Service home.** `suggest_transfer_pairs`, `accept_transfer_pair`,
+  `dismiss_transfer_pair` and the `TransferPairSuggestion` dataclass now live in
+  `transaction_service.py`; `ImportService` keeps one-line delegates (the import
+  page still calls them) and `detect_and_link_transfers`. The dataclass gained
+  `outgoing_account_id`/`incoming_account_id` and per-leg amounts for the API
+  response. The two views that typed against `import_service.TransferPairSuggestion`
+  import it from `transaction_service` (mypy's no-implicit-reexport); that is
+  the only view change, plus `views/settings/constants.py` re-exporting the two
+  defaults instead of defining them.
+- **One tolerance.** `DEFAULT_TRANSFER_AMOUNT_TOLERANCE = 0.01` and
+  `DEFAULT_TRANSFER_PAIRING_DAYS = 3` are defined once, in `transaction_service`.
+  `pair_as_transfer` defaulted to `0`; it now uses the constant, so the ledger's
+  "Mark as transfer" accepts a one-grosz difference like the import review does.
+- **Already linked to each other is not a conflict.** `_validate_transfer_pair`
+  refuses a leg linked to a *third* row, not one linked to its partner. That is
+  what lets the second hand-written PUT of the 2026-11-09 fix (B → A after A → B)
+  succeed, and a half link (A → B, B → nothing) be completed.
+- **Idempotent accept.** `pair_selected_as_transfer` returns the legs unchanged
+  when the rows already link to each other, oriented by their stored
+  `transfer_direction`. Without that, re-pairing two import-typed transfer legs
+  would fall back to "lower id goes out" and could flip the directions; a unit
+  test pins it (`test_pairing_a_linked_pair_again_changes_nothing`).
+- **PUT semantics** (`TransactionService._apply_link_update`, after all other
+  fields are applied so the checks see the row as saved):
+  - a new partner is a pairing: same checks as `pair_as_transfer`, and both legs
+    become `type=transfer`, internal, without category, with directions. A leg
+    that already says `transfer_direction` decides the roles; two legs saying
+    the same direction are a `422`. Otherwise the types decide, as in
+    `orient_transfer_legs`. Linking to itself is a `422`, to an unknown id a `404`;
+  - `linked_transaction_id: null` clears the partner's link back as well; both
+    rows keep `type=transfer` (unpairing is out of scope, as the API docs say);
+  - a linked row edited into a transfer re-validates the pair and writes both legs;
+  - a PUT that moves the row to another account *and* links it reads the new
+    account's currency (`errors.transaction.account_not_found`, new i18n key in
+    `en.json`/`pl.json`, if that account is gone).
+- **No autoflush while checking a PUT link.** The checks run with the update's
+  fields already on the row, and the partner lookup used to autoflush them: a
+  PUT moving the row to a missing account *and* linking it surfaced as a
+  foreign-key error (a `500`) instead of `account_not_found`.
+  `_link_by_update` now runs its lookups under `session.no_autoflush`; found by
+  `test_link_moved_to_a_missing_account_is_not_found`, added after the critic
+  noted the branch had no test.
+- **Endpoints.** `GET /suggestions` refuses `date_to < date_from` as well as a
+  span over 92 days (both `422`, raised in the route: they are request-shape
+  rules, not domain rules). `max_days_apart` is `1..14`, `amount_tolerance >= 0`.
+  `POST /transfer-pairs` returns `{outgoing, incoming}` as full
+  `TransactionResponse`s; `POST /dismiss` returns `204`. Two equal ids are a `422`.
+- **Data check.** `scripts/check_transfer_links.py` reads through the API of a
+  running instance (`--url`, `--token`/`KALETA_API_TOKEN`), GET only, so it needs
+  neither database credentials nor the family-schema plumbing, and checks the
+  data exactly the way the 2026-11-09 pair was checked. It reports `one_sided`,
+  `dangling`, `amount_mismatch`, `currency_mismatch` and `same_direction` links;
+  exit code 1 when anything is found. Tests feed it real API responses
+  (`tests/integration/test_check_transfer_links.py`).
+- **Acceptance list format.** The DoD gate runs every acceptance bullet that
+  starts with a backtick as a shell command, so the bullets naming the tests in
+  `test_api_transfer_pairs.py` were read as commands (`command not found`). They
+  now start with a word ("Suggest:", "Accept:", …); the names and the tests are
+  unchanged and all run under the first criterion.
+- **Not run here: the self-hosted check.** This session has no URL or token for
+  the self-hosted instance, so the one-off run is left to the owner:
+  `KALETA_API_TOKEN=… uv run python scripts/check_transfer_links.py --url <instance>`.
+  The result goes in this section before the plan is archived.
 
 ## Implementation (filled by plan-archiver)

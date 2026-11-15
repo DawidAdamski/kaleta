@@ -14,7 +14,7 @@ from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.theme import AMOUNT_NEUTRAL, BODY_MUTED, CARD_TITLE, SECTION_CARD
 
 if TYPE_CHECKING:  # import-linter excludes typing-only imports
-    from kaleta.services.import_service import TransferPairSuggestion
+    from kaleta.services.transaction_service import TransferPairSuggestion
 
 PairAction = Callable[["TransferPairSuggestion"], Awaitable[None]]
 

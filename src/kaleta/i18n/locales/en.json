@@ -141,6 +141,7 @@
       "transfer_currency_mismatch": "Pairing rows in different currencies is not supported.",
       "transfer_amount_mismatch": "Both legs of a transfer must have the same amount.",
       "already_linked": "Transaction {transaction_id} is already linked to another row.",
+      "account_not_found": "Account {account_id} not found.",
       "split_cannot_be_transfer": "A split transaction cannot be part of a transfer.",
       "split_needs_at_least_one": "Split transactions must have at least one split.",
       "split_sum_mismatch": "Split amounts must sum to {amount}; {remaining:+.2f} remaining.",
