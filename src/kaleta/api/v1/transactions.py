@@ -113,9 +113,15 @@ async def get_transaction(
     description=(
         "Partially updates a transaction. Only fields included in the request body are changed. "
         "When `splits` is provided, all existing split rows are replaced. Split line amounts "
-        "must sum to the transaction `amount` (updated amount when `amount` is included)."
+        "must sum to the transaction `amount` (updated amount when `amount` is included).\n\n"
+        "Setting `linked_transaction_id` pairs the row with that transaction as one internal "
+        "transfer, checked as `POST /api/v1/transfer-pairs` checks it (two accounts, one "
+        "currency, the same amount within 0.01, one leg out and one in, neither linked "
+        "elsewhere) and written on **both** legs: `422` or `409` when the check fails. "
+        "Clearing it (`null`) clears the partner's link too; both rows stay transfers. "
+        "There is no unpairing yet: to undo a wrong pair, clear the link and edit both legs."
     ),
-    responses=_404,
+    responses={**_404, 409: {"description": "A leg is already linked to another row"}},
 )
 async def update_transaction(
     transaction_id: int,
