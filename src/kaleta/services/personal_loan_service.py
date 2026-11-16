@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from kaleta.db.types import exact_index
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.account import Account
+from kaleta.models.category import Category
 from kaleta.models.personal_loan import (
     Counterparty,
     LoanDirection,
@@ -41,6 +42,11 @@ from kaleta.schemas.personal_loan import (
 )
 from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.text_order import by_name
+
+# Loan columns a partial update may leave out but never clear: they are NOT NULL.
+_LOAN_NOT_NULL = frozenset(
+    {"counterparty_id", "direction", "principal", "currency", "opened_at", "status"}
+)
 
 
 class PersonalLoanService:
@@ -74,7 +80,27 @@ class PersonalLoanService:
         await self.session.refresh(cp)
         return cp
 
+    async def _check_name_free(self, name: str) -> None:
+        """Refuse a counterparty name another one has (409 instead of a unique-key 500)."""
+        if await self.get_counterparty_by_name(name) is not None:
+            raise ConflictError(
+                f"A counterparty named '{name}' already exists",
+                code="counterparty_name_taken",
+                message_key="errors.personal_loan.counterparty_name_taken",
+                params={"name": name},
+            )
+
+    async def _check_counterparty(self, cp_id: int) -> None:
+        if await self.get_counterparty(cp_id) is None:
+            raise ValidationError(
+                f"Counterparty {cp_id} does not exist",
+                code="unknown_counterparty",
+                message_key="errors.personal_loan.unknown_counterparty",
+                params={"counterparty_id": cp_id},
+            )
+
     async def create_counterparty(self, payload: CounterpartyCreate) -> Counterparty:
+        await self._check_name_free(payload.name)
         cp = Counterparty(name=payload.name, notes=payload.notes)
         self.session.add(cp)
         await self.session.commit()
@@ -87,7 +113,13 @@ class PersonalLoanService:
         cp = await self.get_counterparty(cp_id)
         if cp is None:
             return None
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        changes = payload.model_dump(exclude_unset=True)
+        if "name" in changes:
+            if changes["name"] is None:
+                raise ValidationError("A counterparty needs a name.", code="null_field")
+            if changes["name"] != cp.name:
+                await self._check_name_free(changes["name"])
+        for key, value in changes.items():
             setattr(cp, key, value)
         await self.session.commit()
         await self.session.refresh(cp)
@@ -123,6 +155,7 @@ class PersonalLoanService:
     async def create_loan(self, payload: PersonalLoanCreate) -> PersonalLoan:
         if payload.transaction_id is not None:
             await self._check_linkable(payload.transaction_id)
+        await self._check_counterparty(payload.counterparty_id)
         loan = PersonalLoan(
             counterparty_id=payload.counterparty_id,
             direction=payload.direction,
@@ -143,9 +176,23 @@ class PersonalLoanService:
         if loan is None:
             return None
         changes = payload.model_dump(exclude_unset=True)
+        cleared = sorted(k for k in _LOAN_NOT_NULL if k in changes and changes[k] is None)
+        if cleared:
+            raise ValidationError(
+                f"These fields cannot be null: {', '.join(cleared)}.", code="null_field"
+            )
+        new_cp = changes.get("counterparty_id")
+        if new_cp is not None and new_cp != loan.counterparty_id:
+            await self._check_counterparty(new_cp)
         tx_id = changes.get("transaction_id")
         if tx_id is not None and tx_id != loan.transaction_id:
             await self._check_linkable(tx_id)
+        new_status = changes.get("status")
+        if new_status is not None and new_status != loan.status:
+            # A loan settled by hand gets its settle date; a reopened one loses it.
+            loan.settled_at = (
+                datetime.datetime.now(datetime.UTC) if new_status == LoanStatus.SETTLED else None
+            )
         for key, value in changes.items():
             setattr(loan, key, value)
         await self._commit_link(tx_id)
@@ -182,6 +229,23 @@ class PersonalLoanService:
             await self._check_linkable(payload.link_transaction_id)
             linked_tx_id = payload.link_transaction_id
         elif payload.link_account_id is not None:
+            if await self.session.get(Account, payload.link_account_id) is None:
+                raise ValidationError(
+                    f"Account {payload.link_account_id} does not exist",
+                    code="unknown_account",
+                    message_key="errors.personal_loan.unknown_account",
+                    params={"account_id": payload.link_account_id},
+                )
+            if (
+                payload.link_category_id is not None
+                and await self.session.get(Category, payload.link_category_id) is None
+            ):
+                raise ValidationError(
+                    f"Category {payload.link_category_id} does not exist",
+                    code="unknown_category",
+                    message_key="errors.personal_loan.unknown_category",
+                    params={"category_id": payload.link_category_id},
+                )
             # Direction maps to Transaction.type:
             #   OUTGOING loan + repayment → cash coming back → INCOME tx.
             #   INCOMING loan + repayment → cash going out    → EXPENSE tx.
@@ -229,18 +293,19 @@ class PersonalLoanService:
         await self.session.refresh(repayment)
         return RepaymentResponse.model_validate(repayment)
 
-    async def delete_repayment(self, repayment_id: int) -> bool:
+    async def delete_repayment(self, repayment_id: int, *, loan_id: int | None = None) -> bool:
+        """Delete a repayment; with ``loan_id``, only when it belongs to that loan."""
         result = await self.session.execute(
             select(PersonalLoanRepayment).where(PersonalLoanRepayment.id == repayment_id)
         )
         r = result.scalar_one_or_none()
-        if r is None:
+        if r is None or (loan_id is not None and r.loan_id != loan_id):
             return False
-        loan_id = r.loan_id
+        owner_id = r.loan_id
         await self.session.delete(r)
         await self.session.commit()
         # Re-evaluate status with the remaining repayments.
-        loan = await self.get_loan(loan_id)
+        loan = await self.get_loan(owner_id)
         if loan is not None:
             remaining = compute_remaining(loan.principal, [rep.amount for rep in loan.repayments])
             loan.status = (

@@ -185,7 +185,11 @@
     "personal_loan": {
       "link_ambiguous": "Powiąż istniejącą transakcję albo odzwierciedl ją na koncie, ale nie jedno i drugie",
       "transaction_taken": "Transakcja {transaction_id} jest już powiązana z pożyczką",
-      "transaction_not_found": "Nie znaleziono transakcji {transaction_id}"
+      "transaction_not_found": "Nie znaleziono transakcji {transaction_id}",
+      "counterparty_name_taken": "Osoba o nazwie \"{name}\" już istnieje",
+      "unknown_counterparty": "Osoba {counterparty_id} nie istnieje",
+      "unknown_account": "Konto {account_id} nie istnieje",
+      "unknown_category": "Kategoria {category_id} nie istnieje"
     },
     "irregular_item": {
       "fund_not_found": "Nie znaleziono funduszu {fund_id}.",
