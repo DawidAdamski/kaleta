@@ -221,6 +221,34 @@ async def test_unknown_counterparty_and_unknown_account_are_422(api_client: Asyn
     assert (await api_client.get(f"{PL}/{loan['id']}")).json()["repayments"] == []
 
 
+async def test_null_name_unknown_category_and_unknown_new_counterparty_are_422(
+    api_client: AsyncClient,
+) -> None:
+    """Covers: KAL-API-018"""
+    w = await _world(api_client)
+    marek = await _cp(api_client, "Marek Nowak")
+    null_name = await api_client.put(f"{PL}/counterparties/{marek}", json={"name": None})
+    assert null_name.status_code == 422
+    assert null_name.json()["error"]["code"] == "null_field"
+    loan = await _loan(api_client, marek, "400.00", "outgoing", "2026-11-01")
+    no_cat = await _repay(
+        api_client,
+        loan["id"],
+        amount="200.00",
+        date="2026-11-20",
+        link_account_id=w["account"],
+        link_category_id=999999,
+    )
+    assert no_cat.status_code == 422
+    assert no_cat.json()["error"]["code"] == "unknown_category"
+    moved = await api_client.put(f"{PL}/{loan['id']}", json={"counterparty_id": 999999})
+    assert moved.status_code == 422
+    assert moved.json()["error"]["code"] == "unknown_counterparty"
+    got = (await api_client.get(f"{PL}/{loan['id']}")).json()
+    assert (got["counterparty_name"], got["repayments"]) == ("Marek Nowak", [])
+    assert [a for a, _, _ in await _ledger(api_client, w["account"])] == ["250.00"]
+
+
 async def test_ambiguous_repayment_link_is_422(api_client: AsyncClient) -> None:
     """Covers: KAL-API-018"""
     w = await _world(api_client)
