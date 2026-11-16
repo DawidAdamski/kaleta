@@ -3,8 +3,9 @@ plan_id: planned-transactions-api
 title: Planned transactions REST API
 area: api, planned
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-15
+roadmap_ref: ../../roadmap.md
 ---
 
 # Planned transactions REST API
@@ -72,3 +73,26 @@ already implements `list`, `get`, `create`, `update`, `delete`, `toggle_active`,
   carries date, amount, type, account and category for each occurrence.
 - **`list(active=)`:** filtering moved into the service as an optional keyword; existing callers
   pass nothing and see every plan as before.
+
+## Implementation
+
+Landed on 2026-11-15 (PR #432).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0078cec8` | Dawid Adamski | 2026-11-16 | Merge pull request #432 from DawidAdamski/plan/planned-transactions-api |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/planned-transactions-api.md
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/planned.py
+- src/kaleta/schemas/planned_transaction.py
+- src/kaleta/services/planned_transaction_service.py
+- tests/integration/test_api_planned.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
