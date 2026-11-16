@@ -1244,3 +1244,51 @@ class TestRealizationTotals:
         assert totals.used_pct == 0.0
         assert totals.over == 0
         assert totals.rows == 0
+
+
+class TestCopyForwardIsOneBulkUpsert:
+    """``copy_forward`` writes through one ``bulk_upsert`` call (one statement, one commit)."""
+
+    async def test_one_bulk_upsert_call_and_the_same_count(
+        self, svc: BudgetService, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        food = await _make_category(session, "Food")
+        rent = await _make_category(session, "Rent")
+        fun = await _make_category(session, "Fun")
+        for cat, amount in ((food, "1200.00"), (rent, "2000.00"), (fun, "300.00")):
+            await svc.upsert(
+                BudgetCreate(category_id=cat, amount=Decimal(amount), month=4, year=2026)
+            )
+        await svc.upsert(
+            BudgetCreate(category_id=fun, amount=Decimal("250.00"), month=5, year=2026)
+        )
+
+        calls: list[list[BudgetCreate]] = []
+        real = svc.bulk_upsert
+
+        async def spy(entries: list[BudgetCreate]) -> int:
+            calls.append(list(entries))
+            return await real(entries)
+
+        monkeypatch.setattr(svc, "bulk_upsert", spy)
+        written = await svc.copy_forward(2026, 4, 2026, 5)
+
+        assert written == 2
+        assert len(calls) == 1
+        assert sorted(e.category_id for e in calls[0]) == sorted([food, rent])
+        may = {b.category_id: b.amount for b in await svc.list_for_month(2026, 5)}
+        assert may == {food: Decimal("1200.00"), rent: Decimal("2000.00"), fun: Decimal("250.00")}
+
+    async def test_unknown_category_in_bulk_upsert_writes_nothing(
+        self, svc: BudgetService, session: AsyncSession
+    ) -> None:
+        food = await _make_category(session, "Food")
+        with pytest.raises(ValidationError) as exc:
+            await svc.bulk_upsert(
+                [
+                    BudgetCreate(category_id=food, amount=Decimal("1.00"), month=6, year=2026),
+                    BudgetCreate(category_id=999999, amount=Decimal("1.00"), month=6, year=2026),
+                ]
+            )
+        assert exc.value.code == "unknown_category"
+        assert await svc.list_for_month(2026, 6) == []
