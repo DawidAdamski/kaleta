@@ -3,8 +3,9 @@ plan_id: rules-tags-api
 title: Categorisation rules and tags REST API: list, get, create, update, delete
 area: api, rules, tags
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Categorisation rules and tags REST API: list, get, create, update, delete
@@ -258,3 +259,29 @@ Today the service does none of this:
 - **Suggestion with no offer:** 200 `null`.
 - **Chores:** the tags dialog not catching `KaletaError`, and `_load_tags` dropping unknown
   ids, are in `docs/plans/chores.md`.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #436).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `3956abd1` | Dawid Adamski | 2026-11-16 | Merge pull request #436 from DawidAdamski/plan/rules-tags-api |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/rules-tags-api.md
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/categorisation_rules.py
+- src/kaleta/api/v1/tags.py
+- src/kaleta/schemas/categorisation_rule.py
+- src/kaleta/services/rule_service.py
+- src/kaleta/services/tag_service.py
+- tests/integration/test_api_rules_tags.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
