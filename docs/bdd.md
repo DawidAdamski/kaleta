@@ -5488,6 +5488,37 @@ Feature: Public API
     And a period with no transactions returns 200 with empty rows and zero totals
     And a range whose end is not after its start, or that spans more than 366 days, is refused with 422
     And basis "transfer" on /yoy is refused with 422
+
+  KAL-API-017 @automated
+  Scenario: Check budget realization and carry a month forward through the API
+    Given a valid API bearer token
+    And expense categories "Czynsz", "Jedzenie", "Rozrywka" and "Prezenty"
+    And April 2026 budgets of 2000.00 for "Czynsz", 1200.00 for "Jedzenie" and 300.00 for "Rozrywka"
+    And a March 2026 budget of 1000.00 for "Jedzenie"
+    And April 2026 expenses of 2000.00 "Czynsz" on 2026-04-01, 450.00 "Jedzenie" on 2026-04-05, 360.00 "Rozrywka" on 2026-04-10, 150.00 "Jedzenie" on 2026-04-12 and 190.00 "Prezenty" on 2026-04-14
+    And expenses of 700.00 "Jedzenie" on 2026-03-10 and 999.00 "Jedzenie" on 2026-05-02
+    When I GET /api/v1/budgets/realization?year=2026&month=4&as_of=2026-04-15
+    Then the response is 200 with the categories in the order "Prezenty", "Rozrywka", "Czynsz", "Jedzenie"
+    And "Prezenty" is over with planned 0.00, actual 190.00 and used_pct null
+    And "Rozrywka" is over with planned 300.00, actual 360.00, remaining -60.00 and used_pct 120.0
+    And "Czynsz" is warning with actual 2000.00 and used_pct 100.0
+    And "Jedzenie" is on_track with actual 600.00, remaining 600.00 and used_pct 50.0
+    And every row has elapsed_pct 50.0
+    And the totals are planned 3500.00, actual 3150.00, remaining 350.00, used_pct 90.0, over 2 and rows 4
+    When I GET /api/v1/budgets/summary?start=2026-03-01&end=2026-04-30
+    Then the categories are "Czynsz" 2000.00 spent of 2000.00, "Jedzenie" 1300.00 of 2200.00, "Prezenty" 190.00 of 0.00 and "Rozrywka" 360.00 of 300.00
+    And the totals are budget 4500.00, actual 3850.00 and remaining 650.00
+    Given a May 2026 budget of 250.00 for "Rozrywka"
+    When I POST /api/v1/budgets/copy-forward from 2026-04 to 2026-05
+    Then the response is 200 with written 2
+    And May 2026 holds "Czynsz" 2000.00, "Jedzenie" 1200.00 and "Rozrywka" 250.00
+    When I POST the same copy with overwrite true
+    Then the response is 200 with written 3 and May 2026 "Rozrywka" is 300.00
+    When I POST /api/v1/budgets/bulk with June 2026 entries "Czynsz" 2000.00 and "Jedzenie" 1100.00
+    Then the response is 200 with written 2 and June 2026 holds exactly those two budgets
+    And a bulk request with an unknown category_id is 422 and writes nothing
+    And a copy whose source and target month are the same is 422
+    And a summary whose end is before its start is 422
 ```
 
 ## Feature: Build version
