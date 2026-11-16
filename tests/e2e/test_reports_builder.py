@@ -389,7 +389,7 @@ def _series_line_styles(page: Page) -> list[str | None]:
     chart = page.locator(".nicegui-echart").first
     expect(chart).to_be_visible(timeout=15000)
     return chart.evaluate(
-        """el => getElement(el.id.slice(1)).chart.getOption().series
+        """el => getElement(el).chart.getOption().series
                  .map(s => (s.lineStyle || {}).type || null)"""
     )
 
