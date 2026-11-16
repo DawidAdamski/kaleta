@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 
 from kaleta.api import create_api_router
-from tests.integration.conftest import create_account
+from tests.integration.conftest import create_account, create_category
 
 BASE = "/api/v1/reserve-funds"
 
@@ -213,6 +213,36 @@ async def test_unknown_backing_account_is_422(api_client: AsyncClient) -> None:
     assert moved.status_code == 422
     assert moved.json()["error"]["code"] == "unknown_backing_account"
     assert (await api_client.get(f"{BASE}/{goal_id}")).json()["backing_account_id"] == acc["goal"]
+
+
+async def test_envelope_fund_needs_an_existing_category(api_client: AsyncClient) -> None:
+    """An envelope fund backed by an unknown category is 422; by a real one, 201.
+
+    Covers: KAL-API-013
+    """
+    category = await create_category(api_client, name="Wakacje")
+
+    def envelope(category_id: int) -> dict[str, Any]:
+        return {
+            "name": "Wakacje 2030",
+            "kind": "vacation",
+            "target_amount": "6000.00",
+            "backing_mode": "envelope",
+            "backing_category_id": category_id,
+        }
+
+    unknown = await api_client.post(f"{BASE}/", json=envelope(999999))
+    assert unknown.status_code == 422, unknown.text
+    assert unknown.json()["error"]["code"] == "unknown_backing_category"
+
+    created = await api_client.post(f"{BASE}/", json=envelope(category["id"]))
+    assert created.status_code == 201, created.text
+    fund_id = created.json()["id"]
+    moved = await api_client.put(f"{BASE}/{fund_id}", json={"backing_category_id": 999999})
+    assert moved.status_code == 422
+    assert moved.json()["error"]["code"] == "unknown_backing_category"
+    got = (await api_client.get(f"{BASE}/{fund_id}")).json()
+    assert (got["backing_category_id"], got["current_balance"]) == (category["id"], "0.00")
 
 
 async def test_put_cannot_null_a_required_field_or_date_a_non_goal(
