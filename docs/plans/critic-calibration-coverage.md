@@ -49,6 +49,14 @@ calibration that can name calibrated questions. It runs **after** the open API P
 - **The two splits:** `calibrate_critic.py` runs a split and resumes from
   `docs/harness/calibration/<critic_hash>-<split>.cases.jsonl`. The test split runs once per
   critic hash, and its case ids must hash to `docs/harness/calibration/test-split.sha256`.
+- **Who answers:** the critic's k=3 samples are Claude (`KALETA_REVIEW_MODEL`, default
+  sonnet). With `KALETA_CROSS_REVIEW=1`, one of the three instead comes from a local model
+  behind an OpenAI-compatible endpoint (today Qwen on Unsloth Studio). That sample is there
+  for *diversity*, a second model family that does not share Claude's blind spots, not for
+  strength. `critic_hash` includes the model ids, so each configuration is its own critic
+  with its own calibration. The 2026-11-16 run shows both: `36ef5368e55e44a3` (17 cases)
+  and `613e8b9ab733ffd9` with the local sample (3 cases). The gate runs in this session
+  used all-Claude samples.
 - **Protected paths:** `scripts/harness/*`, `docs/harness/*` and
   `tests/harness/critic_cases/*` are all protected (`docs/harness/protected-paths.txt`). The
   work needs a `KALETA_HARNESS_MAINTAINER=1 claude` session, never `plan_runner.sh`.
@@ -154,6 +162,12 @@ a deterministic veto.
 - **`M-SECRET`'s fake key: is it safe with the repo's own secret scanners?** Default: put
   it only in `mutation.patch` under `tests/harness/critic_cases/`, never in a source file
   on a branch, and add that path to the scanners' allowlist if they flag it.
+- **Which configuration is calibrated: all-Claude, or with the Qwen cross sample?**
+  Default: the one the gate actually runs with. If the gate is meant to run with
+  `KALETA_CROSS_REVIEW=1`, calibrate that hash. A weak local model is acceptable as long as
+  its sample is valid (parsable, with evidence that resolves). The report's invalid-evidence
+  rate per reviewer shows it. Report per-reviewer agreement too, so a cross sample that only
+  adds noise is visible.
 - **Budget for step 5?** The owner decides. About 0.6 USD × (calib cases + test cases),
   roughly 60–90 USD for the full set after the new mutants.
 
