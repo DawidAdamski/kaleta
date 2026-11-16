@@ -5391,6 +5391,30 @@ Feature: Public API
     Then the response is 204 and GET /api/v1/reserve-funds/{id} is 404
     And a fund backed by account id 999999 is refused with 422
     And a PUT that sets name to null, or a target_date on an emergency fund, is 422
+
+  KAL-API-014 @automated
+  Scenario: Bulk transaction operations through the API
+    Given a valid API bearer token
+    And PLN accounts "mKonto" and "Savings", and an EUR account "Revolut EUR"
+    And expense categories "Spożywcze" and "Transport", and an income category "Wynagrodzenie"
+    When I POST to /api/v1/transactions/bulk an expense of 45.99 on "mKonto" dated 2026-11-03 described "LIDL WARSZAWA" and an expense of 120.00 on "mKonto" dated 2026-11-04 described "ORLEN", both in "Spożywcze"
+    Then the response is 201 with created_count 2 and two ids
+    And a bulk request with a row on an account that does not exist is 422 and stores none of its rows
+    And a bulk row carrying splits, tag_ids or type transfer is 422
+    When I POST both ids and "Transport" to /api/v1/transactions/bulk/category
+    Then the response is 200 with updated_count 2 and both rows are in "Transport"
+    And the same request with "Wynagrodzenie" is 422 and neither row changes
+    And the same request with one id that does not exist is 404 and neither row changes
+    And more rows or ids than KALETA_API_BULK_MAX_ITEMS is 413
+    When I POST a transfer of 500.00 from "mKonto" to "Savings" dated 2026-11-05 described "Na oszczędności" to /api/v1/transactions/transfers
+    Then the response is 201 with an outgoing leg on "mKonto" and an incoming leg on "Savings", both 500.00, type transfer, internal, linked to each other
+    And a transfer from "mKonto" to "mKonto" is 422, and one to an account that does not exist is 404
+    And a transfer from "mKonto" to "Revolut EUR" without an exchange_rate is 422
+    And a transfer of 460.00 from "mKonto" to "Revolut EUR" with exchange_rate 0.2350 stores an incoming leg of 108.10
+    When I GET /api/v1/transactions/export
+    Then the response is 200 text/csv with Content-Disposition attachment and a filename like "kaleta_ledger_2026-11-15.csv"
+    And the first line is "date,type,amount,currency,account,category,payee,description,tags,is_internal_transfer"
+    And a line is "2026-11-03,expense,45.99,PLN,mKonto,Transport,,LIDL WARSZAWA,,false"
 ```
 
 ## Feature: Build version
