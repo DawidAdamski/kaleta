@@ -14,7 +14,7 @@ classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
 ]
 dependencies = [
-    "nicegui>=3.14.0",
+    "nicegui>=4.0.0,<5",
     "sqlalchemy>=2.1",
     "alembic>=1.13",
     "pydantic>=2.13",
