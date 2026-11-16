@@ -7,6 +7,7 @@ from kaleta.api.v1.auth import router as auth_router
 from kaleta.api.v1.budgets import router as budgets_router
 from kaleta.api.v1.categories import router as categories_router
 from kaleta.api.v1.categorisation_rules import router as categorisation_rules_router
+from kaleta.api.v1.forecast import router as forecast_router
 from kaleta.api.v1.import_rules import router as import_rules_router
 from kaleta.api.v1.imports import router as imports_router
 from kaleta.api.v1.institutions import router as institutions_router
@@ -40,3 +41,4 @@ v1_router.include_router(personal_loans_router)
 v1_router.include_router(reserve_funds_router)
 v1_router.include_router(net_worth_router)
 v1_router.include_router(reports_router)
+v1_router.include_router(forecast_router)
