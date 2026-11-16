@@ -3,8 +3,9 @@ plan_id: reports-api-breadth
 title: Reports REST API — spending by category, top merchants, budget variance, YTD, YoY, safe to spend
 area: api, reports
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Reports REST API — spending by category, top merchants, budget variance, YTD, YoY, safe to spend
@@ -164,3 +165,25 @@ its dataclass in `report_service.py` (`SpendingByCategory`, `MerchantSpend`,
   match, so no fallback was needed. The response names the day `as_of` (the dataclass calls it
   `today`).
 - **Money-flow cap:** not changed; logged in `docs/plans/chores.md`.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #437).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `79cd8e41` | Dawid Adamski | 2026-11-16 | Merge pull request #437 from DawidAdamski/plan/reports-api-breadth |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/reports-api-breadth.md
+- src/kaleta/api/v1/reports.py
+- src/kaleta/schemas/analysis.py
+- tests/integration/test_api_reports.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
