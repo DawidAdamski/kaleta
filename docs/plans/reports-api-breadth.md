@@ -3,7 +3,7 @@ plan_id: reports-api-breadth
 title: Reports REST API — spending by category, top merchants, budget variance, YTD, YoY, safe to spend
 area: api, reports
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -150,3 +150,17 @@ its dataclass in `report_service.py` (`SpendingByCategory`, `MerchantSpend`,
 - **Payees with the same name?** Default: reported as the service groups them (by payee id).
 
 ## Implementation notes
+- **Scenario id:** KAL-API-016, after KAL-API-012 in `docs/bdd.md` (013–015 are on open branches).
+- **Routes and schemas** as scoped: six GETs in `api/v1/reports.py`, nine response schemas in
+  `schemas/analysis.py`. Routes only copy dataclass fields and properties; the one call that is
+  not a property, `SpendingByCategory.share_pct(amount)`, is the service's method.
+- **`end` exclusive, cap 366 days** (`MAX_REPORT_SPAN_DAYS`, `_check_range`): `end <= start` or a
+  longer range → 422. A 365-day calendar year passes (tested).
+- **`yoy`:** `year >= 1971`; `basis=transfer` → 422 in the route (the service would return
+  zeros, not raise).
+- **`ytd`:** `year` optional, `None` = this year up to today (the service's behaviour).
+- **Percentages are unrounded** `Decimal`; the test quantizes to 0.01 before comparing.
+- **`safe-to-spend` with a past `as_of`** works: the scenario runs on 2025-03-20 and all figures
+  match, so no fallback was needed. The response names the day `as_of` (the dataclass calls it
+  `today`).
+- **Money-flow cap:** not changed; logged in `docs/plans/chores.md`.
