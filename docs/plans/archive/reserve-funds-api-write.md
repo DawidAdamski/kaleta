@@ -3,8 +3,9 @@ plan_id: reserve-funds-api-write
 title: Reserve funds and savings goals REST API: get, create, update, archive, delete, contribute, close
 area: api, funds
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Reserve funds and savings goals REST API: get, create, update, archive, delete, contribute, close
@@ -263,3 +264,28 @@ target date of 2030-06-01 keeps the goal in the future for years. That keeps
   existence is checked.
 - **Months left / pace:** only asserted as positive / non-null (they depend on today).
 - **Deleted backing account crash:** not fixed; logged in `docs/plans/chores.md`.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #434).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1fa5d901` | Dawid Adamski | 2026-11-16 | Merge pull request #434 from DawidAdamski/plan/reserve-funds-api-write |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/reserve-funds-api-write.md
+- src/kaleta/api/v1/reserve_funds.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/reserve_fund_service.py
+- tests/integration/test_api_reserve_funds.py
+- tests/integration/test_error_i18n_funds_cohort.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
