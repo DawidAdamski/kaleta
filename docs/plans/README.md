@@ -150,6 +150,7 @@ with `plan_runner.sh`.
 | 6 | [fidelity-independent-critic](archive/fidelity-independent-critic.md) | archived | medium | 1, 2 |
 | 7 | [review-canary](review-canary.md) | draft | medium | 5 |
 | 8 | [critic-calibration-coverage](critic-calibration-coverage.md) | draft | medium | 5 (after the API PRs #435–#440) |
+| 9 | [archive-image-links](archive-image-links.md) | draft | small | — (fixes the docs site; any order) |
 
 Nothing here merges automatically: mode A is a label until the owner sets
 `allow_auto_merge = true` on the strength of a calibration report.
