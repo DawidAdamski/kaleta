@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.11.0](https://github.com/DawidAdamski/kaleta/compare/v0.10.0...v0.11.0) (2026-11-16)
+
+
+### Features
+
+* **api:** /api/v1/transfer-pairs — suggest, accept, dismiss (KAL-API-009) ([7979b0e](https://github.com/DawidAdamski/kaleta/commit/7979b0e4b1e6d446476d19054f561a44bb76bb7e))
+* **api:** balance forecast endpoint; forecast cache keyed per family (KAL-API-019) ([b554dc0](https://github.com/DawidAdamski/kaleta/commit/b554dc0005d9d223ef422fede1c01fabf7b7618c))
+* **api:** budget realization, range summary, copy-forward and bulk upsert (KAL-API-017) ([8ec9ce8](https://github.com/DawidAdamski/kaleta/commit/8ec9ce84e0697b03d34dfc37f2a9dd0f116f2c9a))
+* **api:** bulk create, bulk recategorise, new transfer and ledger CSV (KAL-API-014) ([49045c1](https://github.com/DawidAdamski/kaleta/commit/49045c1a1db941a122f08bfc9698fcc151ebc7f6))
+* **api:** irregular fund items and plan under /reserve-funds/{id} (KAL-API-011) ([bf63a64](https://github.com/DawidAdamski/kaleta/commit/bf63a646966163cd952a5636f4c5ce876a7c7dc1))
+* **api:** personal loans — counterparties, loan CRUD, repayments, totals (KAL-API-018) ([10f88cd](https://github.com/DawidAdamski/kaleta/commit/10f88cd7aa3440a58015a4a9002d7fddcb4c9888))
+* **api:** planned transactions CRUD, toggle and occurrences (KAL-API-012) ([6d02f53](https://github.com/DawidAdamski/kaleta/commit/6d02f5378bd84d2121f4b0320f845760daa93bb9))
+* **api:** POST /api/v1/imports — a raw statement body through the import pipeline ([03560af](https://github.com/DawidAdamski/kaleta/commit/03560af37ae2be632b185c1fccb25924bb451091))
+* **api:** POST /api/v1/imports — import a bank statement through the pipeline ([2025dde](https://github.com/DawidAdamski/kaleta/commit/2025dde3106d2a52e7679c765dd7af7754d370cb))
+* **api:** reserve funds and savings goals — create, update, archive, delete, contribute, close (KAL-API-013) ([641a9c5](https://github.com/DawidAdamski/kaleta/commit/641a9c5f445302459bcb1a5c74c1c720c3fe7a3e))
+* **api:** spending by category, top merchants, budget variance, YTD, YoY and safe-to-spend reports (KAL-API-016) ([616889c](https://github.com/DawidAdamski/kaleta/commit/616889c9ae9c4966ad6fe7143e1185d4b76c9048))
+* **api:** subscriptions get/create/update/delete/cancel/reactivate, status filter (KAL-API-010) ([2b9c949](https://github.com/DawidAdamski/kaleta/commit/2b9c94937dd50274e696608c815cb56c942a3f9f))
+* **api:** tags and categorisation rules CRUD, rule suggestions (KAL-API-015) ([bd1a191](https://github.com/DawidAdamski/kaleta/commit/bd1a19197afceae6de38e54703a44d0c8059618e))
+* **funds:** irregular item update/delete can be scoped to a fund ([dc0736f](https://github.com/DawidAdamski/kaleta/commit/dc0736f2dd224355d84376b4b0cec3f4c724c651))
+* **import:** import runs keep an idempotency key and a keyed file hash; API row cap and 413 error ([d1a1fa5](https://github.com/DawidAdamski/kaleta/commit/d1a1fa594b3e81efbae6956d2ff2daf85fd9dc80))
+* **import:** ImportPipeline parses an upload, refuses the same file, locks the account and replays a key ([e0060d7](https://github.com/DawidAdamski/kaleta/commit/e0060d72fdcb2d66380dfa482e250b562ecb5b68))
+* **scripts:** check_transfer_links.py, read-only check of transfer links ([3f10d24](https://github.com/DawidAdamski/kaleta/commit/3f10d2401ef66efee8a3bdc5b36aa55f73afb5f4))
+* **subscriptions:** check category (ADR-028) and payee on create/update; keep notes on create ([33cecf5](https://github.com/DawidAdamski/kaleta/commit/33cecf52e9014bda291ef9a47edcfb082ce0496f))
+* **transactions:** transfer pairing in TransactionService, validated two-sided links on update ([c409ee3](https://github.com/DawidAdamski/kaleta/commit/c409ee3bffc1fa579ac307c8a7d259e3934adffa))
+
+
+### Bug Fixes
+
+* **transactions:** check a PUT link without autoflushing the edited row ([682b3bc](https://github.com/DawidAdamski/kaleta/commit/682b3bcabbb71f5df72e826d07a5d67bf41dfa3b))
+
 ## [0.10.0](https://github.com/DawidAdamski/kaleta/compare/v0.9.0...v0.10.0) (2026-11-12)
 
 
