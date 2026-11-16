@@ -123,6 +123,39 @@ a deterministic veto.
   upper bound ≤ 0.10) and which are not. Nothing turns on `allow_auto_merge`; that stays
   the owner's decision.
 
+### 6. Cross-review backend and what a calibration keeps
+- **Backend for the cross sample:** OpenRouter, with a one-off top-up of about 10 USD and
+  **one fixed paid model** from a family other than Claude (a large Qwen or DeepSeek). The
+  setup needs no code change:
+  `KALETA_CROSS_REVIEW=1`, `KALETA_CROSS_REVIEW_URL=https://openrouter.ai/api/v1`,
+  `KALETA_CROSS_REVIEW_MODEL=<model>`, `KALETA_CROSS_REVIEW_API_KEY=sk-or-…`. Set a spend
+  limit on the account. The local Qwen on Unsloth Studio stays the free fallback.
+  - **Why not a `:free` model:** with `KALETA_CROSS_REVIEW=1` the cross sample is
+    *required*, so a rate-limited or overloaded free endpoint fails the gate. Free models
+    also come and go, and a new model is a new `critic_hash` that needs a new calibration.
+  - **Why not Ollama Cloud:** it has no free cloud tier. Pay-as-you-go costs about the same
+    as OpenRouter per token, and API access goes through a signed-in local daemon.
+  - **Why not a ChatGPT subscription:** it gives no API key. Using it through Codex CLI
+    would need a new adapter in `critic.py` and would run into the plan's limits.
+- **What the cross sample costs:** about 8k input and 3.5k output tokens per sample,
+  measured on Unsloth on 2026-11-16 (3 requests: 24,092 in, 10,620 out). The diff is cut at
+  `KALETA_CROSS_REVIEW_MAX_CHARS` (120,000 chars, about 30k tokens). A 93-case calib split
+  is about 1.1 M tokens (3.2 M at most), under 1 USD on a cheap model and about 2–5 USD on a
+  DeepSeek-class one. 10 USD covers several full calibrations.
+- **Most of the cost is Claude:** the two Claude samples cost about 0.6 USD per case, about
+  55 USD for 93 cases. `--budget-usd` counts only that part.
+- **What a calibration already keeps:** `docs/harness/calibration/calib.cases.jsonl`, one
+  line per case with critic hash, gold labels, each reviewer's answer per question (named,
+  e.g. `local:<model>`), evidence and Claude cost. A rerun on the same hash resumes from it.
+  Next to it sit `<hash>-<split>.json` / `.md`. These are committed in step 1, and never
+  deleted.
+- **What it should also keep (add):**
+  - the raw reply of every sample, with its reasoning, in a per-case file next to
+    `calib.cases.jsonl`. That way a false alarm can be read later without paying for a
+    rerun.
+  - the cross sample's token usage and cost, from the API's `usage` field, in the case line
+    and in the report totals.
+
 ## Out of scope
 - Changing the judge, the profile thresholds (`block` / `uncertain`) or `allow_auto_merge`.
 - New critic questions (for example a general logic-bug question). This plan measures the
@@ -133,6 +166,9 @@ a deterministic veto.
 ## Acceptance criteria
 - `uv run pytest scripts/harness/tests -q`
 - `uv run python scripts/check_doc_links.py`
+- A calibration run writes each sample's raw reply, and the cross sample's token usage and
+  cost, and the report's totals include that cost. A harness test with
+  `KALETA_CRITIC_FAKE` checks it.
 - Unit tests in `scripts/harness/tests/` exercise each new or repaired operator on a small
   fixture repo. Each test checks that the operator changes exactly one question's gold
   answer, and that `M-SERVICE-TEST` keeps every `Covers:` id carried.
@@ -147,6 +183,7 @@ a deterministic veto.
 - `scripts/harness/seed_defects.py`: the new and repaired operators, the `M-KAL` label fix.
 - `scripts/harness/calibration.py` or `calibrate_critic.py`: per-PR collapsing for
   unaffected questions in the report.
+- `scripts/harness/critic.py`: keep the raw reply and the `usage` of the cross sample.
 - `scripts/harness/tests/`: operator tests.
 - `tests/harness/critic_cases/`: rebuilt cases. These are generated, never hand-edited.
 - `docs/harness/critic-questions.toml`: only if step 4 narrows Q-SERVICE-TEST.
