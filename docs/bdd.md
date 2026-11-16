@@ -5366,6 +5366,32 @@ Feature: Public API
     And an occurrences window whose end is before its start, or that spans more than 366 days, is 422
     And GET, PUT, DELETE, toggle-active and occurrences of an unknown id are 404
 
+  KAL-API-013 @automated
+  Scenario: Run a savings goal end to end through the API
+    Given a valid API bearer token
+    And accounts "PKO Main" holding 1000.00 PLN, "Konto wakacyjne" holding 0.00 PLN and "Konto EUR" holding 0.00 EUR
+    When I POST a fund "Wakacje 2030" of kind vacation with target 6000.00 by 2030-06-01 backed by "Konto wakacyjne" to /api/v1/reserve-funds
+    Then the response is 201 with is_archived false
+    And GET /api/v1/reserve-funds/{id} shows current_balance 0.00 and progress_pct 0.00
+    When I POST a contribution of 500.00 from "PKO Main" dated 2026-11-15 to /api/v1/reserve-funds/{id}/contribute
+    Then the response is 200 with current_balance 500.00 and progress_pct 0.08
+    And "PKO Main" holds 500.00
+    When I PUT name "Wakacje w Grecji 2030" and target_amount 5000.00
+    Then the response has that name and target 5000.00, and GET shows progress_pct 0.10
+    And a contribution from "Konto EUR" is 422, one from "Konto wakacyjne" to itself is 422
+    And a contribution to an emergency fund "Poduszka" is 422
+    When I POST /api/v1/reserve-funds/{id}/close releasing to "PKO Main" dated 2026-11-20
+    Then the response is 200 with is_archived true
+    And "PKO Main" holds 1000.00 and "Konto wakacyjne" holds 0.00
+    And GET /api/v1/reserve-funds omits the goal, but include_archived=true lists it
+    And a further contribution is 422
+    When I POST /api/v1/reserve-funds/{id}/unarchive
+    Then is_archived is false and archived_at is null
+    When I DELETE /api/v1/reserve-funds/{id}
+    Then the response is 204 and GET /api/v1/reserve-funds/{id} is 404
+    And a fund backed by account id 999999 is refused with 422
+    And a PUT that sets name to null, or a target_date on an emergency fund, is 422
+
   KAL-API-019 @automated
   Scenario: Read an account's balance forecast through the API
     Given a valid API bearer token
