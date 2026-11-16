@@ -3,7 +3,7 @@ plan_id: budgets-api-realization
 title: Budgets REST API — realization, range summary, copy-forward, bulk upsert
 area: api, budgets
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -271,3 +271,22 @@ How the literals follow from the code, for the implementer:
   free id and record that here.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-017, after KAL-API-012 in `docs/bdd.md` (013–016 are on open branches).
+- **Enums moved** to `kaleta.schemas.budget`; `budget_service` re-imports them with explicit
+  `X as X` aliases (mypy strict's no-implicit-reexport), so `views/budgets/constants.py`,
+  `views/budgets/realization.py` and the tests import them from the service unchanged.
+- **`as_of`** accepted (default today) and echoed in the response.
+- **Infinity → `null`:** a before-validator on `BudgetRealizationRow.used_pct` / `pace_delta`
+  maps a non-finite float to `None`; `status` stays `over` (tested with "Prezenty").
+- **Unplanned `planned` is `"0"`, not `"0.00"`:** the service builds it as `Decimal("0")`.
+  The test compares that one value as a `Decimal`; changing the service's zero is out of scope.
+  The same holds for an empty month's totals.
+- **`copy_forward` via `bulk_upsert`:** one `ON CONFLICT` statement and one commit, same
+  return value; existing copy tests stay green, and a unit test spies that exactly one
+  `bulk_upsert` call happens.
+- **`bulk_upsert` unknown category** → 422 `unknown_category`, checked with one `IN` query
+  before the insert, so nothing is written. Duplicate keys still sum (documented in the route).
+- **`range_summary`** refuses `end < start` with 422 `invalid_date_range`.
+- **Bulk cap** 1000 entries (schema), 200 with `{written}` for both write routes.
+- **Chore:** the single `POST /budgets/` 500 on an unknown category is logged in
+  `docs/plans/chores.md`.
