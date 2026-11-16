@@ -159,7 +159,10 @@
       "goal_no_backing_account": "This goal has no backing account.",
       "account_to_itself": "Money cannot move from an account to itself.",
       "account_not_found": "Account {account_id} not found.",
-      "same_currency_required": "Both accounts must use the same currency."
+      "same_currency_required": "Both accounts must use the same currency.",
+      "unknown_backing_account": "Account {account_id} does not exist.",
+      "unknown_backing_category": "Category {category_id} does not exist.",
+      "invalid_update": "This change would leave the fund invalid: {reason}"
     },
     "gift": {
       "not_found": "Gift {gift_id} not found",
