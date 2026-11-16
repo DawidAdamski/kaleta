@@ -4,15 +4,28 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.api.deps import PagedResponse, PaginationParams, get_session
 from kaleta.models.transaction import TransactionType
-from kaleta.schemas.transaction import TransactionCreate, TransactionResponse, TransactionUpdate
+from kaleta.schemas.transaction import (
+    TransactionBulkCategory,
+    TransactionBulkCategoryResponse,
+    TransactionBulkCreate,
+    TransactionBulkCreateResponse,
+    TransactionCreate,
+    TransactionResponse,
+    TransactionUpdate,
+    TransferCreate,
+)
+from kaleta.schemas.transfer_pair import TransferPairResponse
 from kaleta.services.transaction_service import TransactionService
 
 _404: dict[int | str, dict[str, Any]] = {404: {"description": "Transaction not found"}}
+_413: dict[int | str, dict[str, Any]] = {
+    413: {"description": "More rows or ids than KALETA_API_BULK_MAX_ITEMS (default 1000)"}
+}
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -88,6 +101,101 @@ async def create_transaction(
     session: AsyncSession = Depends(get_session),
 ) -> TransactionResponse:
     return TransactionResponse.model_validate(await TransactionService(session).create(data))
+
+
+@router.post(
+    "/bulk",
+    response_model=TransactionBulkCreateResponse,
+    status_code=201,
+    summary="Create many transactions at once",
+    description=(
+        "Stores simple income and expense rows in one commit, all or none, and returns "
+        "their ids in request order. A row with splits, tag_ids, payee_name or "
+        "linked_transaction_id, or a transfer row, is refused (use the single-row "
+        "route or `/transactions/transfers`). Every account, category, payee and "
+        "planned transaction must exist and each category must match its row's type. "
+        "At most KALETA_API_BULK_MAX_ITEMS rows (default 1000)."
+    ),
+    responses={422: {"description": "A row is refused; nothing is stored"}, **_413},
+)
+async def create_transactions_bulk(
+    data: TransactionBulkCreate,
+    session: AsyncSession = Depends(get_session),
+) -> TransactionBulkCreateResponse:
+    ids = await TransactionService(session).create_many(data.transactions)
+    return TransactionBulkCreateResponse(created_count=len(ids), ids=ids)
+
+
+@router.post(
+    "/bulk/category",
+    response_model=TransactionBulkCategoryResponse,
+    summary="Set one category on many transactions",
+    description=(
+        "Moves every listed row to the category, all or none. The category must be "
+        "income or expense and match every row's type; split rows are refused. At most "
+        "KALETA_API_BULK_MAX_ITEMS ids (default 1000)."
+    ),
+    responses={
+        404: {"description": "The category, or one of the transactions, does not exist"},
+        422: {"description": "Wrong category type, or a split row; nothing changes"},
+        **_413,
+    },
+)
+async def set_category_bulk(
+    data: TransactionBulkCategory,
+    session: AsyncSession = Depends(get_session),
+) -> TransactionBulkCategoryResponse:
+    count = await TransactionService(session).set_category_bulk(
+        data.transaction_ids, data.category_id
+    )
+    return TransactionBulkCategoryResponse(updated_count=count)
+
+
+@router.post(
+    "/transfers",
+    response_model=TransferPairResponse,
+    status_code=201,
+    summary="Create a transfer between two accounts",
+    description=(
+        "Creates both legs of an internal transfer in one commit, linked to each other. "
+        "Between two currencies `exchange_rate` is required, and the incoming leg is "
+        "`to_amount` or `amount × exchange_rate` rounded half up to the cent; the rate "
+        "is recorded. To pair two rows that already exist, use `/transfer-pairs`."
+    ),
+    responses={
+        404: {"description": "An account does not exist"},
+        422: {"description": "The same account twice, or a rate that does not fit"},
+    },
+)
+async def create_transfer(
+    data: TransferCreate,
+    session: AsyncSession = Depends(get_session),
+) -> TransferPairResponse:
+    outgoing, incoming = await TransactionService(session).create_transfer_between(data)
+    return TransferPairResponse(
+        outgoing=TransactionResponse.model_validate(outgoing),
+        incoming=TransactionResponse.model_validate(incoming),
+    )
+
+
+@router.get(
+    "/export",
+    summary="Export the ledger as CSV",
+    description=(
+        "Every transaction, oldest first, as a UTF-8 CSV attachment — the same file as "
+        "Settings → Data → ledger CSV."
+    ),
+    response_class=Response,
+    responses={200: {"content": {"text/csv": {}}, "description": "The ledger CSV"}},
+)
+async def export_ledger(session: AsyncSession = Depends(get_session)) -> Response:
+    body = await TransactionService(session).export_ledger_csv()
+    filename = TransactionService.ledger_csv_filename()
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get(
