@@ -7,7 +7,6 @@ import datetime
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from enum import Enum
 
 from sqlalchemy import extract, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -18,7 +17,16 @@ from kaleta.exceptions import ValidationError
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
-from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
+from kaleta.schemas.budget import (
+    BudgetCreate,
+    BudgetUpdate,
+)
+from kaleta.schemas.budget import (
+    RealizationNoteKind as RealizationNoteKind,  # re-exported for views and tests
+)
+from kaleta.schemas.budget import (
+    RealizationStatus as RealizationStatus,  # re-exported for views and tests
+)
 from kaleta.services.categorised_flows import categorised_flows_selectable
 from kaleta.services.loan_links import loan_linked_transaction_ids
 from kaleta.services.planned_transaction_service import PlannedTransactionService
@@ -135,12 +143,6 @@ def month_planned_totals(
     return tuple(totals)
 
 
-class RealizationStatus(str, Enum):  # noqa: UP042
-    ON_TRACK = "on_track"
-    WARNING = "warning"
-    OVER = "over"
-
-
 @dataclass
 class CategoryBudgetSummary:
     category_id: int
@@ -161,13 +163,6 @@ class CategoryBudgetSummary:
     @property
     def over_budget(self) -> bool:
         return self.actual_amount > self.budget_amount
-
-
-class RealizationNoteKind(Enum):
-    """The two things a schedule can say about a row whose bar looks wrong."""
-
-    PAID_IN_FULL = "paid_in_full"
-    PLANNED_ON = "planned_on"
 
 
 @dataclass(frozen=True, slots=True)
@@ -596,6 +591,17 @@ class BudgetService:
         if not entries:
             return 0
 
+        wanted = {e.category_id for e in entries}
+        found = set(
+            (
+                await self.session.execute(select(Category.id).where(Category.id.in_(wanted)))
+            ).scalars()
+        )
+        if missing := sorted(wanted - found):
+            raise ValidationError(
+                f"Categories not found: {', '.join(map(str, missing))}.", code="unknown_category"
+            )
+
         # Sum duplicates coming from multiple lines targeting the same
         # (category, month, year) triplet — callers may produce them.
         merged: dict[tuple[int, int, int], Decimal] = {}
@@ -665,20 +671,22 @@ class BudgetService:
         existing = await self.list_for_month(to_year, to_month)
         existing_cats = {b.category_id for b in existing}
 
-        written = 0
-        for src_row in src:
-            if src_row.category_id in existing_cats and not overwrite:
-                continue
-            await self.upsert(
+        # One ON CONFLICT statement and one commit (``bulk_upsert``): the former
+        # per-row ``upsert`` committed each row, so a copy was not atomic and two
+        # overlapping copies into an empty month could hit the unique constraint.
+        # A month holds one row per category, so bulk_upsert's summing never fires.
+        return await self.bulk_upsert(
+            [
                 BudgetCreate(
                     category_id=src_row.category_id,
                     amount=src_row.amount,
                     month=to_month,
                     year=to_year,
                 )
-            )
-            written += 1
-        return written
+                for src_row in src
+                if overwrite or src_row.category_id not in existing_cats
+            ]
+        )
 
     async def update(self, budget_id: int, data: BudgetUpdate) -> Budget | None:
         budget = await self.get(budget_id)
@@ -881,6 +889,10 @@ class BudgetService:
         - All expense categories with actual spending in the period (even if unbudgeted).
         Budget amount is 0 for unbudgeted categories.
         """
+        if end < start:
+            raise ValidationError(
+                f"The range ends ({end}) before it starts ({start}).", code="invalid_date_range"
+            )
         start_key = start.year * 12 + start.month
         end_key = end.year * 12 + end.month
         budget_key = Budget.year * 12 + Budget.month
