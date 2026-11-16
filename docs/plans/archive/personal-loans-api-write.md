@@ -3,8 +3,9 @@ plan_id: personal-loans-api-write
 title: Personal loans REST API: counterparties, loans, repayments, totals
 area: api, personal-loans
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Personal loans REST API: counterparties, loans, repayments, totals
@@ -237,3 +238,27 @@ ones, plus the keys in `src/kaleta/i18n/locales/en.json` / `pl.json` (minimal di
   account is ignored; link-candidates exposed with `limit` 1–500 only.
 - **link-candidates test** uses a single internal-transfer leg created through
   `POST /transactions`, since `POST /transactions/transfers` is on the open bulk branch.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #439).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `eac0540f` | Dawid Adamski | 2026-11-16 | Merge pull request #439 from DawidAdamski/plan/personal-loans-api-write |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/personal-loans-api-write.md
+- src/kaleta/api/v1/personal_loans.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/personal_loan_service.py
+- tests/integration/test_api_personal_loans.py
+- tests/unit/services/test_personal_loan_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
