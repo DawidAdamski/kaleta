@@ -4,25 +4,29 @@ from __future__ import annotations
 import builtins
 import datetime
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import Select, event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, selectinload
 
+from kaleta.config import settings
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
 from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import (
     ConflictError,
     KaletaError,
     NotFoundError,
+    PayloadTooLargeError,
     StaleWriteError,
     ValidationError,
 )
 from kaleta.models.account import Account
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.dismissed_transfer_pair import DismissedTransferPair
+from kaleta.models.payee import Payee
+from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import (
     Transaction,
@@ -34,8 +38,10 @@ from kaleta.schemas.transaction import (
     TransactionCreate,
     TransactionSplitCreate,
     TransactionUpdate,
+    TransferCreate,
 )
 from kaleta.services.audit_service import AuditService
+from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.member_name_service import MemberNameService
 from kaleta.services.payee_service import PayeeService
 
@@ -383,6 +389,162 @@ class TransactionService:
             await self.session.commit()
         return len(objects)
 
+    @staticmethod
+    def _check_bulk_size(count: int) -> None:
+        cap = settings.api_bulk_max_items
+        if count > cap:
+            raise PayloadTooLargeError(
+                f"{count} items is over the limit of {cap} per request (KALETA_API_BULK_MAX_ITEMS)."
+            )
+
+    async def _missing_ids(self, model: Any, ids: set[int]) -> builtins.list[int]:
+        """The ids in ``ids`` that ``model`` has no row for, in one query."""
+        if not ids:
+            return []
+        found = set(
+            (await self.session.execute(select(model.id).where(model.id.in_(ids)))).scalars()
+        )
+        return sorted(ids - found)
+
+    async def create_many(self, creates: builtins.list[TransactionCreate]) -> builtins.list[int]:
+        """Store many simple rows in one commit and return their ids, in order.
+
+        All or nothing: every row is checked before any is written. Unlike
+        ``create_bulk`` (the import pipeline's fast path, which trusts its
+        input), a row that would lose data — splits, tags, a typed payee, a
+        link — or that is a lone transfer leg is refused, and every referenced
+        account, category, payee and planned transaction must exist.
+        """
+        self._check_bulk_size(len(creates))
+        for index, row in enumerate(creates):
+            if row.splits or row.tag_ids or row.payee_name or row.linked_transaction_id:
+                raise ValidationError(
+                    f"Row {index}: splits, tag_ids, payee_name and linked_transaction_id are "
+                    "not supported in bulk; use POST /api/v1/transactions.",
+                    code="unsupported_in_bulk",
+                )
+            if row.type == TransactionType.TRANSFER:
+                raise ValidationError(
+                    f"Row {index}: a transfer has two legs; "
+                    "use POST /api/v1/transactions/transfers.",
+                    code="unsupported_in_bulk",
+                )
+        references: builtins.list[tuple[Any, set[int], str, str]] = [
+            (Account, {r.account_id for r in creates}, "Accounts", "unknown_account"),
+            (
+                Category,
+                {r.category_id for r in creates if r.category_id is not None},
+                "Categories",
+                "unknown_category",
+            ),
+            (
+                Payee,
+                {r.payee_id for r in creates if r.payee_id is not None},
+                "Payees",
+                "unknown_payee",
+            ),
+            (
+                PlannedTransaction,
+                {r.planned_transaction_id for r in creates if r.planned_transaction_id is not None},
+                "Planned transactions",
+                "unknown_planned_transaction",
+            ),
+        ]
+        for model, ids, label, code in references:
+            missing = await self._missing_ids(model, ids)
+            if missing:
+                raise ValidationError(
+                    f"{label} not found: {', '.join(map(str, missing))}.", code=code
+                )
+        category_ids = {r.category_id for r in creates if r.category_id is not None}
+        if category_ids:
+            stmt = select(Category).where(Category.id.in_(category_ids))
+            types = {c.id: c.type for c in (await self.session.execute(stmt)).scalars()}
+            for index, row in enumerate(creates):
+                if row.category_id is not None and types[row.category_id].value != row.type.value:
+                    raise ValidationError(
+                        f"Row {index}: a {types[row.category_id].value} category cannot go on "
+                        f"a {row.type.value} row.",
+                        code="category_type_mismatch",
+                    )
+        objects = [
+            Transaction(**c.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
+            for c in creates
+        ]
+        self.session.add_all(objects)
+        await self.session.flush()
+        new_ids = [obj.id for obj in objects]
+        await self.session.commit()
+        return new_ids
+
+    async def create_transfer_between(
+        self, data: TransferCreate
+    ) -> tuple[Transaction, Transaction]:
+        """Create a checked transfer, both legs in one commit, as the add dialog does.
+
+        Within one currency both legs move ``amount``. Between two, an
+        ``exchange_rate`` is required and the incoming leg is ``to_amount``, or
+        ``amount × rate`` rounded half up to the cent; the rate is then
+        recorded, as the dialog records it.
+        """
+        source = await self.session.get(Account, data.from_account_id)
+        target = await self.session.get(Account, data.to_account_id)
+        for account, account_id in ((source, data.from_account_id), (target, data.to_account_id)):
+            if account is None:
+                raise NotFoundError(f"Account {account_id} not found.")
+        if source is None or target is None:  # narrowed above; keeps mypy honest
+            raise NotFoundError("Account not found.")
+        if source.id == target.id:
+            raise ValidationError(
+                "A transfer moves money between two different accounts.",
+                message_key="errors.transaction.transfer_different_accounts",
+            )
+        rate = data.exchange_rate
+        if source.currency == target.currency:
+            if rate is not None:
+                raise ValidationError(
+                    "Both accounts use the same currency; leave exchange_rate out."
+                )
+            if data.to_amount is not None and data.to_amount != data.amount:
+                raise ValidationError(
+                    "Both accounts use the same currency; to_amount must equal amount."
+                )
+            incoming_amount = data.amount
+        else:
+            if rate is None:
+                raise ValidationError(
+                    f"A transfer from {source.currency} to {target.currency} needs an "
+                    "exchange_rate."
+                )
+            incoming_amount = data.to_amount or (data.amount * rate).quantize(
+                Decimal("0.01"), ROUND_HALF_UP
+            )
+
+        def leg(
+            account_id: int, amount: Decimal, direction: TransferDirection
+        ) -> TransactionCreate:
+            return TransactionCreate(
+                account_id=account_id,
+                amount=amount,
+                exchange_rate=rate,
+                type=TransactionType.TRANSFER,
+                transfer_direction=direction,
+                date=data.date,
+                description=data.description,
+                notes=data.notes,
+                is_internal_transfer=True,
+            )
+
+        legs = await self.create_transfer(
+            leg(source.id, data.amount, TransferDirection.OUT),
+            leg(target.id, incoming_amount, TransferDirection.IN),
+        )
+        if rate is not None:
+            await CurrencyRateService(self.session).record_transfer_rate(
+                data.date, source.currency, target.currency, rate
+            )
+        return legs
+
     async def create_transfer(
         self,
         outgoing: TransactionCreate,
@@ -682,6 +844,8 @@ class TransactionService:
         """
         if not transaction_ids:
             return 0
+        wanted_ids = set(transaction_ids)
+        self._check_bulk_size(len(wanted_ids))
         category = await self.session.get(Category, category_id)
         if category is None:
             raise NotFoundError(
@@ -696,6 +860,10 @@ class TransactionService:
             )
         stmt = select(Transaction).where(Transaction.id.in_(transaction_ids))
         transactions = builtins.list((await self.session.execute(stmt)).scalars().all())
+        missing = sorted(wanted_ids - {tx.id for tx in transactions})
+        if missing:
+            # A row deleted meanwhile must not turn the batch into a partial move.
+            raise NotFoundError(f"Transactions not found: {', '.join(map(str, missing))}.")
         wanted = TransactionType(category.type.value)
         for tx in transactions:
             if tx.is_split:
