@@ -5416,6 +5416,38 @@ Feature: Public API
     And the first line is "date,type,amount,currency,account,category,payee,description,tags,is_internal_transfer"
     And a line is "2026-11-03,expense,45.99,PLN,mKonto,Transport,,LIDL WARSZAWA,,false"
 
+  KAL-API-015 @automated
+  Scenario: Manage tags and categorisation rules through the API
+    Given a valid API bearer token
+    And an account "mKonto" and the expense categories "Spożywcze" and "Alkohol"
+    When I POST a tag named "Wakacje" with color "#2E7D32" to /api/v1/tags
+    Then the response is 201 and GET /api/v1/tags lists "Wakacje"
+    And a second tag named "Wakacje" is refused with 409
+    And a tag named "   " is refused with 422
+    When I PUT the name "Urlop 2026" to that tag
+    Then GET /api/v1/tags/{id} returns the name "Urlop 2026" and the color "#2E7D32"
+    And a PUT with name null is refused with 422
+    Given an expense of 54.30 PLN on "mKonto" dated 2026-11-14, described "Hotel Sopot" and tagged "Urlop 2026"
+    When I DELETE the tag
+    Then the response is 204, GET /api/v1/tags no longer lists it
+    And the expense of 54.30 PLN still exists, without tags
+    When I POST a categorisation rule with pattern "LIDL", category "Spożywcze" and priority 10 to /api/v1/categorisation-rules
+    Then the response is 201 with category_name "Spożywcze", match_mode "contains" and is_active true
+    And a rule for category id 999999 is refused with 404
+    And a rule with pattern "   " is refused with 422
+    When I PUT category "Alkohol" and is_active false to that rule
+    Then the response has category_name "Alkohol" and is_active false
+    And GET /api/v1/categorisation-rules?active_only=true does not list it
+    And a PUT with is_active null is refused with 422
+    When I DELETE the rule
+    Then the response is 204 and a second DELETE is 404
+    Given four expenses on "mKonto" described "LIDL WARSZAWA", without a payee, filed under "Spożywcze"
+    When I POST description "LIDL WARSZAWA" and category "Spożywcze" to /api/v1/categorisation-rules/suggestions
+    Then the response is 200 with pattern "LIDL WARSZAWA", category_name "Spożywcze" and match_count 4
+    And GET /api/v1/categorisation-rules is still empty
+    And with only three such expenses the response is null
+    And GET /api/v1/import-rules is still empty
+
   KAL-API-016 @automated
   Scenario: Read spending, merchants, budget variance, YTD, YoY and safe-to-spend through the API
     Given a valid API bearer token and the account "mKonto" in PLN

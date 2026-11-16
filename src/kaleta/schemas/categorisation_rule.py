@@ -9,6 +9,7 @@ __all__ = [
     "CategorisationRuleCreate",
     "CategorisationRuleResponse",
     "CategorisationRuleSuggestion",
+    "CategorisationRuleSuggestionRequest",
     "CategorisationRuleUpdate",
     "RuleMatchMode",
 ]
@@ -49,3 +50,11 @@ class CategorisationRuleSuggestion(BaseModel):
     category_id: int
     category_name: str
     match_count: int
+
+
+class CategorisationRuleSuggestionRequest(BaseModel):
+    """A categorisation just made by hand: would a rule for it be worth offering?"""
+
+    payee_name: str | None = Field(default=None, max_length=200)
+    description: str = Field(default="", max_length=500)
+    category_id: int

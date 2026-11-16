@@ -44,6 +44,9 @@ class RuleService:
             select(CategorisationRule)
             .options(selectinload(CategorisationRule.category))
             .where(CategorisationRule.id == rule_id)
+            # Refresh an instance already in the session: after ``update`` changes
+            # ``category_id``, its loaded ``category`` would otherwise stay the old one.
+            .execution_options(populate_existing=True)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -85,6 +88,13 @@ class RuleService:
                 params={"rule_id": rule_id},
             )
         updates = data.model_dump(exclude_unset=True)
+        cleared = sorted(
+            field
+            for field in ("category_id", "match_mode", "is_active", "priority")
+            if field in updates and updates[field] is None
+        )
+        if cleared:
+            raise ValidationError(f"These fields cannot be null: {', '.join(cleared)}.")
         if "pattern" in updates:
             pattern = (updates["pattern"] or "").strip()
             if not pattern:
