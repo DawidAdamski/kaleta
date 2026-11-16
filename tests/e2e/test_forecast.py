@@ -28,8 +28,13 @@ _REDRAW_TIMEOUT = 5000
 
 
 def _control(page: Page, label: str):
-    """The select named by its aria-label — Quasar puts it on the control div."""
-    return page.locator(f'[aria-label="{label}"]')
+    """The select named by its aria-label.
+
+    Quasar 2.35 (NiceGUI 4) puts the aria-label on the select's inner focus
+    input, which holds no text, so this returns the ``.q-select`` around it:
+    clickable, and its text is the option shown.
+    """
+    return page.locator(".q-select").filter(has=page.locator(f'[aria-label="{label}"]'))
 
 
 def _kpi(page: Page, key: str):

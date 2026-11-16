@@ -116,7 +116,10 @@ def test_paying_an_item_from_the_fund(page: Page, base_url: str) -> None:
 
     expect(page.get_by_test_id("irregular-balance")).to_have_text("250.00", timeout=10000)
     entry = page.locator('[data-testid^="irregular-entry-"]').filter(has_text="-1,250.00")
-    expect(entry.get_by_test_id("irregular-paid-for")).to_contain_text("Car insurance")
+    # Quasar 2.35 (NiceGUI 4) puts the data-testid on the select's inner focus
+    # input, which holds no text; the option shown is the text of the select.
+    paid_for = entry.locator(".q-select").filter(has=page.get_by_test_id("irregular-paid-for"))
+    expect(paid_for).to_contain_text("Car insurance")
     expect(entry.get_by_test_id("irregular-unplanned")).to_have_count(0)
 
 
