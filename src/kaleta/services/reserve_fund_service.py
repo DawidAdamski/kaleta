@@ -5,11 +5,13 @@ import builtins
 import datetime
 from decimal import ROUND_UP, Decimal
 
+from pydantic import ValidationError as SchemaValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import NotFoundError, ValidationError
 from kaleta.models.account import Account
+from kaleta.models.category import Category
 from kaleta.models.reserve_fund import (
     ReserveFund,
     ReserveFundBackingMode,
@@ -50,7 +52,36 @@ class ReserveFundService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def _check_references(
+        self, *, backing_account_id: int | None, backing_category_id: int | None
+    ) -> None:
+        """Refuse a backing account or category that does not exist (422, not an FK 500)."""
+        if (
+            backing_account_id is not None
+            and await self.session.get(Account, backing_account_id) is None
+        ):
+            raise ValidationError(
+                f"Account {backing_account_id} does not exist",
+                code="unknown_backing_account",
+                message_key="errors.reserve_fund.unknown_backing_account",
+                params={"account_id": backing_account_id},
+            )
+        if (
+            backing_category_id is not None
+            and await self.session.get(Category, backing_category_id) is None
+        ):
+            raise ValidationError(
+                f"Category {backing_category_id} does not exist",
+                code="unknown_backing_category",
+                message_key="errors.reserve_fund.unknown_backing_category",
+                params={"category_id": backing_category_id},
+            )
+
     async def create(self, payload: ReserveFundCreate) -> ReserveFund:
+        await self._check_references(
+            backing_account_id=payload.backing_account_id,
+            backing_category_id=payload.backing_category_id,
+        )
         fund = ReserveFund(
             name=payload.name,
             kind=payload.kind,
@@ -91,6 +122,33 @@ class ReserveFundService:
                 "emergency_multiplier is required when target_from_spending is set",
                 message_key="errors.reserve_fund.multiplier_required_for_spending_target",
             )
+        # The fund as it would be after this update must still be a fund the
+        # create schema accepts: no null in a required field, a backing
+        # reference that matches backing_mode, a target_date only on a goal.
+        merged = {field: getattr(fund, field) for field in ReserveFundUpdate.model_fields} | data
+        if merged["kind"] != GOAL_KIND and "target_date" not in data:
+            merged["target_date"] = None  # a kind change drops the date, as before
+        try:
+            ReserveFundCreate.model_validate(merged)
+        except SchemaValidationError as exc:
+            first = exc.errors()[0]
+            where = ".".join(str(part) for part in first["loc"])
+            reason = f"{where}: {first['msg']}" if where else first["msg"]
+            raise ValidationError(
+                f"Invalid reserve fund update — {reason}",
+                code="invalid_reserve_fund",
+                message_key="errors.reserve_fund.invalid_update",
+                params={"reason": reason},
+            ) from exc
+        # Only a reference that changes is checked, so an unrelated edit still saves.
+        new_account = data.get("backing_account_id")
+        new_category = data.get("backing_category_id")
+        await self._check_references(
+            backing_account_id=new_account if new_account != fund.backing_account_id else None,
+            backing_category_id=(
+                new_category if new_category != fund.backing_category_id else None
+            ),
+        )
         for key, value in data.items():
             setattr(fund, key, value)
         if fund.kind != GOAL_KIND:
