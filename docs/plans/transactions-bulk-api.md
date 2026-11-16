@@ -3,7 +3,7 @@ plan_id: transactions-bulk-api
 title: Transactions REST API — bulk create, bulk recategorise, new transfer, ledger CSV
 area: api, transactions
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -252,3 +252,35 @@ Validation belongs here, not in the routes. What each existing method lacks:
   "2026-11-15" is only an example.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-014, after KAL-API-012 in `docs/bdd.md` (013 is on the open reserve-funds branch).
+- **Paths:** the plan defaults — `POST /transactions/bulk`, `POST /transactions/bulk/category`,
+  `POST /transactions/transfers`, `GET /transactions/export`, all declared before
+  `GET /{transaction_id}`.
+- **`create_many`** is new; `create_bulk` is untouched (the import pipeline keeps its fast,
+  trusting path). Refusals: a row with splits / tag_ids / payee_name / linked_transaction_id
+  or a transfer row → 422 `unsupported_in_bulk` naming the 0-based row; unknown account,
+  category, payee or planned transaction → 422 `unknown_account` / `unknown_category` /
+  `unknown_payee` / `unknown_planned_transaction` (one `IN` query per kind); a category of the
+  other type → 422 `category_type_mismatch`. Ids come from one `flush` before the single commit.
+  The category types are read by loading `Category` rows: a `select(Category.id,
+  Category.type).tuples()` raised `TypeError: 'ChunkedIteratorResult' object is not
+  subscriptable` in this session setup, so the method avoids the column-tuple form.
+- **Cap:** one setting, `api_bulk_max_items` (`KALETA_API_BULK_MAX_ITEMS`, default 1000,
+  validator `>= 1`), checked in the service → `PayloadTooLargeError` (413) for rows and for
+  de-duplicated ids alike. Documented in `docs/tech-stack.md` next to the other API settings
+  (`KALETA_API_IMPORT_MAX_ROWS` is not in that table, so there was no row to sit beside).
+- **`set_category_bulk`** now de-duplicates the ids, applies the cap, and raises
+  `NotFoundError` listing missing ids before changing anything. The ledger dialog
+  (`bulk_category_dialog.py`) already catches `KaletaError` and toasts, so the stricter rule
+  only shows when a selected row was deleted meanwhile. Existing unit tests stay green; a new
+  one covers the unknown id.
+- **`create_transfer_between`** is new; `create_transfer` is untouched. Unknown account → 404,
+  same account → 422 (`errors.transaction.transfer_different_accounts`), same currency with a
+  rate or a different `to_amount` → 422, two currencies without a rate → 422. The incoming leg is
+  `to_amount`, else `amount × rate` quantized `ROUND_HALF_UP` (unit-tested with 2.345 → 2.35).
+- **Rate recording order:** as in the add dialog, `create_transfer` commits the legs and
+  `record_transfer_rate` writes afterwards. If the rate write failed, the legs would stay
+  stored without a recorded rate — the same as the UI today; not refactored.
+- **CSV:** not streamed; the route wraps `export_ledger_csv()`'s bytes in a `Response` with
+  `text/csv; charset=utf-8` and `Content-Disposition: attachment; filename="…"`. The test
+  matches the filename by pattern since it carries today's date.

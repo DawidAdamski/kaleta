@@ -157,6 +157,8 @@ KALETA_API_DOCS=                      # Serve /api-docs + /api-docs/openapi.json
                                       # unset follows KALETA_DEBUG, true/false forces on/off
 KALETA_API_TOKEN=...                  # Bootstrap bearer for headless API (≥16 chars);
                                       # creates locked user `api` on startup if needed
+KALETA_API_BULK_MAX_ITEMS=1000        # Most rows / ids one bulk transactions request
+                                      # may carry; more is 413
 KALETA_SESSION_TTL_HOURS=72           # UI session TTL; 0 disables
 KALETA_SESSION_IDLE_HOURS=12          # UI idle timeout; 0 disables, capped at TTL
 KALETA_REDIS_URL=                     # Sessions + login rate limiter in Valkey/Redis, for more

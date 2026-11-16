@@ -11,12 +11,17 @@ from kaleta.models.transaction import TransactionType, TransferDirection
 
 __all__ = [
     "TransactionBase",
+    "TransactionBulkCategory",
+    "TransactionBulkCategoryResponse",
+    "TransactionBulkCreate",
+    "TransactionBulkCreateResponse",
     "TransactionCreate",
     "TransactionResponse",
     "TransactionSplitCreate",
     "TransactionSplitResponse",
     "TransactionType",
     "TransactionUpdate",
+    "TransferCreate",
     "TransferDirection",
 ]
 
@@ -151,3 +156,46 @@ class TransactionResponse(TransactionBase):
         if hasattr(value, "payee") and value.payee is not None:
             obj.payee_name = value.payee.name
         return obj
+
+
+class TransactionBulkCreate(BaseModel):
+    """Many simple rows stored in one commit, or none of them."""
+
+    transactions: list[TransactionCreate] = Field(..., min_length=1)
+
+
+class TransactionBulkCreateResponse(BaseModel):
+    created_count: int
+    #: The new rows' ids, in the order the request listed them.
+    ids: list[int]
+
+
+class TransactionBulkCategory(BaseModel):
+    """One category for many rows, applied to all of them or to none."""
+
+    transaction_ids: list[int] = Field(..., min_length=1)
+    category_id: int
+
+
+class TransactionBulkCategoryResponse(BaseModel):
+    updated_count: int
+
+
+class TransferCreate(BaseModel):
+    """A new transfer between two of the user's accounts, both legs at once.
+
+    Shape only: which accounts exist, their currencies and the rate rules are
+    checked by ``TransactionService.create_transfer_between``.
+    """
+
+    from_account_id: int
+    to_account_id: int
+    amount: Decimal = Field(..., gt=Decimal("0"), decimal_places=2)
+    date: datetime.date
+    description: str = Field(default="", max_length=500)
+    notes: Notes = None
+    #: Units of the target currency per unit of the source one; required
+    #: between two currencies, refused within one.
+    exchange_rate: Decimal | None = Field(default=None, gt=Decimal("0"))
+    #: What arrives, when the bank says so; defaults to amount × rate.
+    to_amount: Decimal | None = Field(default=None, gt=Decimal("0"), decimal_places=2)
