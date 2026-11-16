@@ -6,7 +6,7 @@
 |------------------|----------------------|------------------------------------------------|
 | Language         | Python 3.13+         | Primary language                               |
 | Package Manager  | uv                   | Dependency management, venv, scripts           |
-| UI Framework     | NiceGUI 2.x          | Web UI (installable as a PWA)                  |
+| UI Framework     | NiceGUI 4.x          | Web UI (installable as a PWA)                  |
 | Web Framework    | FastAPI (via NiceGUI) | REST API, request handling                    |
 | ORM              | SQLAlchemy 2.x       | Database models, async queries                 |
 | Migrations       | Alembic              | Registry (`alembic_public/`) and family schemas (`alembic/`) |
