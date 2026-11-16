@@ -5415,6 +5415,79 @@ Feature: Public API
     Then the response is 200 text/csv with Content-Disposition attachment and a filename like "kaleta_ledger_2026-11-15.csv"
     And the first line is "date,type,amount,currency,account,category,payee,description,tags,is_internal_transfer"
     And a line is "2026-11-03,expense,45.99,PLN,mKonto,Transport,,LIDL WARSZAWA,,false"
+
+  KAL-API-015 @automated
+  Scenario: Manage tags and categorisation rules through the API
+    Given a valid API bearer token
+    And an account "mKonto" and the expense categories "Spożywcze" and "Alkohol"
+    When I POST a tag named "Wakacje" with color "#2E7D32" to /api/v1/tags
+    Then the response is 201 and GET /api/v1/tags lists "Wakacje"
+    And a second tag named "Wakacje" is refused with 409
+    And a tag named "   " is refused with 422
+    When I PUT the name "Urlop 2026" to that tag
+    Then GET /api/v1/tags/{id} returns the name "Urlop 2026" and the color "#2E7D32"
+    And a PUT with name null is refused with 422
+    Given an expense of 54.30 PLN on "mKonto" dated 2026-11-14, described "Hotel Sopot" and tagged "Urlop 2026"
+    When I DELETE the tag
+    Then the response is 204, GET /api/v1/tags no longer lists it
+    And the expense of 54.30 PLN still exists, without tags
+    When I POST a categorisation rule with pattern "LIDL", category "Spożywcze" and priority 10 to /api/v1/categorisation-rules
+    Then the response is 201 with category_name "Spożywcze", match_mode "contains" and is_active true
+    And a rule for category id 999999 is refused with 404
+    And a rule with pattern "   " is refused with 422
+    When I PUT category "Alkohol" and is_active false to that rule
+    Then the response has category_name "Alkohol" and is_active false
+    And GET /api/v1/categorisation-rules?active_only=true does not list it
+    And a PUT with is_active null is refused with 422
+    When I DELETE the rule
+    Then the response is 204 and a second DELETE is 404
+    Given four expenses on "mKonto" described "LIDL WARSZAWA", without a payee, filed under "Spożywcze"
+    When I POST description "LIDL WARSZAWA" and category "Spożywcze" to /api/v1/categorisation-rules/suggestions
+    Then the response is 200 with pattern "LIDL WARSZAWA", category_name "Spożywcze" and match_count 4
+    And GET /api/v1/categorisation-rules is still empty
+    And with only three such expenses the response is null
+    And GET /api/v1/import-rules is still empty
+
+  KAL-API-016 @automated
+  Scenario: Read spending, merchants, budget variance, YTD, YoY and safe-to-spend through the API
+    Given a valid API bearer token and the account "mKonto" in PLN
+    And the income category "Wynagrodzenie" and the expense categories "Czynsz", "Spożywcze" and "Paliwo"
+    And budgets for March 2025 of 2000.00 for "Czynsz" and 800.00 for "Spożywcze"
+    And these transactions on "mKonto":
+      | date       | type    | amount  | category      | payee        |
+      | 2024-03-10 | expense |  900.00 | Spożywcze     | Lidl         |
+      | 2025-02-20 | expense |  150.00 | Paliwo        | Orlen        |
+      | 2025-03-01 | income  | 6000.00 | Wynagrodzenie | ACME         |
+      | 2025-03-03 | expense | 2000.00 | Czynsz        | Spółdzielnia |
+      | 2025-03-05 | expense |  450.00 | Spożywcze     | Lidl         |
+      | 2025-03-12 | expense |  520.00 | Spożywcze     | Biedronka    |
+      | 2025-03-14 | expense |  300.00 | Paliwo        | Orlen        |
+      | 2025-03-18 | expense |  130.00 | Spożywcze     | Lidl         |
+    When I GET /api/v1/reports/spending-by-category from 2025-03-01 to 2025-04-01
+    Then the rows are "Czynsz" 2000.00, "Spożywcze" 1100.00 and "Paliwo" 300.00, in that order
+    And the total is 3400.00 and the share of "Czynsz" rounds to 58.82
+    When I GET /api/v1/reports/top-merchants from 2025-03-01 to 2025-04-01
+    Then the merchants are "Spółdzielnia" 2000.00 (1), "Lidl" 580.00 (2), "Biedronka" 520.00 (1) and "Orlen" 300.00 (1), in that order
+    And with limit 2 only "Spółdzielnia" and "Lidl" are returned
+    When I GET /api/v1/reports/budget-variance for 2025-03
+    Then the rows are "Czynsz", "Spożywcze" and "Paliwo", in that order
+    And "Czynsz" has planned 2000.00, actual 2000.00, variance 0 and is not over budget
+    And "Spożywcze" has planned 800.00, actual 1100.00, variance -300.00, spent_pct 137.5 and is over budget
+    And "Paliwo" has planned 0, actual 300.00, variance -300.00, no variance_pct and is not over budget
+    And total_planned is 2800.00 and total_actual is 3400.00
+    When I GET /api/v1/reports/ytd for 2025
+    Then income is 6000.00, expenses 3550.00, net 2450.00 and the savings rate rounds to 40.83
+    And the top expense categories are "Czynsz" 2000.00, "Spożywcze" 1100.00 and "Paliwo" 450.00
+    When I GET /api/v1/reports/yoy for 2025 on the expense basis
+    Then there are 12 rows; March is 3400.00 against 900.00 with delta 2500.00
+    And February is 150.00 against 0 with no delta_pct
+    And the totals are 3550.00 this year, 900.00 last year and a delta of 2650.00
+    When I GET /api/v1/reports/safe-to-spend as of 2025-03-20
+    Then income is 6000.00, spent 3400.00, committed 0.00 and free 2600.00
+    And days_left is 12, per_day 216.67, trailing_avg_per_day 118.33 and it is spendable
+    And a period with no transactions returns 200 with empty rows and zero totals
+    And a range whose end is not after its start, or that spans more than 366 days, is refused with 422
+    And basis "transfer" on /yoy is refused with 422
 ```
 
 ## Feature: Build version

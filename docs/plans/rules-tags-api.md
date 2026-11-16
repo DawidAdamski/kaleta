@@ -3,7 +3,7 @@ plan_id: rules-tags-api
 title: Categorisation rules and tags REST API: list, get, create, update, delete
 area: api, rules, tags
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -236,3 +236,25 @@ Today the service does none of this:
 - **Scenario id:** Default **KAL-API-015**. KAL-API-010 to 014 are taken by other API plans.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-015, after KAL-API-012 in `docs/bdd.md` (013 and 014 are on open
+  branches; the scenarios will be re-ordered when they merge).
+- **Paths:** `/tags` and `/categorisation-rules` (new routers `api/v1/tags.py`,
+  `api/v1/categorisation_rules.py`); `POST /categorisation-rules/suggestions` is declared
+  before the `/{rule_id}` routes.
+- **Tag names:** `TagService._checked_name` strips the name, refuses a blank or `null` one
+  (422) and refuses another tag's exact name (409, `ConflictError`) — the same exact match as
+  `uq_tags_name_bidx`, so "wakacje" and "Wakacje" may coexist. A tag keeps its own name on
+  update. Names are now stored stripped (create and update).
+- **Rule nulls:** `RuleService.update` refuses `null` for `category_id`, `match_mode`,
+  `is_active` and `priority` (422) before touching the row; `pattern: null` was already
+  refused.
+- **Stale `category_name` confirmed:** `test_update_rule_category_returns_new_category_name`
+  failed with "Spożywcze" instead of "Alkohol". Fixed in `RuleService.get` with
+  `.execution_options(populate_existing=True)`, so the re-read after `update` replaces the
+  loaded relationship.
+- **Unknown category on a rule:** stays 404 (`NotFoundError` from `_require_category`),
+  documented in the routes' `responses`.
+- **Duplicate rule patterns:** allowed, as in the UI.
+- **Suggestion with no offer:** 200 `null`.
+- **Chores:** the tags dialog not catching `KaletaError`, and `_load_tags` dropping unknown
+  ids, are in `docs/plans/chores.md`.
