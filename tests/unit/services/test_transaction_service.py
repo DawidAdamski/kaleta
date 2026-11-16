@@ -2118,3 +2118,126 @@ class TestSetCategoryBulk:
 
         with pytest.raises(ValidationError):
             await svc.set_category_bulk([split.id], target)
+
+    async def test_unknown_id_is_rejected_and_nothing_moves(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        old_cat = await _make_category(session, "Food")
+        new_cat = await _make_category(session, "Dining")
+        tx_id = (await svc.create(_tx(acc_id, old_cat))).id
+
+        with pytest.raises(NotFoundError, match="999999"):
+            await svc.set_category_bulk([tx_id, 999999], new_cat)
+
+        tx = await svc.get(tx_id)
+        assert tx is not None
+        assert tx.category_id == old_cat
+
+
+class TestCreateMany:
+    """``create_many`` — the checked, all-or-nothing bulk insert behind the API."""
+
+    async def test_returns_ids_in_input_order(self, svc: TransactionService, session: AsyncSession):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        ids = await svc.create_many(
+            [_tx(acc_id, cat_id, description="first"), _tx(acc_id, cat_id, description="second")]
+        )
+        assert [(await svc.get(i)).description for i in ids] == ["first", "second"]  # type: ignore[union-attr]
+
+    async def test_unknown_category_payee_and_plan_are_refused(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        for row, code in (
+            (_tx(acc_id, 999999), "unknown_category"),
+            (_tx(acc_id, cat_id, payee_id=999999), "unknown_payee"),
+            (_tx(acc_id, cat_id, planned_transaction_id=999999), "unknown_planned_transaction"),
+        ):
+            with pytest.raises(ValidationError) as exc:
+                await svc.create_many([row])
+            assert exc.value.code == code
+
+    async def test_category_of_the_wrong_type_is_refused(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        income_cat = await _make_category(session, "Salary", CategoryType.INCOME)
+        with pytest.raises(ValidationError) as exc:
+            await svc.create_many([_tx(acc_id, income_cat)])
+        assert exc.value.code == "category_type_mismatch"
+
+    async def test_over_the_cap_is_refused(
+        self, svc: TransactionService, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ):
+        from kaleta.config import settings
+        from kaleta.exceptions import PayloadTooLargeError
+
+        monkeypatch.setattr(settings, "api_bulk_max_items", 1)
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        with pytest.raises(PayloadTooLargeError):
+            await svc.create_many([_tx(acc_id, cat_id), _tx(acc_id, cat_id)])
+
+
+class TestCreateTransferBetween:
+    """``create_transfer_between`` — the checked two-leg transfer behind the API."""
+
+    async def _eur_account(self, session: AsyncSession) -> int:
+        acc = await AccountService(session).create(
+            AccountCreate(name="EUR", type=AccountType.CHECKING, currency="EUR")
+        )
+        return acc.id
+
+    async def test_cross_currency_rounds_half_up(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        from kaleta.schemas.transaction import TransferCreate
+
+        pln = await _make_account(session)
+        eur = await self._eur_account(session)
+        # 10.00 × 0.2345 = 2.345 → 2.35 (half up, not banker's 2.34)
+        out, inc = await svc.create_transfer_between(
+            TransferCreate(
+                from_account_id=pln,
+                to_account_id=eur,
+                amount=Decimal("10.00"),
+                date=TODAY,
+                exchange_rate=Decimal("0.2345"),
+            )
+        )
+        assert (out.amount, inc.amount) == (Decimal("10.00"), Decimal("2.35"))
+        assert (out.linked_transaction_id, inc.linked_transaction_id) == (inc.id, out.id)
+
+    async def test_to_amount_wins_over_the_rate(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        from kaleta.schemas.transaction import TransferCreate
+
+        pln = await _make_account(session)
+        eur = await self._eur_account(session)
+        _, inc = await svc.create_transfer_between(
+            TransferCreate(
+                from_account_id=pln,
+                to_account_id=eur,
+                amount=Decimal("10.00"),
+                date=TODAY,
+                exchange_rate=Decimal("0.2345"),
+                to_amount=Decimal("2.30"),
+            )
+        )
+        assert inc.amount == Decimal("2.30")
+
+    async def test_same_currency_refuses_a_rate_or_a_different_to_amount(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        from kaleta.schemas.transaction import TransferCreate
+
+        a = await _make_account(session, "A")
+        b = await _make_account(session, "B")
+        base = {"from_account_id": a, "to_account_id": b, "amount": "10.00", "date": TODAY}
+        for extra in ({"exchange_rate": "1.5"}, {"to_amount": "9.99"}):
+            with pytest.raises(ValidationError):
+                await svc.create_transfer_between(TransferCreate.model_validate(base | extra))
