@@ -3,8 +3,9 @@ plan_id: budgets-api-realization
 title: Budgets REST API — realization, range summary, copy-forward, bulk upsert
 area: api, budgets
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Budgets REST API — realization, range summary, copy-forward, bulk upsert
@@ -290,3 +291,27 @@ How the literals follow from the code, for the implementer:
 - **Bulk cap** 1000 entries (schema), 200 with `{written}` for both write routes.
 - **Chore:** the single `POST /budgets/` 500 on an unknown category is logged in
   `docs/plans/chores.md`.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #438).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `adac4520` | Dawid Adamski | 2026-11-16 | Merge pull request #438 from DawidAdamski/plan/budgets-api-realization |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/budgets-api-realization.md
+- docs/plans/chores.md
+- src/kaleta/api/v1/budgets.py
+- src/kaleta/schemas/budget.py
+- src/kaleta/services/budget_service.py
+- tests/integration/test_api_budget_realization.py
+- tests/unit/services/test_budget_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
