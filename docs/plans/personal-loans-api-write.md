@@ -3,7 +3,7 @@ plan_id: personal-loans-api-write
 title: Personal loans REST API: counterparties, loans, repayments, totals
 area: api, personal-loans
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -211,3 +211,29 @@ ones, plus the keys in `src/kaleta/i18n/locales/en.json` / `pl.json` (minimal di
   ids in between are reserved by other drafts).
 
 ## Implementation notes
+- **Scenario id:** KAL-API-018, after KAL-API-012 in `docs/bdd.md` (013–017 are on open branches).
+- **Routes:** 13 operations in `api/v1/personal_loans.py`; `/counterparties`, `/totals` and
+  `/link-candidates` are declared before `/{loan_id}`. `GET /` now returns
+  `PersonalLoanWithRepayments` (a superset; `test_analysis_api.py` stays green) with an
+  optional `status` filter. `_loan_out` builds it from the ORM row; `remaining` comes from
+  `compute_remaining`, `repaid_total` is quantized to 0.01.
+- **Gaps 1–5 fixed in the service:** duplicate counterparty name → 409
+  `counterparty_name_taken` (on update only when the name changes); unknown counterparty → 422
+  `unknown_counterparty` (on update only when it changes); unknown `link_account_id` /
+  `link_category_id` → 422 `unknown_account` / `unknown_category`, checked before the mirrored
+  transaction is added; a status change stamps or clears `settled_at`; `delete_repayment` takes
+  an optional `loan_id` and returns `False` for another loan's repayment. New
+  `errors.personal_loan.*` keys in both locales.
+- **Check order in `create_loan`:** the transaction link is checked before the counterparty.
+  `test_error_i18n_funds_cohort.py::test_personal_loan_missing_transaction_carries_its_key`
+  builds a loan with a non-existent counterparty to reach the link error; with the link checked
+  first it still gets `NotFoundError`, unchanged.
+- **Nulls on PUT:** beyond the five listed gaps, `update_loan` refuses `null` for its NOT NULL
+  columns (`counterparty_id`, `direction`, `principal`, `currency`, `opened_at`, `status`) and
+  `update_counterparty` a `null` name, with 422 `null_field` — the same 500 class the Intent asks
+  to close, and the same guard the other API plans added. `transaction_id: null` still unlinks.
+- **Defaults kept:** overpayment allowed (−50.00 pinned); repayment POST returns
+  `RepaymentResponse`; unknown `link_transaction_id` stays 404; `link_category_id` without an
+  account is ignored; link-candidates exposed with `limit` 1–500 only.
+- **link-candidates test** uses a single internal-transfer leg created through
+  `POST /transactions`, since `POST /transactions/transfers` is on the open bulk branch.

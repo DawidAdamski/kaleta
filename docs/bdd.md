@@ -5519,6 +5519,35 @@ Feature: Public API
     And a bulk request with an unknown category_id is 422 and writes nothing
     And a copy whose source and target month are the same is 422
     And a summary whose end is before its start is 422
+
+  KAL-API-018 @automated
+  Scenario: Track money lent to a person through the API
+    Given a valid API bearer token
+    And an account "mKonto" holding an income of 250.00 PLN dated 2026-11-10
+    When I POST the counterparty "Marek Nowak" to /api/v1/personal-loans/counterparties
+    Then the response is 201
+    And POSTing "Marek Nowak" again is refused with 409
+    When I POST a loan of 400.00 PLN, direction outgoing, to "Marek Nowak" opened on 2026-11-01
+    Then the response is 201 with status outstanding and remaining 400.00
+    When I POST a 250.00 repayment dated 2026-11-10 linked to the 250.00 income on "mKonto"
+    Then GET of the loan shows repaid_total 250.00, remaining 150.00, status outstanding
+    And linking that same income to a second repayment is refused with 409
+    When I POST a 200.00 repayment dated 2026-11-20 mirrored to account "mKonto"
+    Then "mKonto" holds a 200.00 income "Personal loan repayment: Marek Nowak" dated 2026-11-20
+    And the loan is settled with remaining -50.00 and a settled_at stamp
+    When I POST a loan of 150.00 PLN, direction incoming, from "Anna Kowalska" opened on 2026-11-05
+    Then GET /api/v1/personal-loans/totals shows they_owe_you 0.00, you_owe 150.00, outstanding_count 1, settled_count 1
+    When I DELETE the 200.00 repayment
+    Then the "Marek Nowak" loan is outstanding again with remaining 150.00 and no settled_at
+    And the 200.00 income stays on "mKonto"
+    When I PUT status settled on the "Anna Kowalska" loan
+    Then it is settled with a settled_at stamp
+    And a loan naming an unknown counterparty is refused with 422
+    And a repayment giving both link_transaction_id and link_account_id is refused with 422
+    And a repayment mirrored to an unknown account is refused with 422
+    And deleting a repayment through another loan's URL is 404
+    When I DELETE the "Marek Nowak" loan
+    Then the response is 204, its repayments are gone and the 250.00 and 200.00 incomes stay on "mKonto"
 ```
 
 ## Feature: Build version

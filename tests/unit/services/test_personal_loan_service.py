@@ -339,3 +339,47 @@ class TestFormParsing:
         assert payload.link_account_id is None
         assert payload.link_category_id is None
         assert payload.note is None
+
+
+class TestApiValidationGaps:
+    """The checks the API needs so a bad body is 409/422/404, not a database 500."""
+
+    async def test_duplicate_counterparty_name_is_a_conflict(self, session: AsyncSession):
+        from kaleta.exceptions import ConflictError
+        from kaleta.schemas.personal_loan import CounterpartyUpdate
+
+        svc = PersonalLoanService(session)
+        await _make_counterparty(session, "Marek Nowak")
+        anna = await _make_counterparty(session, "Anna Kowalska")
+        with pytest.raises(ConflictError) as exc:
+            await svc.create_counterparty(CounterpartyCreate(name="Marek Nowak"))
+        assert exc.value.code == "counterparty_name_taken"
+        with pytest.raises(ConflictError):
+            await svc.update_counterparty(anna, CounterpartyUpdate(name="Marek Nowak"))
+        same = await svc.update_counterparty(anna, CounterpartyUpdate(name="Anna Kowalska"))
+        assert same is not None
+
+    async def test_status_change_stamps_and_clears_settled_at(self, session: AsyncSession):
+        from kaleta.schemas.personal_loan import PersonalLoanUpdate
+
+        svc = PersonalLoanService(session)
+        cp = await _make_counterparty(session, "Anna Kowalska")
+        loan_id = await _make_loan(session, counterparty_id=cp)
+        settled = await svc.update_loan(loan_id, PersonalLoanUpdate(status=LoanStatus.SETTLED))
+        assert settled is not None
+        assert settled.settled_at is not None
+        reopened = await svc.update_loan(loan_id, PersonalLoanUpdate(status=LoanStatus.OUTSTANDING))
+        assert reopened is not None
+        assert reopened.settled_at is None
+
+    async def test_delete_repayment_of_another_loan_returns_false(self, session: AsyncSession):
+        svc = PersonalLoanService(session)
+        cp = await _make_counterparty(session, "Marek Nowak")
+        first = await _make_loan(session, counterparty_id=cp)
+        second = await _make_loan(session, counterparty_id=cp)
+        rep = await svc.record_repayment(
+            first, RepaymentCreate(amount=Decimal("100"), date=datetime.date(2026, 4, 2))
+        )
+        assert rep is not None
+        assert await svc.delete_repayment(rep.id, loan_id=second) is False
+        assert await svc.delete_repayment(rep.id, loan_id=first) is True
