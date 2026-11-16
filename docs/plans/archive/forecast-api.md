@@ -3,8 +3,9 @@ plan_id: forecast-api
 title: Balance forecast REST API (read-only)
 area: api, forecast
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Balance forecast REST API (read-only)
@@ -234,3 +235,27 @@ fail.
   assert shape only — 30 forecast points after history, increasing dates, band containment,
   two-decimal strings, kpis at the last point, conservative ≤ baseline.
 - **Chores:** cache invalidation and `get_event_loop()` logged in `docs/plans/chores.md`.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #440).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e7689923` | Dawid Adamski | 2026-11-16 | Merge pull request #440 from DawidAdamski/plan/forecast-api |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/forecast-api.md
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/forecast.py
+- src/kaleta/schemas/forecast.py
+- src/kaleta/services/forecast_service.py
+- tests/integration/test_api_forecast.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
