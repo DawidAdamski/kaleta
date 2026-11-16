@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.tenant_context import current_tenant
+from kaleta.exceptions import NotFoundError
 from kaleta.models.account import Account
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.account_service import AccountService
@@ -37,6 +39,9 @@ class _ForecastCacheKey:
     horizon_days: int
     history_days: int
     model: str
+    #: The family's schema: the cache is process-wide, and two families share
+    #: account ids (and "All Accounts"). ``None`` in the single-family layout.
+    schema: str | None = None
 
 
 _forecast_cache: dict[_ForecastCacheKey, list[ForecastRow]] = {}
@@ -264,7 +269,9 @@ class ForecastService:
         account_name = "All Accounts"
         if account_id is not None:
             account = await self.session.get(Account, account_id)
-            account_name = account.name if account else f"Account {account_id}"
+            if account is None:
+                raise NotFoundError(f"Account {account_id} not found")
+            account_name = account.name
 
         # ── Pull daily net cashflow from DB ──────────────────────────────────
         since = datetime.date.today() - datetime.timedelta(days=history_days)
@@ -339,7 +346,14 @@ class ForecastService:
 
         # ── Run forecaster in thread pool (Prophet or naive fallback) ────────
         model = active_forecaster_model()
-        cache_key = _ForecastCacheKey(account_id, horizon_days, history_days, model)
+        tenant = current_tenant()
+        cache_key = _ForecastCacheKey(
+            account_id,
+            horizon_days,
+            history_days,
+            model,
+            schema=tenant.schema if tenant is not None else None,
+        )
         forecaster_result = _forecast_cache.get(cache_key)
         if forecaster_result is None:
             forecaster = get_forecaster()

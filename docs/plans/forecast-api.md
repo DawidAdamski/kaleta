@@ -3,7 +3,7 @@ plan_id: forecast-api
 title: Balance forecast REST API (read-only)
 area: api, forecast
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -216,3 +216,21 @@ fail.
   page draws both and `kpis.balance_today` reads the last history point.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-019, after KAL-API-012 in `docs/bdd.md` (013–018 are on open branches).
+- **Endpoint:** `GET /api/v1/forecast/balance` (router `api/v1/forecast.py`), `horizon_days`
+  1–720 (`MAX_FORECAST_HORIZON_DAYS`), `preset` applied with `apply_preset`, kpis from
+  `forecast_kpis` on the preset-applied result. Money is `Decimal` quantized half-up to the
+  cent in the route; `schemas/forecast.py` imports nothing from services.
+- **Cache leak fixed:** `_ForecastCacheKey` gained `schema` (default `None`), filled from
+  `current_tenant()`. `test_forecast_cache_is_per_family` swaps the tenant the service sees
+  (monkeypatching `forecast_service.current_tenant`, so the test session keeps reading the
+  seeded family) and counts forecaster runs: 2 for two families, still 2 on a repeat. The
+  existing unit tests build no key positionally, so none changed.
+- **Unknown account → 404** (`NotFoundError`) instead of the "Account N" fallback. The views
+  only offer existing accounts and already catch `KaletaError`.
+- **No 503:** a missing Prophet keeps degrading to the naive model (`forecaster_model` says
+  which ran); a forecaster returning `None` stays `insufficient_data`.
+- **Tests pin the naive forecaster** (autouse fixture, cache cleared before and after) and
+  assert shape only — 30 forecast points after history, increasing dates, band containment,
+  two-decimal strings, kpis at the last point, conservative ≤ baseline.
+- **Chores:** cache invalidation and `get_event_loop()` logged in `docs/plans/chores.md`.

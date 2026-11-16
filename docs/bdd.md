@@ -5365,6 +5365,24 @@ Feature: Public API
     And a PUT that sets a required field to null is 422 and changes nothing
     And an occurrences window whose end is before its start, or that spans more than 366 days, is 422
     And GET, PUT, DELETE, toggle-active and occurrences of an unknown id are 404
+
+  KAL-API-019 @automated
+  Scenario: Read an account's balance forecast through the API
+    Given a valid API bearer token
+    And an account "PKO Main" with income and expense rows on 20 distinct days in the last 60 days
+    When I GET /api/v1/forecast/balance?account_id={PKO Main}&horizon_days=30
+    Then the response is 200 with account_name "PKO Main" and insufficient_data false
+    And it holds exactly 30 points with is_forecast true, after the history points
+    And the point dates strictly increase, and every forecast point has lower <= value <= upper
+    And value, lower and upper are decimal strings with two places
+    And forecaster_model is "prophet" or "naive", and kpis gives the predicted balance on the last point's date
+    When I GET it with preset=conservative
+    Then no forecast value is above the baseline's value on the same date
+    When the account has rows on only 5 distinct days
+    Then the response is 200 with insufficient_data true, no points and kpis null
+    And an unknown account_id is 404
+    And horizon_days 0 or 721 is 422
+    And a request without credentials is 401
 ```
 
 ## Feature: Build version
