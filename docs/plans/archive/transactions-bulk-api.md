@@ -3,8 +3,9 @@ plan_id: transactions-bulk-api
 title: Transactions REST API — bulk create, bulk recategorise, new transfer, ledger CSV
 area: api, transactions
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Transactions REST API — bulk create, bulk recategorise, new transfer, ledger CSV
@@ -284,3 +285,28 @@ Validation belongs here, not in the routes. What each existing method lacks:
 - **CSV:** not streamed; the route wraps `export_ledger_csv()`'s bytes in a `Response` with
   `text/csv; charset=utf-8` and `Content-Disposition: attachment; filename="…"`. The test
   matches the filename by pattern since it carries today's date.
+
+## Implementation
+
+Landed on 2026-11-16 (PR #435).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d2ee7362` | Dawid Adamski | 2026-11-16 | Merge pull request #435 from DawidAdamski/plan/transactions-bulk-api |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/transactions-bulk-api.md
+- docs/tech-stack.md
+- src/kaleta/api/v1/transactions.py
+- src/kaleta/config/settings.py
+- src/kaleta/schemas/transaction.py
+- src/kaleta/services/transaction_service.py
+- tests/integration/test_api_transactions_bulk.py
+- tests/unit/services/test_transaction_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
