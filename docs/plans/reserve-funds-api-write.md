@@ -3,7 +3,7 @@ plan_id: reserve-funds-api-write
 title: Reserve funds and savings goals REST API: get, create, update, archive, delete, contribute, close
 area: api, funds
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -240,3 +240,26 @@ target date of 2030-06-01 keeps the goal in the future for years. That keeps
   irregular-fund-items-api, and 012 is reserved by another open plan.
 
 ## Implementation notes
+- **Scenario id:** KAL-API-013 (free on `main`; 010–012 merged).
+- **Irregular items:** #428 is merged, so this branch starts from `main` with the item routes
+  already in `reserve_funds.py`. They are untouched; the OpenAPI test counts 14 operations
+  under `/reserve-funds` (9 from this plan + 5 item routes).
+- **Update validation:** `update` merges the stored fields with the body and validates the
+  result through `ReserveFundCreate`; a pydantic error becomes 422
+  `invalid_reserve_fund` (`errors.reserve_fund.invalid_update`, the first error as
+  `{reason}`). When the resulting kind is not a goal and the body does not set
+  `target_date`, the merged date is cleared first, so a kind change still drops the date
+  (tested). The hand-written multiplier check is **kept** in front of it: the cohort test
+  pins `errors.reserve_fund.multiplier_required_for_spending_target`, and the dialog's toast
+  keeps its specific wording.
+- **Reference checks:** `_check_references` refuses an unknown backing account / category
+  (422 `unknown_backing_account` / `unknown_backing_category`, with i18n keys in both
+  locales). `update` checks only a reference the body changes. The three new keys are
+  added to the funds-cohort list in `test_error_i18n_funds_cohort.py`.
+- **Contribute response:** `contribute` still returns `None`; the route re-reads the fund
+  and returns `with_progress`. Unknown `from_account_id` / `release_to_account_id` stay 404
+  (`account_not_found`) and are documented in `responses`.
+- **Envelope funds:** accepted on create as the schema allows; only the category's
+  existence is checked.
+- **Months left / pace:** only asserted as positive / non-null (they depend on today).
+- **Deleted backing account crash:** not fixed; logged in `docs/plans/chores.md`.
