@@ -378,6 +378,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [nicegui-4-upgrade](nicegui-4-upgrade.md) | draft | Platform — NiceGUI 3.18 → 4.0 (breaking: httpx, empty inputs, DOM ids) |
 | [gifts-grid](archive/gifts-grid.md) | archived | Gift planning — people × occasions grid per year |
 | [subscriptions-categories](archive/subscriptions-categories.md) | archived | Subscriptions — group by purpose |
 | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | Hosted programme — resend confirmation, magic-link sign-in |
