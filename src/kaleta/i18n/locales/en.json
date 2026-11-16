@@ -182,7 +182,11 @@
     "personal_loan": {
       "link_ambiguous": "Link an existing transaction or mirror to an account, not both",
       "transaction_taken": "Transaction {transaction_id} is already linked to a loan",
-      "transaction_not_found": "Transaction {transaction_id} not found"
+      "transaction_not_found": "Transaction {transaction_id} not found",
+      "counterparty_name_taken": "A counterparty named \"{name}\" already exists",
+      "unknown_counterparty": "Counterparty {counterparty_id} does not exist",
+      "unknown_account": "Account {account_id} does not exist",
+      "unknown_category": "Category {category_id} does not exist"
     },
     "irregular_item": {
       "fund_not_found": "Fund {fund_id} not found.",
