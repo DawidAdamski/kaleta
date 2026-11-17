@@ -3,7 +3,7 @@ plan_id: archive-image-links
 title: Image links survive plan archiving; the local link check and verify catch what mkdocs --strict catches
 area: docs, harness
 effort: small
-status: draft
+status: in-progress
 harness: true
 roadmap_ref: ../roadmap.md
 ---
@@ -95,3 +95,60 @@ image links so this cannot reach `main` again, and repair the three archived pla
   maintainer)", so the history edit is easy to audit.
 
 ## Implementation notes
+
+Each open question took its default.
+- **The rewrite lives in `scripts/plan_links.py`.** The archiver calls it with
+  `python3 scripts/plan_links.py "$plan"`. It is stdlib only, because the archiver and the
+  `plan-archive` workflow run it with the system `python3`.
+- **Image links outside `docs/`** follow the `.md` rule (below).
+- **The three archived plans** are fixed in their own commit, `docs(plans): repair image
+  paths in archived plans (frozen history, maintainer)`, and that commit changes only those
+  three lines.
+
+### Archiver (`scripts/plan_links.py`, `PlanLinkRewriter`)
+
+- It matches `(!?)\[…\]\(…\)` and keeps the `!`, so an image moves under exactly the rules a
+  `[label]` link follows:
+  - `../x` becomes `../../x`;
+  - `archive/x` becomes `x`;
+  - a bare sibling found in `docs/plans/` becomes `../x`;
+  - a bare sibling already in `archive/` is unchanged;
+  - external links, anchors and unknown targets are left as they are.
+- The `roadmap_ref:` frontmatter rewrite moved with it. Behaviour is otherwise identical to
+  the old inline block, except that `tel:` and `data:` are also skipped, which can never be
+  relative targets anyway.
+- The inbound-link block in `plan_archive.sh` (links *to* the moved plan from other docs)
+  still matches only `[label]` links. An image cannot point at a plan's `.md`, so it needs
+  no change.
+
+### Checker (`scripts/check_doc_links.py`)
+
+- **Image links:** `MARKDOWN_LINK` matches `!?\[…\]\(…\)`. On `main` that surfaced exactly
+  the three broken archive paths, the same three warnings `mkdocs --strict` gave.
+- **Code is skipped:** with images matched, the check also flagged pattern examples quoted
+  in inline code, e.g. in this plan. Markdown does not render a link inside code, and
+  mkdocs does not check one. So `prose_lines()` now drops fenced blocks and blanks inline
+  code spans before matching. Comparing the old regex with and without this skipping
+  showed that no previously checked link is lost.
+- **Coverage gap (scope item 5):** mkdocs warns, which fails `--strict`, on a link to a
+  file that is not a documentation file. The checker accepted any in-repo target.
+  - A page under `docs/` that links a **file** outside `docs/` is now an error
+    ("points at a file outside docs/, which mkdocs cannot serve").
+  - Directory links outside `docs/` stay allowed: mkdocs only reports them at INFO, which
+    is out of scope here. The two that exist today are `deploy-k3s.md` → `../deploy/k3s/`
+    and `deployment.md` → `../deploy/supabase/templates/`.
+  - Root files (`README.md` and the others in `EXTRA_FILES`) keep linking anywhere in the
+    repo, since mkdocs does not build them.
+  - Heading anchors are reported at INFO by mkdocs by default, so they are no gap.
+
+### Results
+
+- `uv run python scripts/check_doc_links.py` gives "OK: all relative links and anchors
+  resolve".
+- `mkdocs build --strict` builds with no warning; before the repair it aborted with 3.
+- The tests in `tests/unit/harness/test_doc_links.py` and `test_plan_links.py` (12)
+  include the two required by the acceptance criteria:
+  - a broken image link is an error naming `file:line`, and a working one passes;
+  - `![x](../images/a.svg)` becomes `../../images/a.svg`, and `![y](b.svg)` becomes
+    `../b.svg` with `b.svg` in `docs/plans/`.
+- "Deploy Pages" green after the merge can only be checked on `main`.
