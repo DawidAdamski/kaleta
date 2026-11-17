@@ -10,7 +10,7 @@ roadmap_ref: ../../roadmap.md
 
 # Detect own-account transfers on mBank import (stored number vs statement number)
 
-![Import page vs REST API](../images/import-ui-vs-api.svg)
+![Import page vs REST API](../../images/import-ui-vs-api.svg)
 
 ## Intent
 

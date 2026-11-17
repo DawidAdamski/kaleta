@@ -10,7 +10,7 @@ roadmap_ref: ../../roadmap.md
 
 # POST /api/v1/imports — import a bank statement through the API
 
-![Import page vs REST API](../images/import-ui-vs-api.svg)
+![Import page vs REST API](../../images/import-ui-vs-api.svg)
 
 ## Intent
 
