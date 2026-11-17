@@ -145,11 +145,14 @@ Each open question took its default.
 
 - **The five files under `docs/harness/calibration/`**: `36ef5368e55e44a3-calib.{json,md}`,
   `613e8b9ab733ffd9-calib.{json,md}` and `calib.cases.jsonl`.
-  - They are **untracked working-tree files**, not committed on this branch. Neither
-    `git log main..HEAD --stat` nor `git diff main...HEAD --stat` lists them.
-  - They are the 2026-11-16 critic-calibration output. Committing them is step 1 of plan
-    `critic-calibration-coverage`, so they stay out of this PR deliberately.
-  - A working-tree view of the branch shows them only because they sit in the checkout.
+  - They are the 2026-11-16 critic-calibration output, which sat untracked in the checkout.
+    Committing them is step 1 of plan `critic-calibration-coverage`, so they stay out of this
+    PR deliberately.
+  - The harness counts untracked files as part of the change (`gitutil.full_diff`), so the
+    first critic runs saw them.
+  - They were moved out of the working tree with `git stash push -u` ("calibration
+    2026-11-16 (critic-calibration-coverage step 1)"), not deleted. Plan
+    `critic-calibration-coverage` restores them with `git stash pop`.
 - **`docs/plans/README.md`:** its one changed line is this plan's own row in the "Harness"
   index table under "Plans index" (row 9). It came in with the plan file in
   `docs(plans): archive-image-links`, the way the other plans in that table were listed.
