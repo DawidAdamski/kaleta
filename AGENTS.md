@@ -7,7 +7,7 @@ It handles budgeting, transactions, financial planning, savings, and investments
 ## Tech Stack
 - **Language**: Python 3.13+
 - **Package Manager**: uv (NOT pip)
-- **UI**: NiceGUI 2.x (wraps FastAPI/Starlette)
+- **UI**: NiceGUI 4.x (wraps FastAPI/Starlette)
 - **API**: FastAPI (exposed via NiceGUI, also standalone)
 - **ORM**: SQLAlchemy 2.0 (async-ready)
 - **Validation**: Pydantic v2 (schemas separate from models)
