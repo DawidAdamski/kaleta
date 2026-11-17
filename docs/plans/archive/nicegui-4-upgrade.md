@@ -3,8 +3,9 @@ plan_id: nicegui-4-upgrade
 title: Upgrade NiceGUI 3.18 → 4.0
 area: platform (dependencies, views)
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-11-17
+roadmap_ref: ../../roadmap.md
 ---
 
 # Upgrade NiceGUI 3.18 → 4.0
@@ -214,3 +215,30 @@ All 9 `.value is None` / `is not None` hits in `src/kaleta/views` are on `ui.sel
 - `docs/tech-stack.md` and `AGENTS.md` both said "NiceGUI 2.x" and now say "4.x". `AGENTS.md`
   is outside the listed touchpoints, but it is the same stale fact in the stack summary, so
   I fixed it in the same docs commit rather than leaving the two files disagreeing.
+
+## Implementation
+
+Landed on 2026-11-17 (PR #453).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `00efda7c` | Dawid Adamski | 2026-11-17 | Merge pull request #453 from DawidAdamski/plan/nicegui-4-upgrade |
+
+**Files changed:**
+- AGENTS.md
+- docs/plans/chores.md
+- docs/plans/nicegui-4-upgrade.md
+- docs/tech-stack.md
+- pyproject.toml
+- tests/e2e/test_forecast.py
+- tests/e2e/test_irregular_fund.py
+- tests/e2e/test_reports_builder.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
