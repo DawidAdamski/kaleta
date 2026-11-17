@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Verify relative markdown links and heading anchors resolve."""
+"""Verify relative markdown links and heading anchors resolve.
+
+Image links (``![alt](target)``) are checked like ``[label](target)`` links: a broken one
+fails ``mkdocs build --strict`` just the same (plan ``archive-image-links``). So does a link
+from a page under ``docs/`` to a *file* outside it, which mkdocs cannot serve. Directory
+links outside ``docs/`` are only an INFO note for mkdocs and stay allowed.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +25,11 @@ EXTRA_FILES = (
     ROOT / "SECURITY.md",
 )
 
-MARKDOWN_LINK = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)]+)\)")
+#: ``[label](target)`` and ``![alt](target)`` alike.
+MARKDOWN_LINK = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
+FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+#: An inline code span: a run of backticks, its content, the same run again.
+CODE_SPAN = re.compile(r"(`+)(?!`).*?(?<!`)\1(?!`)")
 FRONTMATTER_ROADMAP = re.compile(r"^roadmap_ref:\s*(.+)$", re.MULTILINE)
 EXPLICIT_ANCHOR = re.compile(r"\{#([a-z0-9-]+)\}", re.IGNORECASE)
 HEADING = re.compile(r"^(#{1,6})\s+(.+)$")
@@ -65,11 +75,32 @@ def heading_anchors(path: Path) -> set[str]:
     return anchors
 
 
+def prose_lines(text: str) -> list[tuple[int, str]]:
+    """Each line with code removed: fenced blocks dropped, inline code spans blanked.
+
+    Markdown does not render a link inside code, so neither mkdocs nor this check should
+    see one there, e.g. a plan quoting the pattern ``[label](target)``.
+    """
+    lines: list[tuple[int, str]] = []
+    fence: str | None = None
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        opener = FENCE.match(line)
+        if fence is not None:
+            if opener and opener.group(1)[0] == fence[0] and len(opener.group(1)) >= len(fence):
+                fence = None
+            continue
+        if opener:
+            fence = opener.group(1)
+            continue
+        lines.append((line_no, CODE_SPAN.sub("", line)))
+    return lines
+
+
 def extract_links(path: Path) -> list[LinkRef]:
     text = path.read_text(encoding="utf-8")
     refs: list[LinkRef] = [
         LinkRef(path, line_no, match.group(2).strip(), match.group(1))
-        for line_no, line in enumerate(text.splitlines(), start=1)
+        for line_no, line in prose_lines(text)
         for match in MARKDOWN_LINK.finditer(line)
     ]
     if path.suffix == ".md" and "plans" in path.parts:
@@ -121,6 +152,17 @@ def check_link(ref: LinkRef, anchor_cache: dict[Path, set[str]]) -> str | None:
         return (
             f"{ref.source.relative_to(ROOT)}:{ref.line_no}: "
             f"missing target `{path_part}` (from `{ref.target}`)"
+        )
+
+    docs_root = DOCS_DIR.resolve()
+    if (
+        docs_root in ref.source.resolve().parents
+        and resolved.is_file()
+        and docs_root not in resolved.parents
+    ):
+        return (
+            f"{ref.source.relative_to(ROOT)}:{ref.line_no}: "
+            f"`{ref.target}` points at a file outside docs/, which mkdocs cannot serve"
         )
 
     if anchor is None:
