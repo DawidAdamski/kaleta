@@ -141,6 +141,20 @@ Each open question took its default.
     repo, since mkdocs does not build them.
   - Heading anchors are reported at INFO by mkdocs by default, so they are no gap.
 
+### What is *not* this plan's diff
+
+- **The five files under `docs/harness/calibration/`**: `36ef5368e55e44a3-calib.{json,md}`,
+  `613e8b9ab733ffd9-calib.{json,md}` and `calib.cases.jsonl`.
+  - They are **untracked working-tree files**, not committed on this branch. Neither
+    `git log main..HEAD --stat` nor `git diff main...HEAD --stat` lists them.
+  - They are the 2026-11-16 critic-calibration output. Committing them is step 1 of plan
+    `critic-calibration-coverage`, so they stay out of this PR deliberately.
+  - A working-tree view of the branch shows them only because they sit in the checkout.
+- **`docs/plans/README.md`:** its one changed line is this plan's own row in the "Harness"
+  index table under "Plans index" (row 9). It came in with the plan file in
+  `docs(plans): archive-image-links`, the way the other plans in that table were listed.
+  `plan_archive.sh` updates that row on archive. It changes no other plan.
+
 ### Results
 
 - `uv run python scripts/check_doc_links.py` gives "OK: all relative links and anchors
