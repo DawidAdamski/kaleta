@@ -99,23 +99,8 @@ open(p,'w').write(s)
 PY
 
 # ── relative links: the file moves one directory down ────────────────────
-python3 - "$plan" <<'PY2'
-import re,os,sys
-p=sys.argv[1]; s=open(p).read()
-s=re.sub(r'^(roadmap_ref:\s*)\.\./', r'\1../../', s, count=1, flags=re.M)
-def fix(m):
-    label,target=m.group(1),m.group(2)
-    if target.startswith(('http://','https://','mailto:','#')): return m.group(0)
-    if target.startswith('archive/'): return f'[{label}]({target[len("archive/"):]})'
-    if target.startswith('../'): return f'[{label}](../{target})'
-    if '/' not in target.split('#')[0]:
-        base=target.split('#')[0]
-        if os.path.exists(os.path.join('docs/plans/archive', base)): return m.group(0)
-        if os.path.exists(os.path.join('docs/plans', base)): return f'[{label}](../{target})'
-    return m.group(0)
-s=re.sub(r'(?<!!)\[([^\]]*)\]\(([^)]+)\)', fix, s)
-open(p,'w').write(s)
-PY2
+# Image links too (`![alt](../images/x.svg)`): see scripts/plan_links.py.
+python3 scripts/plan_links.py "$plan"
 
 # ── move + index ─────────────────────────────────────────────────────────
 git mv "$plan" "docs/plans/archive/$plan_id.md"

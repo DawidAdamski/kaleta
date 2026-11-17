@@ -10,7 +10,7 @@ roadmap_ref: ../../roadmap.md
 
 # Move the import pipeline out of the view into one service (build, then apply once)
 
-![Import page vs REST API](../images/import-ui-vs-api.svg)
+![Import page vs REST API](../../images/import-ui-vs-api.svg)
 
 ## Intent
 
