@@ -3,15 +3,16 @@ plan_id: funds-reservoir-view
 title: Funds — reservoir ("jeziorka") visualisation of accounts and reserve funds
 area: wizard
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-11-18
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Funds — reservoir ("jeziorka") visualisation
 
 ## Intent
 
-Sibling to [`reports-money-flow`](archive/reports-money-flow.md), which answers
+Sibling to [`reports-money-flow`](reports-money-flow.md), which answers
 *"gdzie kończą się moje pieniądze w tym miesiącu?"* with a Sankey. This
 plan answers the other half of the same intuition: *"ile wody stoi w
 którym zbiorniku i czy poziom rośnie?"* — accounts and reserve funds
@@ -180,3 +181,28 @@ new model, migration, or aggregation"). The reservoirs are static.
 scaling, SVG content and escaping, motion-budget CSS, tokens in both modes)
 and four e2e tests in `tests/e2e/test_reserve_funds.py`, one per KAL-RSV
 scenario.
+
+## Implementation
+
+Landed on 2026-11-18 (PR #458).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `266fa90a` | Dawid Adamski | 2026-11-18 | Merge pull request #458 from DawidAdamski/plan/funds-reservoir-view |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/funds-reservoir-view.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/components/reservoir.py
+- src/kaleta/views/safety_funds.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_reserve_funds.py
+- tests/unit/views/test_reservoir.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

@@ -445,7 +445,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [hosted-household-sharing](archive/hosted-household-sharing.md) | archived | Hosted programme (3) |
 | [wizard-what-if-scenarios](archive/wizard-what-if-scenarios.md) | archived | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
-| [funds-reservoir-view](funds-reservoir-view.md) | draft | Funds — reservoir view (after reports-money-flow) |
+| [funds-reservoir-view](archive/funds-reservoir-view.md) | archived | Funds — reservoir view (after reports-money-flow) |
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
 | [credit-first-class](archive/credit-first-class.md) | archived | Credit |
