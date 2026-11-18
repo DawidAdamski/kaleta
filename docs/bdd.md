@@ -2890,6 +2890,32 @@ Feature: Reserve Funds
     Given the New reserve fund dialog is open on the Emergency type
     When I switch the fund type to Irregular and back to Emergency
     Then the "months of coverage" input and the derive-target switch are shown again
+
+  KAL-RSV-001 @automated
+  Scenario: Toggle switches the funds to the reservoir layout
+    Given a reserve fund holding 1500.00 against a 3000.00 target
+    When I switch the fund layout from Bars to Reservoirs
+    Then the fund's card shows a reservoir filled to 50%
+    And the card's progress bar is gone
+    And switching back to Bars shows the progress bar again
+
+  KAL-RSV-002 @automated
+  Scenario: A fund at its target shows a full reservoir
+    Given a reserve fund holding 3000.00 against a 3000.00 target
+    When I open the funds in the reservoir layout
+    Then its reservoir is full at 100%
+
+  KAL-RSV-003 @automated
+  Scenario: An overfunded fund shows the overflow state
+    Given a reserve fund holding 3900.00 against a 3000.00 target
+    When I open the funds in the reservoir layout
+    Then its reservoir shows the overflow state at "130% — over target"
+
+  KAL-RSV-004 @automated
+  Scenario: A fund with no target degrades to the empty reservoir
+    Given a reserve fund with a 0.00 target
+    When I open the funds in the reservoir layout
+    Then its reservoir is empty and reads "No target or backing account"
 ```
 
 ---

@@ -20,6 +20,11 @@ from kaleta.schemas.reserve_fund import (
 )
 from kaleta.services import AccountService, ReserveFundService, with_session
 from kaleta.services.reserve_fund_service import GOAL_KIND
+from kaleta.views.components.reservoir import (
+    RESERVOIR_VISIBILITY_JS,
+    Reservoir,
+    width_ratio,
+)
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
@@ -45,6 +50,21 @@ def _fmt_amount(d: Decimal) -> str:
 SHOW_ALL = "all"
 SHOW_GOALS = "goals"
 
+#: The card layout (``?layout=``): progress bars (the default) or reservoirs.
+#: Only the card body swaps; header, actions and dialogs are shared.
+LAYOUT_BARS = "bars"
+LAYOUT_RESERVOIRS = "reservoirs"
+
+
+def _page_url(show: str, layout: str) -> str:
+    """The page's URL for a filter and a layout, dropping default values."""
+    params = []
+    if show != SHOW_ALL:
+        params.append(f"show={show}")
+    if layout != LAYOUT_BARS:
+        params.append(f"layout={layout}")
+    return "/wizard/safety-funds" + ("?" + "&".join(params) if params else "")
+
 
 def _parse_date(value: Any) -> datetime.date | None:
     if not value:
@@ -66,13 +86,20 @@ def _progress_color(pct: Decimal) -> str:
 
 def register() -> None:
     @ui.page("/wizard/safety-funds")
-    async def safety_funds_page(show: str = SHOW_ALL) -> None:
+    async def safety_funds_page(show: str = SHOW_ALL, layout: str = LAYOUT_BARS) -> None:
         goals_only = show == SHOW_GOALS
+        show = SHOW_GOALS if goals_only else SHOW_ALL
+        reservoirs = layout == LAYOUT_RESERVOIRS
+        layout = LAYOUT_RESERVOIRS if reservoirs else LAYOUT_BARS
 
         async def _load(
             session: Any,
         ) -> tuple[
-            dict[int, str], list[ReserveFundWithProgress], list[ReserveFundWithProgress], Decimal
+            dict[int, str],
+            dict[int, str],
+            list[ReserveFundWithProgress],
+            list[ReserveFundWithProgress],
+            Decimal,
         ]:
             accounts = await AccountService(session).list()
             svc = ReserveFundService(session)
@@ -80,9 +107,16 @@ def register() -> None:
             all_funds = await svc.list_with_progress(include_archived=True)
             target_monthly = await svc.target_monthly_expense()
             account_opts = {a.id: a.name for a in accounts}
-            return account_opts, active_funds, all_funds, target_monthly
+            account_currency = {a.id: a.currency for a in accounts}
+            return account_opts, account_currency, active_funds, all_funds, target_monthly
 
-        account_opts, active_funds, all_funds, target_monthly = await with_session(_load)
+        (
+            account_opts,
+            account_currency,
+            active_funds,
+            all_funds,
+            target_monthly,
+        ) = await with_session(_load)
 
         archived_funds = [f for f in all_funds if f.is_archived]
         if goals_only:
@@ -101,9 +135,20 @@ def register() -> None:
                             SHOW_ALL: t("safety_funds.filter_all"),
                             SHOW_GOALS: t("safety_funds.filter_goals"),
                         },
-                        value=SHOW_GOALS if goals_only else SHOW_ALL,
-                        on_change=lambda e: ui.navigate.to(f"/wizard/safety-funds?show={e.value}"),
+                        value=show,
+                        on_change=lambda e: ui.navigate.to(_page_url(e.value, layout)),
                     ).props("dense no-caps unelevated")
+                    layout_toggle = ui.toggle(
+                        {
+                            LAYOUT_BARS: t("safety_funds.layout_bars"),
+                            LAYOUT_RESERVOIRS: t("safety_funds.layout_reservoirs"),
+                        },
+                        value=layout,
+                        on_change=lambda e: ui.navigate.to(_page_url(show, e.value)),
+                    ).props("dense no-caps unelevated")
+                    # Set as a dict entry, not parsed from the props string, so a
+                    # translation containing a quote cannot break it.
+                    layout_toggle.props["aria-label"] = t("safety_funds.layout_label")
                     add_btn = ui.button(
                         t("safety_funds.add_goal" if goals_only else "safety_funds.add"),
                         icon="add",
@@ -527,10 +572,16 @@ def register() -> None:
                         ui.label(t("safety_funds.empty_heading")).classes(SECTION_HEADING)
                         ui.label(t("safety_funds.empty_body")).classes(BODY_MUTED)
 
+            if reservoirs:
+                ui.add_body_html(RESERVOIR_VISIBILITY_JS)
+            largest_target = max((f.target_amount for f in active_funds), default=Decimal("0"))
             for f in active_funds:
                 _render_fund_card(
                     f,
                     account_opts,
+                    reservoir=(
+                        _FundReservoir(account_currency, largest_target) if reservoirs else None
+                    ),
                     on_edit=_open_edit_dialog,
                     on_archive=_archive_fund,
                     on_delete=_open_delete_dialog,
@@ -569,6 +620,7 @@ def _render_fund_card(
     on_delete: Any,
     on_contribute: Any,
     on_close: Any,
+    reservoir: _FundReservoir | None = None,
 ) -> None:
     is_goal = fund.kind == GOAL_KIND
     pct_clamped = min(float(fund.progress_pct), 1.0)
@@ -639,7 +691,11 @@ def _render_fund_card(
             and fund.emergency_multiplier is not None
             and fund.emergency_multiplier >= 2
         )
-        if show_ticks:
+        if reservoir is not None:
+            # Reservoir layout: the bar (and its month ticks) is replaced by
+            # the reservoir; the header figures and the footer stay as they are.
+            reservoir.render(fund, account_opts)
+        elif show_ticks:
             # Slightly taller container so ticks stick out above and below the
             # 8px track — that way a single hard edge reads against green,
             # amber, red fills and the unfilled grey rail alike.
@@ -699,6 +755,29 @@ def _render_fund_card(
                         months=months_txt,
                     )
                 ui.label(label_text).classes(BODY_MUTED)
+
+
+class _FundReservoir:
+    """Draws a fund card's reservoir, sized against the page's largest target."""
+
+    def __init__(self, account_currency: dict[int, str], largest_target: Decimal) -> None:
+        self._currency = account_currency
+        self._largest = largest_target
+
+    def render(self, fund: ReserveFundWithProgress, account_opts: dict[int, str]) -> None:
+        # No backing account — never set, or since deleted — means no water
+        # to measure: the reservoir degrades to its empty state.
+        account_id = fund.backing_account_id
+        backed = account_id is not None and account_id in account_opts
+        currency = self._currency.get(account_id, "") if account_id is not None else ""
+        Reservoir(
+            fund.name,
+            fund.current_balance,
+            fund.target_amount,
+            currency,
+            width=width_ratio(fund.target_amount, self._largest),
+            available=backed,
+        ).render()
 
 
 def _goal_pace_text(fund: ReserveFundWithProgress) -> str:

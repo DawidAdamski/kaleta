@@ -669,6 +669,12 @@ BASE_CSS = """
   /* What is owned outright, beside what is held: the income colour with the
      ground mixed into it, so the two read as one side of the sheet. */
   --k-asset-soft:#8FA893;
+  /* The reservoir layout on the reserve-funds page: water, its wave crest,
+     and the empty basin behind them. A muted slate-blue that sits in the
+     sand palette instead of a pool-tile cyan. */
+  --k-reservoir-water:#6F96A6;
+  --k-reservoir-wave:#93B3BF;
+  --k-reservoir-basin:#F3EFE7;
 
   --k-row-hover:#FAF4E9;
   --k-plan-now:#F0E5D4;
@@ -725,6 +731,9 @@ BASE_CSS = """
   --k-expense:#DE8672;
   --k-warning:#E3B457;
   --k-asset-soft:#5E7C67;
+  --k-reservoir-water:#4C7584;
+  --k-reservoir-wave:#6C95A3;
+  --k-reservoir-basin:#2A2822;
 
   --k-row-hover:#262420;
   --k-plan-now:#332F26;
@@ -2123,6 +2132,40 @@ body.k-dragging .k-slot--drop{
 .hover\\:bg-slate-100:hover{background-color:var(--k-surface-sunken)}
 .hover\\:bg-slate-700:hover{background-color:var(--k-ink-2)}
 .border-slate-200,.border-slate-300{border-color:var(--k-border)}
+
+/* ── Reservoir (reserve funds, reservoir layout) ─────────────────────
+   Inline SVG themed from the --k-reservoir-* tokens, so dark mode is the
+   token flip above and nothing else. The wave slides by one period (half
+   its own width) on a loop; it holds still under reduced motion and while
+   the tab is hidden (`k-tab-hidden`, toggled on visibilitychange). */
+.k-reservoir-host{max-width:100%;overflow:hidden}
+.k-reservoir{display:block;max-width:100%;height:auto}
+.k-reservoir__basin{fill:var(--k-reservoir-basin)}
+.k-reservoir__water{fill:var(--k-reservoir-water)}
+.k-reservoir__wave{
+  fill:var(--k-reservoir-wave);
+  transform-box:fill-box;
+  animation:k-reservoir-wave 6s linear infinite
+}
+.k-reservoir__rim{fill:none;stroke:var(--k-border-strong);stroke-width:2}
+.k-reservoir__spill{fill:none;stroke:var(--k-reservoir-water);stroke-width:3;stroke-linecap:round}
+.k-reservoir--overflow .k-reservoir__rim{stroke:var(--k-reservoir-water)}
+.k-reservoir--unavailable .k-reservoir__rim{stroke-dasharray:6 5}
+.k-reservoir__label{
+  fill:var(--k-ink);
+  font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif;
+  font-size:15px;
+  font-weight:600;
+  font-variant-numeric:tabular-nums;
+  paint-order:stroke;
+  stroke:var(--k-surface);
+  stroke-width:3px
+}
+.k-reservoir--unavailable .k-reservoir__label{fill:var(--k-muted)}
+.k-reservoir__note{color:var(--k-muted)}
+@keyframes k-reservoir-wave{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.k-tab-hidden .k-reservoir__wave{animation-play-state:paused}
+@media (prefers-reduced-motion: reduce){.k-reservoir__wave{animation:none}}
 """
 
 # Dark-mode overrides via Quasar `.body--dark` on <body>.

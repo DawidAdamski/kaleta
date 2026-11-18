@@ -761,6 +761,13 @@
     "source_loan": "Loan"
   },
   "safety_funds": {
+    "layout_bars": "Bars",
+    "layout_reservoirs": "Reservoirs",
+    "layout_label": "Fund layout",
+    "reservoir_aria": "{name}: {current} of {target} {currency}, {percent}%",
+    "reservoir_aria_unavailable": "{name}: no level to show",
+    "reservoir_unavailable": "No target or backing account",
+    "reservoir_overflow": "{percent}% — over target",
     "default_name_goal": "Savings goal",
     "filter_all": "All funds",
     "filter_goals": "Goals",

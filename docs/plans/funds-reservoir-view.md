@@ -3,7 +3,7 @@ plan_id: funds-reservoir-view
 title: Funds — reservoir ("jeziorka") visualisation of accounts and reserve funds
 area: wizard
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -115,4 +115,68 @@ block the useful half.
 
 ## Implementation notes
 
-_(filled in as work progresses)_
+**Open questions resolved (plan defaults where one was given):**
+
+1. *Does the metaphor survive real numbers?* — Took the mitigation the plan
+   names: reservoir **width** scales linearly with the fund's target relative
+   to the largest target among the active funds on the page
+   (`width_ratio()`), with a floor of 35 % (`MIN_WIDTH_RATIO`) so a small
+   fund's figure still fits inside its basin. Height encodes the percentage,
+   width the size. With no positive target anywhere every reservoir is full
+   width.
+2. *SVG vs. ECharts `custom`* — Inline SVG (plan default). Streams were not
+   built, so there was no reason to revisit.
+3. *Default layout* — Stays opt-in (plan default, and "Not in scope:
+   replacing the progress bars"). Bars are the default; the layout lives in
+   `?layout=reservoirs`, so the choice survives a reload and can be linked.
+
+**Streams milestone: cut.** The plan allows it only "if the contribution
+figure can be derived without a new model". A contribution figure needs a
+per-account monthly inflow average that `ReserveFundService` does not
+return today. Adding one is a new aggregation, which is out of scope ("Any
+new model, migration, or aggregation"). The reservoirs are static.
+
+**Design decisions a reviewer should know:**
+
+- `views/components/reservoir.py` keeps the arithmetic (`ReservoirLevel`,
+  `width_ratio`) pure and separate from rendering. `Reservoir.svg()` returns
+  a string; only `Reservoir.render()` touches NiceGUI. The percentage is
+  rounded exactly as the bar layout rounds its label
+  (`(current/target).quantize(0.01)`, then `round(×100)`), so the two layouts
+  cannot disagree about the same fund (manual criterion 1).
+- States: `empty` / `partial` / `full` / `overflow` / `unavailable`.
+  `unavailable` is the degraded state for target ≤ 0 or no backing account
+  (never set, or deleted so that it is no longer among the user's accounts).
+  It draws a dashed empty basin with "—" inside it, and the explanation sits
+  as a caption under the SVG, because the sentence is wider than the
+  narrowest basin. No division happens on that path.
+- Accessibility and testing: the SVG has `role="img"`, an `aria-label` and a
+  `<title>` carrying name, current, target, currency and percentage, and the
+  figure is SVG `<text>`. `data-state` / `data-percent` / `data-fill` give
+  Playwright something stable to assert on. All interpolated text is
+  HTML-escaped, which is why `ui.html(..., sanitize=False)` is safe here (the
+  sanitizer would strip the SVG).
+- Currency comes from the backing account (`Account.currency`), loaded in the
+  page's existing `_load`. No service change was needed.
+- Theme: three tokens (`--k-reservoir-water/-wave/-basin`) in both `:root`
+  and `.body--dark`, so dark mode is the token flip and nothing else. The
+  water is a muted slate-blue chosen to sit in the sand palette.
+- Motion budget: the wave is a CSS animation that slides a two-period path by
+  one period. It is `animation:none` under `prefers-reduced-motion: reduce`
+  and `animation-play-state:paused` while `html.k-tab-hidden` is set. That
+  class is toggled by a `visibilitychange` listener
+  (`RESERVOIR_VISIBILITY_JS`), which is added only when the reservoir layout
+  is shown. A screenshot run confirmed the computed `animation-name` goes from
+  `k-reservoir-wave` to `none` under emulated reduced motion.
+- Only the card body swaps. The header figures, the action buttons, the
+  footer (backed-by, survival months, goal pace) and every dialog are shared
+  between the two layouts. The emergency month ticks belong to the bar and
+  are not drawn on the reservoir.
+- Added **KAL-RSV-004** (degraded empty state) beyond the plan's 001–003,
+  because the third manual criterion describes user-facing behaviour, and
+  Working Agreement §5 asks for a scenario for that.
+
+**Tests:** `tests/unit/views/test_reservoir.py` (level arithmetic, width
+scaling, SVG content and escaping, motion-budget CSS, tokens in both modes)
+and four e2e tests in `tests/e2e/test_reserve_funds.py`, one per KAL-RSV
+scenario.
