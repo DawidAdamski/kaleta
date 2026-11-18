@@ -10,6 +10,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.seed_helpers import (
     delete_account,
+    delete_reserve_fund,
     seed_account,
     seed_reserve_fund,
     update_account,
@@ -166,3 +167,102 @@ def test_security_fund_target_derives_from_spending(page: Page, base_url: str) -
     )
     expect(card).to_have_count(1, timeout=5000)
     expect(card.get_by_text(f"0.00 / {derived}", exact=True)).to_be_visible(timeout=5000)
+
+
+# ── Reservoir layout (KAL-RSV) ────────────────────────────────────────────────
+# The page is shared with every other test's funds, so each locator is scoped
+# to the reservoir whose aria-label starts with this test's own fund name.
+
+
+def _seed_backed_fund(name: str, balance: str, target: float) -> tuple[int, int]:
+    account_id = seed_account(f"{name} account")
+    update_account(account_id, balance=balance, type="cash")
+    return seed_reserve_fund(name, target, account_id), account_id
+
+
+def _reservoir(page: Page, fund_name: str) -> Locator:
+    return page.locator(f'svg.k-reservoir[aria-label^="{fund_name}:"]')
+
+
+def _fund_card(page: Page, fund_name: str) -> Locator:
+    return page.locator(".q-card").filter(has=page.get_by_text(fund_name, exact=True))
+
+
+def test_toggle_switches_to_the_reservoir_layout(page: Page, base_url: str) -> None:
+    """Covers: KAL-RSV-001
+
+    A fund holding 1500.00 against 3000.00 is a progress bar by default; the
+    Reservoirs toggle swaps the card body for a reservoir filled to 50%, and
+    Bars brings the progress bar back.
+    """
+    name = "Reservoir toggle RSV001"
+    fund_id, account_id = _seed_backed_fund(name, "1500.00", 3000.0)
+    try:
+        page.goto(f"{base_url}/wizard/safety-funds")
+        card = _fund_card(page, name)
+        expect(card.locator(".q-linear-progress")).to_have_count(1, timeout=5000)
+        expect(_reservoir(page, name)).to_have_count(0)
+
+        page.get_by_text("Reservoirs", exact=True).click()
+        page.wait_for_url("**/wizard/safety-funds?layout=reservoirs")
+        reservoir = _reservoir(page, name)
+        expect(reservoir).to_have_count(1, timeout=5000)
+        expect(reservoir).to_have_attribute("data-state", "partial")
+        expect(reservoir).to_have_attribute("data-percent", "50")
+        expect(reservoir).to_have_attribute("aria-label", f"{name}: 1,500.00 of 3,000.00 PLN, 50%")
+        expect(_fund_card(page, name).locator(".q-linear-progress")).to_have_count(0)
+
+        page.get_by_text("Bars", exact=True).click()
+        page.wait_for_url("**/wizard/safety-funds")
+        expect(_fund_card(page, name).locator(".q-linear-progress")).to_have_count(1, timeout=5000)
+        expect(_reservoir(page, name)).to_have_count(0)
+    finally:
+        delete_reserve_fund(fund_id)
+        delete_account(account_id)
+
+
+def test_fund_at_target_shows_a_full_reservoir(page: Page, base_url: str) -> None:
+    """Covers: KAL-RSV-002"""
+    name = "Reservoir full RSV002"
+    fund_id, account_id = _seed_backed_fund(name, "3000.00", 3000.0)
+    try:
+        page.goto(f"{base_url}/wizard/safety-funds?layout=reservoirs")
+        reservoir = _reservoir(page, name)
+        expect(reservoir).to_have_attribute("data-state", "full", timeout=5000)
+        expect(reservoir).to_have_attribute("data-percent", "100")
+        expect(reservoir.locator("text.k-reservoir__label")).to_have_text("100%")
+    finally:
+        delete_reserve_fund(fund_id)
+        delete_account(account_id)
+
+
+def test_overfunded_fund_shows_the_overflow_state(page: Page, base_url: str) -> None:
+    """Covers: KAL-RSV-003"""
+    name = "Reservoir overflow RSV003"
+    fund_id, account_id = _seed_backed_fund(name, "3900.00", 3000.0)
+    try:
+        page.goto(f"{base_url}/wizard/safety-funds?layout=reservoirs")
+        reservoir = _reservoir(page, name)
+        expect(reservoir).to_have_attribute("data-state", "overflow", timeout=5000)
+        expect(reservoir.locator("path.k-reservoir__spill")).to_have_count(1)
+        expect(reservoir.locator("text.k-reservoir__label")).to_have_text("130% — over target")
+    finally:
+        delete_reserve_fund(fund_id)
+        delete_account(account_id)
+
+
+def test_fund_without_target_degrades_to_the_empty_reservoir(page: Page, base_url: str) -> None:
+    """Covers: KAL-RSV-004"""
+    name = "Reservoir no target RSV004"
+    fund_id, account_id = _seed_backed_fund(name, "500.00", 0.0)
+    try:
+        page.goto(f"{base_url}/wizard/safety-funds?layout=reservoirs")
+        reservoir = _reservoir(page, name)
+        expect(reservoir).to_have_attribute("data-state", "unavailable", timeout=5000)
+        expect(reservoir.locator("rect.k-reservoir__water")).to_have_count(0)
+        expect(reservoir.locator("text.k-reservoir__label")).to_have_text("—")
+        note = _fund_card(page, name).locator(".k-reservoir__note")
+        expect(note).to_have_text("No target or backing account")
+    finally:
+        delete_reserve_fund(fund_id)
+        delete_account(account_id)
