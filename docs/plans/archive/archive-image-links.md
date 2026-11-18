@@ -3,9 +3,10 @@ plan_id: archive-image-links
 title: Image links survive plan archiving; the local link check and verify catch what mkdocs --strict catches
 area: docs, harness
 effort: small
-status: in-progress
+status: archived
+archived_at: 2026-11-17
 harness: true
-roadmap_ref: ../roadmap.md
+roadmap_ref: ../../roadmap.md
 ---
 
 # Image links survive plan archiving; the local link check and verify catch what mkdocs --strict catches
@@ -37,7 +38,7 @@ image links so this cannot reach `main` again, and repair the three archived pla
 
 ## Scope
 - **Archiver:** in `scripts/plan_archive.sh`, the relative-link rewrite also handles image
-  links. A `![alt](../x)` target becomes `![alt](../../x)` under the same rules as `[label]`
+  links. A `![alt](../../x)` target becomes `![alt](../../../x)` under the same rules as `[label]`
   links. A bare same-directory image (`![alt](img.svg)`) moves the same way a bare `.md`
   sibling does.
 - **Link checker:** `scripts/check_doc_links.py` also checks image links (`![…](…)`). A
@@ -69,7 +70,7 @@ image links so this cannot reach `main` again, and repair the three archived pla
   error naming the file and line, and a fixture with a working image link and expects no
   error.
 - A unit test runs the archiver's link rewrite on a plan fixture with
-  `![x](../images/a.svg)` and `![y](b.svg)`. It expects `../../images/a.svg`, and
+  `![x](../../images/a.svg)` and `![y](b.svg)`. It expects `../../images/a.svg`, and
   `../b.svg` when `b.svg` sits in `docs/plans/`.
 - After the merge, the "Deploy Pages" workflow on `main` is green.
 
@@ -166,6 +167,32 @@ Each open question took its default.
 - The tests in `tests/unit/harness/test_doc_links.py` and `test_plan_links.py` (12)
   include the two required by the acceptance criteria:
   - a broken image link is an error naming `file:line`, and a working one passes;
-  - `![x](../images/a.svg)` becomes `../../images/a.svg`, and `![y](b.svg)` becomes
+  - `![x](../../images/a.svg)` becomes `../../images/a.svg`, and `![y](b.svg)` becomes
     `../b.svg` with `b.svg` in `docs/plans/`.
 - "Deploy Pages" green after the merge can only be checked on `main`.
+
+## Implementation
+
+Landed on 2026-11-17 (PR #455).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `08ca01ec` | Dawid Adamski | 2026-11-17 | Merge pull request #455 from DawidAdamski/plan/archive-image-links |
+
+**Files changed:**
+- docs/plans/README.md
+- docs/plans/archive-image-links.md
+- docs/plans/archive/import-api-endpoint.md
+- docs/plans/archive/import-mbank-transfer-account-suffix.md
+- docs/plans/archive/import-pipeline-service.md
+- scripts/check_doc_links.py
+- scripts/plan_archive.sh
+- scripts/plan_links.py
+- tests/unit/harness/test_doc_links.py
+- tests/unit/harness/test_plan_links.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
