@@ -1915,6 +1915,12 @@ Feature: Monthly Readiness
 
 ## Feature: Annual Budget Planning
 
+Planning and realization are one destination, the **Budgets** page
+(`/budgets`), with three tabs: Overview, Realization (the default) and Plan.
+In the scenarios below, "the Budget Plan page" means the Plan tab
+(`/budgets?tab=plan`). The old `/budget-plan` address 302-redirects there for
+one release.
+
 ```gherkin
 Feature: Annual Budget Planning
   As a user
@@ -2069,6 +2075,38 @@ Feature: Annual Budget Planning
     Then I see the annual planning grid with a row per category
     When I visit the old /budget-plan address
     Then I land on the Budgets page with the Plan tab already open
+
+  KAL-BUD-019 @automated
+  Scenario: The Budgets page opens on Realization, and the address names the tab
+    When I open the Budgets page
+    Then the Realization tab is open
+    When I switch to another tab
+    Then the address says which tab is open, so a reload comes back to it
+    And the old /budget-plan address answers with a 302 to the Plan tab
+
+  KAL-BUD-020 @automated
+  Scenario: One month and year steer both Realization and Plan
+    Given I am on the Realization tab
+    When I pick next year and another month in the page's selector
+    And I switch to the Plan tab
+    Then the selector still shows that month and year
+    And the Plan tab plans that year, with copy-forward aimed at that month
+    When I tick a year chip on the Plan tab
+    Then the page's selector and the Realization tab move to that year
+
+  KAL-BUD-021 @automated
+  Scenario: The pencil on a Realization row focuses that category's planned amount
+    Given a category is budgeted for this month
+    And I am on the Realization tab
+    When I click the edit pencil beside the category's name
+    Then the Plan tab opens with that category's amount for the month focused
+    And no editor opens until I press Enter on it
+
+  KAL-BUD-022 @automated
+  Scenario: Alt and a digit switch the Budgets tabs
+    Given I am on the Budgets page
+    When I press Alt+3, Alt+1 and Alt+2
+    Then Plan, Overview and Realization open in turn
 ```
 
 ## Feature: Budget Builder
