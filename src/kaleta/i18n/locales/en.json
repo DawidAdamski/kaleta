@@ -1289,6 +1289,7 @@
     "tab_overview": "Overview",
     "tab_realization": "Realization",
     "tab_plan": "Plan",
+    "edit_category_link": "Edit the plan for {category}",
     "realization": {
       "title": "Realization",
       "subtitle": "How each budgeted category is tracking this month.",

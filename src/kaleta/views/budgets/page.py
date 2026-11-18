@@ -7,11 +7,12 @@ import datetime
 from typing import Any
 
 from nicegui import app, ui
+from nicegui.events import KeyEventArguments
 
 from kaleta.i18n import t
 from kaleta.services import BudgetService, with_session
-from kaleta.services.budget_service import date_range_for_key
-from kaleta.views.budget_plan.panel import render_plan_panel
+from kaleta.services.budget_service import CategoryRealization, date_range_for_key
+from kaleta.views.budget_plan.panel import PlanPanel
 from kaleta.views.budgets.dialogs import build_edit_dialog
 from kaleta.views.budgets.helpers import range_label, range_options
 from kaleta.views.budgets.overview import render_overview_content
@@ -36,11 +37,37 @@ from kaleta.views.theme import (
     TITLE_ACTION_PRIMARY,
 )
 
+#: The ``?tab=`` values, in the order the tabs stand — which is also the order
+#: Alt+1, Alt+2 and Alt+3 pick them in.
+TAB_KEYS: tuple[str, ...] = ("overview", "realization", "plan")
+
+#: Realization is where the month is checked, so that is where the page opens.
+DEFAULT_TAB = "realization"
+
+
+def tab_key_for(query_value: str) -> str:
+    """The tab a ``?tab=`` value names; anything unknown opens the default."""
+    return query_value if query_value in TAB_KEYS else DEFAULT_TAB
+
+
+def tab_key_for_shortcut(event: KeyEventArguments) -> str | None:
+    """The tab an Alt+digit keydown asks for, or ``None`` for any other key.
+
+    Read off the physical key (``Digit1``…), not the character: on macOS
+    Alt+1 types "¡".
+    """
+    if not (event.action.keydown and event.modifiers.alt):
+        return None
+    number = event.key.number
+    if number is None or not 1 <= number <= len(TAB_KEYS):
+        return None
+    return TAB_KEYS[number - 1]
+
 
 async def budgets_page() -> None:
     today = datetime.date.today()
-    # ?tab=plan|realization lands on that tab (the /budget-plan redirect uses
-    # ?tab=plan); anything else keeps the Overview default.
+    # ?tab=overview|realization|plan lands on that tab (the /budget-plan
+    # redirect uses ?tab=plan); anything else opens Realization.
     requested_tab = ""
     _client = ui.context.client
     if _client is not None and _client.request is not None:
@@ -114,9 +141,37 @@ async def budgets_page() -> None:
         # sums close the table at the bottom.
         render_realization_stats(rows)
         if group == "by_parent":
-            render_realization_grouped(rows)
+            render_realization_grouped(rows, on_edit=_edit_in_plan)
         else:
-            render_realization_flat(rows)
+            render_realization_flat(rows, on_edit=_edit_in_plan)
+
+    def _plan_year_changed(year: int) -> None:
+        """A year chip on the Plan tab moved the planned year: the page follows."""
+        if year == realization_state["year"]:
+            return
+        realization_state["year"] = year
+        _render_tab_controls.refresh()
+        realization_content.refresh()
+
+    plan_panel = PlanPanel(
+        year=budget_year,
+        month=budget_month,
+        on_edit_year_changed=_plan_year_changed,
+    )
+
+    def _edit_in_plan(row: CategoryRealization) -> None:
+        """The pencil on a Realization row: the same month, on the Plan tab.
+
+        Focuses the amount rather than opening its editor, so saving stays
+        the user's own act.
+        """
+        tabs.set_value(plan_tab)
+        plan_panel.focus_category(row.category_id, realization_state["month"])
+
+    def _period_changed() -> None:
+        """One month for the whole page: both tabs move when it does."""
+        realization_content.refresh()
+        plan_panel.set_period(realization_state["year"], realization_state["month"])
 
     @ui.refreshable
     def _render_tab_controls() -> None:
@@ -126,11 +181,6 @@ async def budgets_page() -> None:
         month and a grouping on Realization — and the artboard has room for
         exactly one set beside the tabs.
         """
-        if tabs.value == t("budgets.tab_plan"):
-            # The Plan tab carries its own toolbar (month/year selectors) inside
-            # the embedded panel, so the tab row needs no extra control here.
-            return
-
         if tabs.value == t("budgets.tab_overview"):
 
             def on_range_change(e: Any) -> None:
@@ -150,13 +200,15 @@ async def budgets_page() -> None:
         month_opts = {i: t(f"payment_calendar.month_{i}") for i in range(1, 13)}
         year_opts = {y: str(y) for y in range(today.year - 2, today.year + 3)}
 
+        # Realization and Plan share this month and year: it sits on the tab
+        # row, above both panels, so switching tabs never resets it.
         def on_month_change(e: Any) -> None:
             realization_state["month"] = int(e.value)
-            realization_content.refresh()
+            _period_changed()
 
         def on_year_change(e: Any) -> None:
             realization_state["year"] = int(e.value)
-            realization_content.refresh()
+            _period_changed()
 
         def on_group_change(e: Any) -> None:
             realization_state["group"] = e.value
@@ -166,16 +218,20 @@ async def budgets_page() -> None:
             options=month_opts,
             value=realization_state["month"],
             on_change=on_month_change,
-        ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
-            f"{SELECT_PILL_SQUARE} w-32"
-        )
+        ).props(
+            "dense options-dense borderless dropdown-icon=expand_more data-period-month"
+        ).classes(f"{SELECT_PILL_SQUARE} w-32")
         ui.select(
             options=year_opts,
             value=realization_state["year"],
             on_change=on_year_change,
-        ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
-            f"{SELECT_PILL_SQUARE} k-mono w-24"
-        )
+        ).props(
+            "dense options-dense borderless dropdown-icon=expand_more data-period-year"
+        ).classes(f"{SELECT_PILL_SQUARE} k-mono w-24")
+        if tabs.value == t("budgets.tab_plan"):
+            # Grouping is a Realization question; the plan grid has its own
+            # parent/child indent.
+            return
         ui.toggle(
             {
                 "flat": t("budgets.realization.group_flat"),
@@ -211,15 +267,39 @@ async def budgets_page() -> None:
                 plan_tab = ui.tab(t("budgets.tab_plan"), icon="edit_note")
             # Honour ?tab= before the controls render, so the strip, the
             # tab-row control and the active panel all agree from the start.
-            initial_tab = {"realization": realization_tab, "plan": plan_tab}.get(
-                requested_tab, overview_tab
-            )
+            tab_by_key = {
+                "overview": overview_tab,
+                "realization": realization_tab,
+                "plan": plan_tab,
+            }
+            key_by_label = {tab_el.props["name"]: key for key, tab_el in tab_by_key.items()}
+            initial_tab = tab_by_key[tab_key_for(requested_tab)]
             tabs.set_value(initial_tab)
             ui.space()
             with ui.row().classes("items-center gap-2 pb-2 no-wrap"):
                 _render_tab_controls()
 
-        tabs.on_value_change(lambda _: _render_tab_controls.refresh())
+        def _on_tab_change(e: Any) -> None:
+            _render_tab_controls.refresh()
+            # The address says which tab is open, so a reload or a shared link
+            # comes back to it — without adding a history entry per click.
+            key = key_by_label.get(e.value)
+            if key is not None:
+                ui.run_javascript(
+                    "(() => { const url = new URL(window.location.href);"
+                    f" url.searchParams.set('tab', '{key}');"
+                    " history.replaceState(history.state, '', url); })()"
+                )
+
+        tabs.on_value_change(_on_tab_change)
+
+        def _on_key(e: KeyEventArguments) -> None:
+            key = tab_key_for_shortcut(e)
+            if key is not None:
+                tabs.set_value(tab_by_key[key])
+
+        # Typing in a field keeps its Alt+digit (ui.keyboard ignores inputs).
+        ui.keyboard(on_key=_on_key)
 
         with ui.tab_panels(tabs, value=initial_tab).classes("w-full bg-transparent p-0"):
             with ui.tab_panel(overview_tab).classes("p-0"):
@@ -229,4 +309,4 @@ async def budgets_page() -> None:
                 await realization_content()
 
             with ui.tab_panel(plan_tab).classes("p-0"):
-                await render_plan_panel()
+                await plan_panel.render()
