@@ -75,8 +75,9 @@ Out of scope:
 - Changing the month in the header selector updates both tabs.
 - Clicking the edit pencil on a category in Realization switches
   to Plan with that category's amount field focused.
-- `/budget-plan` still works for one release (302 to
-  `/budgets?tab=plan`); sidebar no longer links to it.
+- The old /budget-plan address still works for one release (302 to
+  /budgets?tab=plan); sidebar no longer links to it.
+- `uv run pytest tests/unit/views/test_budgets_tabs.py -q`
 - Every current BDD scenario for Budgets and Budget Plan still
   passes (migrated or moved under the unified page).
 
@@ -178,4 +179,9 @@ KAL-BUD-018. This branch delivers what that slice deferred.
   from `/budget-plan`, go through the redirect and pass unchanged, which
   satisfies "every current BDD scenario … still passes". `docs/bdd.md` now
   says above the feature that "the Budget Plan page" means the Plan tab.
+- **Acceptance criteria wording.** The DoD gate runs any criterion bullet
+  that starts with a backtick as a shell command, and the redirect bullet
+  began with `` `/budget-plan` ``. That bullet now names the address in plain
+  text; its meaning is unchanged. The unit tests for the shim, the `?tab=`
+  mapping and the shortcuts were added as an executable criterion.
 
