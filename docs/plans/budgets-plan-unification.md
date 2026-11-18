@@ -4,7 +4,7 @@ title: Budgets + Budget Plan — unify under a single Budgets page
 area: budgets
 effort: large
 roadmap_ref: ../roadmap.md#budgets-current-budgets-view
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
@@ -111,4 +111,71 @@ Out of scope:
    of grace.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+**Slice 1 was already on `main`** (commit 382a3f40, plan
+`budgets-unification-slice-1`): the Plan tab on `/budgets`, the
+`/budget-plan` shim, the sidebar entry removed, `budgets.tab_plan`, and
+KAL-BUD-018. This branch delivers what that slice deferred.
+
+- **Default tab is Realization** (open question 1, default taken).
+  `?tab=` accepts `overview`, `realization` and `plan`, and anything else
+  opens Realization (`tab_key_for` in `views/budgets/page.py`). On every
+  tab switch the address is rewritten with `history.replaceState`, so a
+  reload or a shared link comes back to the open tab. `replaceState` is used
+  rather than `pushState` so that Back does not step through tab clicks.
+- **The shim is now a real 302.** Slice 1 returned
+  `RedirectResponse(...)` with the Starlette default of **307**, but the plan
+  says 302. `budget_plan.plan_redirect()` sets `status_code=302`. A unit test
+  checks the status and `location`, and the KAL-BUD-019 e2e test checks it on
+  the wire (`max_redirects=0`). The route itself is still not removed: open
+  question 4, default taken, removal goes in the follow-up PR.
+- **Where the shared month selector lives** (open question 2): the page
+  header strip, i.e. the tab row that artboard `2b` already uses for the
+  Realization controls. It is not inside either panel. The month and year
+  selects now show on both Realization and Plan, and both are bound to the
+  same `realization_state`, so switching tabs resets nothing. The grouping
+  toggle shows only on Realization. The Overview tab keeps its own date-range
+  picker: it shows a range, not a month, and the plan's "both tabs" means
+  Plan and Realization.
+- **What "the month" means on the annual Plan grid.** The grid always shows
+  twelve months, so the page's **year** becomes the planned year
+  (`edit_year`), and the page's **month** becomes the copy-forward target.
+  Copy-forward is clamped to February at the earliest, as before, because
+  January has no earlier month in the same year to copy from. Earlier years
+  that were already ticked stay as reference rows, and later ones are
+  dropped, because the planned year is always the latest year shown, the
+  same rule the year chips follow. Ticking a year chip on the Plan tab sends
+  the new planned year back to the page (`on_edit_year_changed`), so the
+  selector and Realization follow it. The plan panel is now a class,
+  `PlanPanel` (`render`, `set_period`, `focus_category`), replacing the
+  `render_plan_panel()` function.
+- **Edit link** (open question 3, default **focus** taken): every
+  Realization row has a small pencil beside the category name, with
+  aria-label and tooltip `budgets.edit_category_link`. The plan said "when a
+  category is over/under budget", and every row with a plan is one or the
+  other, so the pencil is on every row. Clicking it switches to Plan and
+  focuses that category's cell for the selected month. Each amount cell
+  carries `data-plan-cell="<category_id>-<month>"` and `tabindex="-1"`: it
+  can be focused from script, but there are no twelve extra tab stops per
+  row. Pressing Enter on the focused cell opens the existing cell editor, so
+  saving stays an explicit act. The focus script polls for up to about 3 s,
+  because the tab has to become visible and a period change may be redrawing
+  the grid. The pencil sits inside the category cell, so the six-column
+  `2b` grid template is unchanged.
+- **Keyboard: Alt+1 / Alt+2 / Alt+3.** The plan was written for two tabs,
+  but slice 1 kept Overview as the first tab, and artboard `2b` draws
+  Overview before Realization. Alt+digit therefore picks the tab in that
+  position: Alt+1 Overview, Alt+2 Realization, Alt+3 Plan. The shortcut
+  reads the physical key (`Digit1`…), not the character, because macOS types
+  "¡" for Alt+1. `ui.keyboard` already ignores keys typed into inputs.
+- **i18n:** `budgets.edit_category_link` was added to en and pl.
+  `nav.budget_plan` never existed (slice 1 removed the entry without a key),
+  so there is nothing to drop.
+- **Tests:** `tests/unit/views/test_budgets_tabs.py` covers the shim (status
+  and location), the sidebar no longer listing `/budget-plan`, the `?tab=`
+  mapping and the Alt+digit mapping. `tests/e2e/test_budgets_unified.py`
+  covers KAL-BUD-019..022. The existing Budget Plan e2e tests still start
+  from `/budget-plan`, go through the redirect and pass unchanged, which
+  satisfies "every current BDD scenario … still passes". `docs/bdd.md` now
+  says above the feature that "the Budget Plan page" means the Plan tab.
+
