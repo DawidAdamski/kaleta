@@ -32,7 +32,7 @@ Gap-closing plan for issue #6 (`KAL-CMP-001`, `KAL-CMP-002`), from
   asserts a seeded previous-month value in the row.
 - **CMP-002** — editable current year with reference rows for chosen
   past years (actuals), instead of read-only compare mode.
-- Coordinate with [`budgets-plan-unification`](../budgets-plan-unification.md),
+- Coordinate with [`budgets-plan-unification`](budgets-plan-unification.md),
   which moves this grid under `/budgets?tab=plan`; whichever lands
   second rebases.
 

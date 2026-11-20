@@ -13,7 +13,7 @@ roadmap_ref: ../../roadmap.md#budgets-current-budgets-view
 ## Intent
 
 First self-contained increment of the large
-[`budgets-plan-unification`](../budgets-plan-unification.md) draft. That draft
+[`budgets-plan-unification`](budgets-plan-unification.md) draft. That draft
 wants the two budget destinations merged into one `/budgets` page with tabs so
 the user plans and tracks the month in one place instead of context-switching
 between `/budgets` and `/budget-plan`.
