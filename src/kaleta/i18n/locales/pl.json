@@ -1289,6 +1289,7 @@
     "tab_overview": "Przegląd",
     "tab_realization": "Realizacja",
     "tab_plan": "Plan",
+    "edit_category_link": "Edytuj plan dla: {category}",
     "realization": {
       "title": "Realizacja",
       "subtitle": "Jak każda kategoria z budżetem wygląda w tym miesiącu.",

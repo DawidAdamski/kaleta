@@ -15,6 +15,7 @@ from kaleta.services import BudgetService, with_session
 from kaleta.services.budget_service import (
     AnnualPlanGrid,
     PlanCategoryRow,
+    PlanMonthCell,
     PlanReferenceRow,
     YearPlanSlice,
 )
@@ -47,6 +48,14 @@ from kaleta.views.theme import (
     PLAN_ROW,
     PLAN_TOTAL,
 )
+
+
+def plan_cell_key(category_id: int, month: int) -> str:
+    """The ``data-plan-cell`` value of one category's amount for one month.
+
+    The Budgets page's Realization tab jumps to a cell by this key.
+    """
+    return f"{category_id}-{month}"
 
 
 def build_plan_grid(
@@ -211,22 +220,29 @@ def _render_single_year_grid(
                 for cell in row.months:
                     color = plan_cell_color(cell.planned, cell.is_override)
                     tint = PLAN_MONTH_NOW if cell.month == this_month else ""
-                    (
+                    amount_cell = (
                         ui.label(format_amount(cell.planned))
                         .classes(
                             f"{cell_cls} {MONO} {PLAN_CELL_EDIT} cursor-pointer {color} {tint}"
                         )
                         .style(S_MON)
-                        .on(
-                            "click",
-                            lambda r=row, c=cell: dialogs.open_cell(
-                                cat_id=r.category_id,
-                                month=c.month,
-                                cat_name=r.name,
-                                current=c.planned,
-                            ),
-                        )
                     )
+                    # Focusable from script but not a tab stop each — twelve per
+                    # row would bury the page's other controls. The Realization
+                    # tab's edit link lands here, and Enter opens the editor.
+                    cell_key = plan_cell_key(row.category_id, cell.month)
+                    amount_cell.props(f'tabindex="-1" data-plan-cell="{cell_key}"')
+
+                    def _open_cell(r: PlanCategoryRow = row, c: PlanMonthCell = cell) -> None:
+                        dialogs.open_cell(
+                            cat_id=r.category_id,
+                            month=c.month,
+                            cat_name=r.name,
+                            current=c.planned,
+                        )
+
+                    amount_cell.on("click", _open_cell)
+                    amount_cell.on("keydown.enter", _open_cell)
 
                 ui.label(format_amount(row.total_planned or None)).classes(
                     f"text-[12.5px] text-right px-3 py-[9px] font-medium {MONO} {INK}"

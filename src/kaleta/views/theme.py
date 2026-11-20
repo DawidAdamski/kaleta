@@ -1063,6 +1063,8 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* An editable month outlines itself on hover: a fill would fight the
    current-month tint it has to work on top of. */
 .k-plan-cell:hover{outline:1px solid var(--k-border-strong);outline-offset:-1px}
+/* The cell the Realization tab's edit link focused says so, darker than hover. */
+.k-plan-cell:focus{outline:2px solid var(--k-ink);outline-offset:-2px}
 /* Import wizard: a hairline with six nodes on it. The connecting rule runs
    behind the nodes, which sit on the page ground so it does not show through. */
 .k-steps{position:relative}

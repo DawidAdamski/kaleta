@@ -30,9 +30,18 @@ def render_toolbar(
     today: datetime.date,
     on_years_changed: Callable[[], None],
     on_copy_done: Callable[[], None],
-) -> None:
-    """Render year selector chips and copy-forward control."""
-    available_years = list(range(today.year - 4, today.year + 2))
+) -> Callable[[], None]:
+    """Render year selector chips and copy-forward control.
+
+    Returns a callback that redraws both from ``state`` — the host page calls
+    it after moving the planned year or month from its own selector.
+    """
+    base_years = set(range(today.year - 4, today.year + 2))
+
+    def _available_years() -> list[int]:
+        # The page's year selector reaches a year further out than the chips
+        # do; a planned year always has a chip, so it can be seen and unticked.
+        return sorted(base_years | state["years"])
 
     def _toggle_year(year: int) -> None:
         if year in state["years"] and len(state["years"]) > 1:
@@ -61,7 +70,7 @@ def render_toolbar(
             @ui.refreshable
             def year_chips() -> None:
                 with ui.row().classes("gap-1.5 no-wrap"):
-                    for year in available_years:
+                    for year in _available_years():
                         active = year in state["years"]
                         ui.button(
                             str(year),
@@ -71,7 +80,11 @@ def render_toolbar(
 
             year_chips()
 
-    default_target = max(today.month, 2)
+    def _target_for(month: int) -> int:
+        # January has no previous month inside the planned year to copy from.
+        return max(month, 2)
+
+    default_target = _target_for(int(state.get("focus_month", today.month)))
     copy_state: dict[str, Any] = {"target_month": default_target}
 
     async def _copy_from_prev() -> None:
@@ -107,7 +120,7 @@ def render_toolbar(
         )
 
         def _on_month(e: Any) -> None:
-            copy_state["target_month"] = int(e.args) if e.args else default_target
+            copy_state["target_month"] = int(e.args) if e.args else copy_state["target_month"]
 
         month_select.on("update:model-value", _on_month)
         ui.button(
@@ -116,3 +129,11 @@ def render_toolbar(
             on_click=_copy_from_prev,
             color=None,
         ).props("flat dense no-caps").classes(BUTTON_INK)
+
+    def _sync() -> None:
+        year_chips.refresh()
+        target = _target_for(int(state.get("focus_month", today.month)))
+        copy_state["target_month"] = target
+        month_select.set_value(target)
+
+    return _sync

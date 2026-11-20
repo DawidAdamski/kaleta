@@ -8,6 +8,7 @@ fixed-width from the right and only the category name is elastic.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from decimal import Decimal
 
 from nicegui import ui
@@ -86,11 +87,33 @@ def _money(amount: Decimal) -> str:
     return spaced_thousands(f"{amount:,.2f}")
 
 
-def render_realization_row(row: CategoryRealization) -> None:
+#: What the edit link next to a category name does with it: the page switches
+#: to the Plan tab and focuses that category's amount.
+EditPlanHandler = Callable[[CategoryRealization], None]
+
+
+def _edit_plan_link(row: CategoryRealization, on_edit: EditPlanHandler) -> None:
+    """A pencil beside the name: change the plan you are looking at the result of."""
+    label = t("budgets.edit_category_link", category=row.category_name)
+    button = (
+        ui.button(icon="edit", on_click=lambda: on_edit(row), color=None)
+        .props("flat round dense size=xs data-edit-plan")
+        .classes("k-muted flex-shrink-0")
+    )
+    button.props["aria-label"] = label
+    button.tooltip(label)
+
+
+def render_realization_row(
+    row: CategoryRealization, on_edit: EditPlanHandler | None = None
+) -> None:
     remaining_cls = AMOUNT_EXPENSE if row.remaining < 0 else INK_2
     with ui.element("div").classes(REALIZATION_ROW):
         with ui.column().classes("gap-0 min-w-0"):
-            ui.label(row.category_name).classes(f"{INK} font-medium truncate")
+            with ui.row().classes("items-center gap-1 no-wrap min-w-0"):
+                ui.label(row.category_name).classes(f"{INK} font-medium truncate")
+                if on_edit is not None:
+                    _edit_plan_link(row, on_edit)
             if row.parent_name:
                 ui.label(row.parent_name).classes(REALIZATION_NOTE)
         ui.label(_money(row.planned)).classes(f"{MONO} {INK_2} text-right")
@@ -167,15 +190,19 @@ def _stat(label: str, figure: str, tone: str) -> None:
         ui.label(figure).classes(f"{STAT_CARD_FIGURE} {tone}")
 
 
-def render_realization_flat(rows: list[CategoryRealization]) -> None:
+def render_realization_flat(
+    rows: list[CategoryRealization], on_edit: EditPlanHandler | None = None
+) -> None:
     with ui.element("div").classes(REALIZATION_GRID):
         render_realization_header(rows[0].elapsed_pct if rows else 0.0)
         for row in rows:
-            render_realization_row(row)
+            render_realization_row(row, on_edit)
         render_realization_total(rows)
 
 
-def render_realization_grouped(rows: list[CategoryRealization]) -> None:
+def render_realization_grouped(
+    rows: list[CategoryRealization], on_edit: EditPlanHandler | None = None
+) -> None:
     groups: dict[str, list[CategoryRealization]] = {}
     for row in rows:
         key = row.parent_name or row.category_name
@@ -190,5 +217,5 @@ def render_realization_grouped(rows: list[CategoryRealization]) -> None:
                 ui.icon("folder", size="xs").classes("k-muted")
                 ui.label(group_name).classes("k-muted k-eyebrow")
             for row in group_rows:
-                render_realization_row(row)
+                render_realization_row(row, on_edit)
         render_realization_total(rows)
