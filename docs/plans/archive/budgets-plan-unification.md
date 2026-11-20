@@ -3,8 +3,9 @@ plan_id: budgets-plan-unification
 title: Budgets + Budget Plan — unify under a single Budgets page
 area: budgets
 effort: large
-roadmap_ref: ../roadmap.md#budgets-current-budgets-view
-status: in-progress
+roadmap_ref: ../../roadmap.md#budgets-current-budgets-view
+status: archived
+archived_at: 2026-11-20
 deferred_to: q4-2026
 ---
 
@@ -185,3 +186,33 @@ KAL-BUD-018. This branch delivers what that slice deferred.
   text; its meaning is unchanged. The unit tests for the shim, the `?tab=`
   mapping and the shortcuts were added as an executable criterion.
 
+
+## Implementation
+
+Landed on 2026-11-20 (PR #460).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `fab93ca0` | Dawid Adamski | 2026-11-20 | Merge pull request #460 from DawidAdamski/plan/budgets-plan-unification |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/budgets-plan-unification.md
+- docs/tech-stack.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/budget_plan/__init__.py
+- src/kaleta/views/budget_plan/grid.py
+- src/kaleta/views/budget_plan/panel.py
+- src/kaleta/views/budget_plan/toolbar.py
+- src/kaleta/views/budgets/page.py
+- src/kaleta/views/budgets/realization.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_budgets_unified.py
+- tests/unit/views/test_budgets_tabs.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

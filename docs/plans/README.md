@@ -439,7 +439,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [security-assessment](archive/security-assessment.md) | archived | Security — pre-launch assessment |
 | [deploy-k3s](deploy-k3s.md) | draft | Deploy — self-hosted k3s (do last) |
 | [accounts-ledger-balances](archive/accounts-ledger-balances.md) | archived | Accounts — balances follow the ledger (blocks funds-savings-goals, funds-irregular-items) |
-| [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
+| [budgets-plan-unification](archive/budgets-plan-unification.md) | archived | Budgets |
 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | Hosted programme (1) |
 | [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | Hosted programme (2) |
 | [hosted-household-sharing](archive/hosted-household-sharing.md) | archived | Hosted programme (3) |
