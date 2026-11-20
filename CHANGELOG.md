@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.12.0](https://github.com/DawidAdamski/kaleta/compare/v0.11.0...v0.12.0) (2026-11-20)
+
+
+### Features
+
+* **budgets:** one month for Realization and Plan, edit link, tab URL and Alt shortcuts ([91251be](https://github.com/DawidAdamski/kaleta/commit/91251be350c3d93c209a88e24e45cdabb8ccc35c))
+* **funds:** bars/reservoirs layout toggle on the safety-funds page ([8250bb9](https://github.com/DawidAdamski/kaleta/commit/8250bb9e0c6f1798b537f4c4acfe79766cc0bd0e))
+* **funds:** reservoir (jeziorka) layout for reserve funds ([266fa90](https://github.com/DawidAdamski/kaleta/commit/266fa90adc5f65cf7576aee74b3ce5b5e5d19e06))
+* **funds:** reservoir SVG component with theme tokens and motion budget ([e7f7729](https://github.com/DawidAdamski/kaleta/commit/e7f7729cb799d031be60dbd7775a2843e58e42bf))
+
+
+### Bug Fixes
+
+* **harness:** check_doc_links sees image links, as mkdocs --strict does ([72ce417](https://github.com/DawidAdamski/kaleta/commit/72ce417b6b152ce7115cf81285227f7790dc6dd5))
+* **harness:** plan archiving rewrites image links too ([6c457b3](https://github.com/DawidAdamski/kaleta/commit/6c457b3f7a1ad3e3b7e18712dac844a62b4ed314))
+
 ## [0.11.0](https://github.com/DawidAdamski/kaleta/compare/v0.10.0...v0.11.0) (2026-11-16)
 
 
